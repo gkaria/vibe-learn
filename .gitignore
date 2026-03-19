@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# vibe-learn session logs
+.vibe-learn/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Misc
+*.log
