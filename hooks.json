@@ -1,0 +1,21 @@
+{
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/capture-prompt.sh"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Write|Edit|MultiEdit|Bash",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/observe.sh"
+    },
+    {
+      "event": "Stop",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pause-summary.sh"
+    }
+  ]
+}
