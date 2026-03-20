@@ -25,12 +25,7 @@
     "Stop": [
       {
         "hooks": [
-          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pause-summary.sh"},
-          {
-            "type": "prompt",
-            "prompt": "You are vibe-learn, a learning companion. The session log at .vibe-learn/session-log.jsonl has just been updated with the latest actions.\n\nRead the last few entries from .vibe-learn/session-log.jsonl and emit a short learning note for the human. Focus on:\n- What was just built or changed and WHY (the decision behind it)\n- Any interesting patterns, techniques, or concepts used\n- One thing worth understanding more deeply\n\nFormat it as a compact, friendly block — 3-5 bullet points max. Start with '📘 vibe-learn:'. Plain language, no jargon. If nothing significant happened (e.g. only a read or a trivial change), skip it and output nothing.\n\nThis note appears after every Claude response, so keep it tight and valuable.",
-            "async": true
-          }
+          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pause-summary.sh"}
         ]
       }
     ]

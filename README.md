@@ -16,7 +16,7 @@ The faster AI gets at coding, the wider the gap between *what was built* and *wh
 
 ## How It Works
 
-vibe-learn hooks into Claude Code's event system. As Claude works, a set of lightweight scripts silently observe and log every action — files created, commands run, patterns used. At the end of each response, you get a brief summary of what just happened.
+vibe-learn hooks into Claude Code's event system. As Claude works, lightweight scripts silently observe and log every action — files created, commands run, patterns used. After each response, a summary of what just happened is injected into Claude's context so it can surface it naturally.
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
@@ -43,169 +43,94 @@ vibe-learn hooks into Claude Code's event system. As Claude works, a set of ligh
 | `SessionStart` | When you open a project | Creates `.vibe-learn/`, rotates old logs |
 | `UserPromptSubmit` | When you send a message | Logs your intent |
 | `PostToolUse` | After each Write/Edit/Bash | Appends a JSONL entry (<50ms, sync) |
-| `Stop` | After each Claude response | Writes a pause summary |
+| `Stop` | After each Claude response | Writes and injects a pause summary |
 
-Everything in Phase 1 is mechanical — no AI, no API calls, no external services. Just a fast, reliable data pipeline.
+No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 
 ---
 
 ## Installation
 
-### Option 1: Claude Code Plugin (recommended)
+### Quick Install (recommended)
 
-> **Requires:** Claude Code with plugin support and `jq` installed.
+Clone the repo once, then run the install script in any project:
 
 ```bash
-# Install jq if you don't have it
-brew install jq         # macOS
-apt-get install jq      # Ubuntu/Debian
+git clone https://github.com/gaurangkaria/vibe-learn.git
 
-# Add vibe-learn as a Claude Code plugin
-# (follow Claude Code's plugin installation instructions for your version)
+# Install into a project
+bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
+
+# Or from inside the project
+cd your-project
+bash /path/to/vibe-learn/scripts/install.sh
 ```
 
-Then add `vibe-learn` to your Claude Code plugins configuration pointing to this repo.
+The script:
 
-### Option 2: Manual Setup
+- Creates `.claude/commands/` with the `/learn` and `/digest` slash commands
+- Writes `.claude/settings.local.json` with the hook config
+- Adds `.vibe-learn/` to `.gitignore`
 
-1. Clone this repo:
+**Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
 
-   ```bash
-   git clone https://github.com/gaurangkaria/vibe-learn.git
-   cd vibe-learn
-   ```
+### Manual Setup
 
-2. Make the scripts executable:
+Add to your project's `.claude/settings.local.json`:
 
-   ```bash
-   chmod +x scripts/*.sh
-   ```
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/bootstrap.sh"}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/capture-prompt.sh"}]}
+    ],
+    "PostToolUse": [
+      {"matcher": "Write|Edit|MultiEdit|Bash", "hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/observe.sh"}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/pause-summary.sh"}]}
+    ]
+  }
+}
+```
 
-3. Add the hooks to your project's `.claude/settings.json`:
-
-   ```json
-   {
-     "hooks": {
-       "SessionStart": [
-         {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/bootstrap.sh"}]}
-       ],
-       "UserPromptSubmit": [
-         {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/capture-prompt.sh"}]}
-       ],
-       "PostToolUse": [
-         {"matcher": "Write|Edit|MultiEdit|Bash", "hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/observe.sh"}]}
-       ],
-       "Stop": [
-         {"hooks": [{"type": "command", "command": "/path/to/vibe-learn/scripts/pause-summary.sh"}]}
-       ]
-     }
-   }
-   ```
+Copy `.claude/commands/learn.md` and `.claude/commands/digest.md` into your project's `.claude/commands/`.
 
 ---
 
 ## Usage
 
-Once installed, vibe-learn runs silently in the background. You don't need to do anything differently.
+Once installed, vibe-learn runs silently. You don't need to do anything differently — just use Claude Code as normal.
 
-**What you'll see:**
-
-- After each Claude response, a brief pause summary appears in the terminal showing what just happened
-- A `.vibe-learn/` directory appears in your project root
-
-**What gets created:**
+**After each response**, if Claude made changes, a summary appears showing what just happened:
 
 ```text
-your-project/
-└── .vibe-learn/
-    ├── session-log.jsonl        ← raw event log (one JSON entry per line)
-    ├── session-log.prev.jsonl   ← previous session's log (kept as backup)
-    ├── session-meta.json        ← session stats and config
-    └── pause-summary.txt        ← last pause summary
+⏸ vibe-learn — what just happened:
+Goal: add JWT auth middleware
+
+  ✦ Created src/middleware/auth.ts
+  ✦ Edited src/routes/user.ts
+  ✦ Ran: npm install jsonwebtoken
+
+Use /learn to understand any of these decisions, or /digest for a full session report.
 ```
 
-**Reading the log:**
+**Slash commands** (available mid-session or at end):
 
-```bash
-# Watch events in real-time
-tail -f .vibe-learn/session-log.jsonl
+### `/learn`
 
-# Count events
-wc -l .vibe-learn/session-log.jsonl
+No arguments — explains the most recent actions: what was built, decisions made, patterns used.
 
-# See all files Claude created
-jq 'select(.tool=="Write")' .vibe-learn/session-log.jsonl
-
-# See all bash commands run
-jq 'select(.tool=="Bash") | .command' .vibe-learn/session-log.jsonl
-```
-
-**Add `.vibe-learn/` to your `.gitignore`** — you probably don't want to commit session logs:
+With a question — answers it grounded in your actual session and code:
 
 ```text
-# .gitignore
-.vibe-learn/
+/learn why did Claude use middleware here?
+/learn what does the auth flow do?
+/learn explain the database connection setup
 ```
-
----
-
-## Configuration
-
-Edit `config/defaults.json` to adjust behaviour:
-
-```json
-{
-  "log_dir": ".vibe-learn",
-  "max_log_size_mb": 10,
-  "rotate_on_session_start": true,
-  "pause_summary_max_lines": 20,
-  "capture_prompts": true,
-  "narration_enabled": false,
-  "digest_on_end": false
-}
-```
-
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `log_dir` | `.vibe-learn` | Where to store logs (relative to project root) |
-| `max_log_size_mb` | `10` | Max log file size before rotation |
-| `rotate_on_session_start` | `true` | Keep previous log as `.prev.jsonl` on new session |
-| `pause_summary_max_lines` | `20` | Max lines in the pause summary |
-| `capture_prompts` | `true` | Log your messages (disable for privacy) |
-| `narration_enabled` | `true` | Show learning notes after each Claude response |
-| `digest_min_events` | `3` | Minimum events before `/digest` generates a report |
-
----
-
-## Phase 2: Inline Learning Notes
-
-After every Claude response, vibe-learn automatically surfaces a short learning block — decisions made, patterns used, concepts worth understanding. No API key needed; Claude itself generates these using the session log it already has in context.
-
-Example of what appears after a response:
-
-```text
-📘 vibe-learn:
-• Created JWT middleware — this is the "gatekeeper" pattern: one central place
-  that checks auth before any route handler runs, rather than checking in each route
-• Chose jsonwebtoken over alternatives because it's the most widely-used library
-  for this in the Node ecosystem — good default for learning
-• The bcrypt rounds=10 setting is a deliberate trade-off: more rounds = more secure
-  but slower login. 10 is the industry standard default
-```
-
-This works for **foreground sessions** — notes appear inline as Claude works.
-
-For **background agents**, events are captured to `.vibe-learn/session-log.jsonl` and you can surface them on demand using the commands below.
-
----
-
-## Phase 3 & 4: Slash Commands
-
-Three commands are available once vibe-learn is installed:
-
-### `/narrate`
-
-Explains the most recent actions from the session log in plain language. Good for catching up after a burst of activity.
 
 ### `/digest`
 
@@ -218,17 +143,94 @@ Generates a full structured learning report for the session:
 
 Optionally saves to `.vibe-learn/digests/` as a markdown file.
 
-### `/learn <question>`
+---
 
-Ask anything about what was built, grounded in the actual session log:
+## What Gets Created
 
 ```text
-/learn why did Claude use middleware here?
-/learn what does the auth flow do?
-/learn explain the database connection setup
+your-project/
+└── .vibe-learn/
+    ├── session-log.jsonl        ← raw event log (one JSON entry per line)
+    ├── session-log.prev.jsonl   ← previous session's log (kept as backup)
+    ├── session-meta.json        ← session stats and config
+    ├── pause-summary.txt        ← last pause summary
+    └── digests/                 ← saved /digest reports (if you choose to save)
 ```
 
-Claude reads the session log and relevant source files to answer — not generic explanations, but answers about your actual code.
+**Useful log queries:**
+
+```bash
+# Watch events in real-time
+tail -f .vibe-learn/session-log.jsonl
+
+# See all files Claude created
+jq 'select(.tool=="Write")' .vibe-learn/session-log.jsonl
+
+# See all bash commands run
+jq 'select(.tool=="Bash") | .command' .vibe-learn/session-log.jsonl
+```
+
+---
+
+## Configuration
+
+Edit `config/defaults.json`:
+
+```json
+{
+  "log_dir": ".vibe-learn",
+  "max_log_size_mb": 10,
+  "rotate_on_session_start": true,
+  "pause_summary_max_lines": 20,
+  "capture_prompts": true,
+  "digest_min_events": 3
+}
+```
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `log_dir` | `.vibe-learn` | Where to store logs (relative to project root) |
+| `max_log_size_mb` | `10` | Max log file size before rotation |
+| `rotate_on_session_start` | `true` | Keep previous log as `.prev.jsonl` on new session |
+| `pause_summary_max_lines` | `20` | Max lines in the pause summary |
+| `capture_prompts` | `true` | Log your messages (disable for privacy) |
+| `digest_min_events` | `3` | Minimum events before `/digest` generates a report |
+
+---
+
+## Testing
+
+```bash
+chmod +x scripts/*.sh
+
+# Test bootstrap
+echo '{"session_id":"test123","cwd":"/tmp/test-vl"}' | bash scripts/bootstrap.sh
+ls /tmp/test-vl/.vibe-learn/
+
+# Test observe (Write event)
+echo '{"cwd":"/tmp/test-vl","tool_name":"Write","tool_input":{"file_path":"src/app.ts"},"tool_response":{}}' | bash scripts/observe.sh
+cat /tmp/test-vl/.vibe-learn/session-log.jsonl
+
+# Test observe (Bash event)
+echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exit_code":0}}' | bash scripts/observe.sh
+
+# Test capture-prompt
+echo '{"cwd":"/tmp/test-vl","prompt":"Build me an Express API with auth"}' | bash scripts/capture-prompt.sh
+
+# Test pause-summary
+echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh
+cat /tmp/test-vl/.vibe-learn/pause-summary.txt
+
+rm -rf /tmp/test-vl
+```
+
+---
+
+## Requirements
+
+- **Bash** — POSIX-compatible
+- **jq** — JSON processing (`brew install jq` / `apt-get install jq`)
+- **Claude Code** — with hooks support
 
 ---
 
@@ -238,56 +240,13 @@ Claude reads the session log and relevant source files to answer — not generic
 
 ---
 
-## Testing
-
-Test each script by piping sample JSON to stdin:
-
-```bash
-# Make scripts executable first
-chmod +x scripts/*.sh
-
-# Test bootstrap (creates .vibe-learn/ in /tmp/test-vl)
-echo '{"session_id":"test123","cwd":"/tmp/test-vl"}' | bash scripts/bootstrap.sh
-ls /tmp/test-vl/.vibe-learn/
-cat /tmp/test-vl/.vibe-learn/session-meta.json
-
-# Test observe (logs a Write event)
-echo '{"cwd":"/tmp/test-vl","tool_name":"Write","tool_input":{"file_path":"src/app.ts"},"tool_response":{}}' | bash scripts/observe.sh
-cat /tmp/test-vl/.vibe-learn/session-log.jsonl
-
-# Test observe (logs a Bash event)
-echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exit_code":0}}' | bash scripts/observe.sh
-cat /tmp/test-vl/.vibe-learn/session-log.jsonl
-
-# Test capture-prompt
-echo '{"cwd":"/tmp/test-vl","prompt":"Build me an Express API with auth"}' | bash scripts/capture-prompt.sh
-cat /tmp/test-vl/.vibe-learn/session-log.jsonl
-
-# Test pause-summary (requires log entries from above tests)
-echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh
-cat /tmp/test-vl/.vibe-learn/pause-summary.txt
-
-# Clean up
-rm -rf /tmp/test-vl
-```
-
----
-
-## Requirements
-
-- **Bash** — POSIX-compatible (the scripts use `#!/bin/bash`)
-- **jq** — JSON processing. Install with `brew install jq` (macOS) or `apt-get install jq` (Linux)
-- **Claude Code** — with hooks support
-
----
-
 ## Contributing
 
-Contributions are welcome. This is an early-stage project — the best contributions right now are:
+Contributions welcome. Best contributions right now:
 
-- Bug reports and edge cases in the Phase 1 scripts
-- Ideas for Phase 2 narration prompts
+- Bug reports and edge cases in the hook scripts
 - Testing on different OS/shell environments
+- Ideas for improving the pause summary or slash command prompts
 
 Please open an issue before submitting a pull request for anything significant.
 
