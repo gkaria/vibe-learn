@@ -4,6 +4,6 @@
   "rotate_on_session_start": true,
   "pause_summary_max_lines": 20,
   "capture_prompts": true,
-  "narration_enabled": false,
-  "digest_on_end": false
+  "narration_enabled": true,
+  "digest_min_events": 3
 }
