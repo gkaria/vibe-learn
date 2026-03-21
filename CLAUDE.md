@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **vibe-learn** is a Claude Code plugin that observes what Claude does during a development session and helps users understand what was built. It works by registering lifecycle hooks that capture tool use events (file writes, edits, bash commands) into an append-only JSONL session log, then surfaces summaries at natural pause points.
 
-It requires no external API calls — Phase 1 is entirely mechanical (bash + jq). Learning notes in later phases leverage Claude's own context window.
+It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands (`/learn` and `/digest`) leverage Claude's own context window to generate explanations and reports.
 
 ## How It Works
 

@@ -299,7 +299,7 @@ rm -rf /tmp/test-vl
 
 ## Roadmap
 
-- **Phase 5:** Cross-session learning history, difficulty level adaptation, plugin registry publishing
+- **Phase 3:** Cross-session learning history, difficulty level adaptation, plugin registry publishing
 
 ---
 
