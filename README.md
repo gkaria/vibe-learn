@@ -101,6 +101,69 @@ Copy `.claude/commands/learn.md` and `.claude/commands/digest.md` into your proj
 
 ---
 
+## Quick Demo (2 minutes)
+
+After installing, try this in any project to see vibe-learn in action:
+
+```bash
+# 1. Install vibe-learn into a test project
+mkdir /tmp/demo-app && cd /tmp/demo-app
+bash /path/to/vibe-learn/scripts/install.sh
+
+# 2. Simulate a session — bootstrap, then a few tool events
+echo '{"session_id":"demo","cwd":"/tmp/demo-app"}' | bash /path/to/vibe-learn/scripts/bootstrap.sh
+
+echo '{"cwd":"/tmp/demo-app","prompt":"Build me a REST API with auth"}' \
+  | bash /path/to/vibe-learn/scripts/capture-prompt.sh
+
+echo '{"cwd":"/tmp/demo-app","tool_name":"Write","tool_input":{"file_path":"src/app.ts"},"tool_response":{}}' \
+  | bash /path/to/vibe-learn/scripts/observe.sh
+
+echo '{"cwd":"/tmp/demo-app","tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exit_code":0}}' \
+  | bash /path/to/vibe-learn/scripts/observe.sh
+
+# 3. Generate a pause summary
+echo '{"cwd":"/tmp/demo-app"}' | bash /path/to/vibe-learn/scripts/pause-summary.sh
+
+# 4. See what vibe-learn captured
+cat /tmp/demo-app/.vibe-learn/session-log.jsonl | jq .
+cat /tmp/demo-app/.vibe-learn/pause-summary.txt
+```
+
+In real use, you don't run any of this manually — Claude Code triggers the hooks automatically. This just shows what's happening behind the scenes.
+
+---
+
+## Before vs After
+
+**Without vibe-learn** — Claude writes 12 files, installs 4 packages, refactors a module. You hit "accept" on everything. A week later:
+
+```
+You: "Wait, why is there a middleware folder?"
+You: "What does this bcrypt thing do?"
+You: "Did I even need all these dependencies?"
+```
+
+**With vibe-learn** — the same session, but now you have a trail:
+
+```text
+⏸ vibe-learn — what just happened:
+Goal: Build a REST API with JWT authentication
+
+  ✦ Created src/index.ts
+  ✦ Created src/middleware/auth.ts
+  ✦ Created src/routes/auth.ts
+  ✦ Ran: npm install express jsonwebtoken bcryptjs
+  ✦ Edited src/index.ts
+  ✦ Ran: npx tsc --noEmit ✓
+
+Use /learn to understand any of these decisions, or /digest for a full session report.
+```
+
+Then ask `/learn why did Claude use middleware?` or run `/digest` for a full breakdown of what was built, key decisions, patterns used, and topics to study next.
+
+---
+
 ## Usage
 
 Once installed, vibe-learn runs silently. You don't need to do anything differently — just use Claude Code as normal.

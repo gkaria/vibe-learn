@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # observe.sh — PostToolUse hook (sync)
 # Appends a JSONL entry for every Write/Edit/MultiEdit/Bash tool use.
 # MUST complete in <50ms. No network calls. No stdout output.

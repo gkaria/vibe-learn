@@ -4,5 +4,5 @@
   "rotate_on_session_start": true,
   "pause_summary_max_lines": 20,
   "capture_prompts": true,
-"digest_min_events": 3
+  "digest_min_events": 3
 }
