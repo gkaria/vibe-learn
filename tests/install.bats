@@ -1,0 +1,68 @@
+#!/usr/bin/env bats
+
+load test_helper
+
+@test "install creates .claude/commands directory" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  [ -d "$TEST_PROJECT_DIR/.claude/commands" ]
+}
+
+@test "install copies slash command files" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/commands/learn.md" ]
+  [ -f "$TEST_PROJECT_DIR/.claude/commands/digest.md" ]
+}
+
+@test "install creates settings.local.json with hooks" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  jq -e '.hooks.PostToolUse' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  jq -e '.hooks.Stop' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  jq -e '.hooks.UserPromptSubmit' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+}
+
+@test "install creates .gitignore with .vibe-learn entry" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.gitignore" ]
+  grep -q '\.vibe-learn/' "$TEST_PROJECT_DIR/.gitignore"
+}
+
+@test "install appends to existing .gitignore without duplicating" {
+  echo "node_modules/" > "$TEST_PROJECT_DIR/.gitignore"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  grep -q 'node_modules/' "$TEST_PROJECT_DIR/.gitignore"
+  grep -q '\.vibe-learn/' "$TEST_PROJECT_DIR/.gitignore"
+
+  # Run again — should not duplicate
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  local count
+  count=$(grep -c '\.vibe-learn' "$TEST_PROJECT_DIR/.gitignore")
+  [ "$count" -eq 1 ]
+}
+
+@test "install merges hooks into existing settings without hooks" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  echo '{"permissions":{"allow":["Bash"]}}' > "$TEST_PROJECT_DIR/.claude/settings.local.json"
+
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  jq -e '.hooks' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  jq -e '.permissions.allow' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+}
+
+@test "install warns when settings already has hooks" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  echo '{"hooks":{"SessionStart":[]}}' > "$TEST_PROJECT_DIR/.claude/settings.local.json"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  echo "$output" | grep -q "already has hooks"
+}
+
+@test "install makes scripts executable" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+  [ -x "$SCRIPTS_DIR/bootstrap.sh" ]
+  [ -x "$SCRIPTS_DIR/observe.sh" ]
+  [ -x "$SCRIPTS_DIR/capture-prompt.sh" ]
+  [ -x "$SCRIPTS_DIR/pause-summary.sh" ]
+}
