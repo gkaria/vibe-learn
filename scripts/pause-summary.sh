@@ -83,3 +83,7 @@ Use /learn to understand any of these decisions, or /digest for a full session r
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
+
+# Output as JSON for context injection into Claude's next response
+ESCAPED_SUMMARY=$(echo "$SUMMARY" | jq -Rs '.')
+printf '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":%s}}\n' "$ESCAPED_SUMMARY"

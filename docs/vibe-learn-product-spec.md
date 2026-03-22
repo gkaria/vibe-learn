@@ -33,10 +33,15 @@ During natural pauses (when Claude finishes a response), a brief "here's what ju
 
 **Example output:**
 ```
-⏸️  Pause Summary (last 8 actions):
-    Added user authentication (3 files created, 1 dependency installed).
-    Set up PostgreSQL connection with connection pooling.
-    Tests: 4 passing, 0 failing.
+⏸ vibe-learn — what just happened:
+Goal: add user authentication and PostgreSQL connection
+
+  ✦ Created src/middleware/auth.ts
+  ✦ Created src/db/connection.ts
+  ✦ Ran: npm install pg pg-pool
+  ✦ Edited src/index.ts
+
+Use /learn to understand any of these decisions, or /digest for a full session report.
 ```
 
 ### 2. On-Demand Digest

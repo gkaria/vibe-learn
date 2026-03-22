@@ -1,6 +1,6 @@
 # Session Digest — 17 Mar 2026, 14:32–14:50
 
-> **Note:** This is an example of the Phase 3 AI-powered digest. Once vibe-learn Phase 3 is released, this file will be generated automatically at the end of every session and saved to `.vibe-learn/digests/`.
+> **Note:** This is an example of what `/digest` produces. Run `/digest` during or after any session to generate a report like this, optionally saved to `.vibe-learn/digests/`.
 
 ---
 

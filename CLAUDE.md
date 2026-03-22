@@ -27,22 +27,22 @@ Scripts accept hook payloads via stdin as JSON. Test them directly:
 
 ```bash
 # Test observe.sh with a Write event
-echo '{"tool_name":"Write","tool_input":{"path":"src/index.ts","content":""},"tool_response":{"success":true}}' | bash scripts/observe.sh
+echo '{"cwd":"/tmp/test-vl","tool_name":"Write","tool_input":{"file_path":"src/index.ts"},"tool_response":{}}' | bash scripts/observe.sh
 
 # Test observe.sh with a Bash event
-echo '{"tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exitCode":0,"output":""}}' | bash scripts/observe.sh
+echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exit_code":0}}' | bash scripts/observe.sh
 
-# Test bootstrap.sh (no stdin needed)
-bash scripts/bootstrap.sh
+# Test bootstrap.sh
+echo '{"session_id":"test123","cwd":"/tmp/test-vl"}' | bash scripts/bootstrap.sh
 
 # Test pause-summary.sh
-bash scripts/pause-summary.sh
+echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh
 
 # View the session log
-cat .vibe-learn/session-log.jsonl | jq .
+cat /tmp/test-vl/.vibe-learn/session-log.jsonl | jq .
 
 # Count events by type
-cat .vibe-learn/session-log.jsonl | jq -r '.event' | sort | uniq -c
+cat /tmp/test-vl/.vibe-learn/session-log.jsonl | jq -r '.event' | sort | uniq -c
 ```
 
 Requires: `bash`, `jq`

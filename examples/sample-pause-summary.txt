@@ -1,16 +1,9 @@
-⏸️  vibe-learn Pause Summary
-Session started: 2026-03-17T14:32:00Z
+⏸ vibe-learn — what just happened:
+Goal: Build a simple Express REST API with JWT authentication. I want endpoints for registering users, logging in, and a protected route.
 
-Events logged:    14
-Files created:    7
-Files modified:   2
-Bash commands:    3
+  ✦ Created src/types/index.ts
+  ✦ Edited src/routes/auth.ts
+  ✦ Ran: npx tsc --noEmit
+  ✦ Ran: node dist/index.js
 
-Last 5 actions:
-  created: src/types/index.ts
-  edited: src/routes/auth.ts
-  ran: npx tsc --noEmit
-  ran: node dist/index.js
-  ran: npx tsc --noEmit
-
-Full log: .vibe-learn/session-log.jsonl
+Use /learn to understand any of these decisions, or /digest for a full session report.
