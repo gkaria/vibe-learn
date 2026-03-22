@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # capture-prompt.sh — UserPromptSubmit hook
 # Logs the user's prompt to the session log so we have intent context.
 # Must exit quickly — do not block the prompt.

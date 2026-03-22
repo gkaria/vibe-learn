@@ -45,7 +45,7 @@ vibe-learn/
 └── examples/
     ├── sample-session-log.jsonl      # Example of what the raw log looks like
     ├── sample-pause-summary.txt      # Example of a pause summary
-    └── sample-digest.md              # Example of what a future AI digest will look like (Phase 3 preview)
+    └── sample-digest.md              # Example of what /digest produces
 ```
 
 ### 2. hooks.json (Plugin format)
@@ -61,7 +61,7 @@ Use ${CLAUDE_PLUGIN_ROOT} for all script paths. Register these hooks:
 
 ### 3. Scripts
 
-All scripts use bash + jq only. No external dependencies. No API calls (that's Phase 2+).
+All scripts use bash + jq only. No external dependencies. No API calls.
 
 **bootstrap.sh** (SessionStart):
 - Create .vibe-learn/ directory in the project root ($CWD from stdin JSON)
@@ -128,7 +128,7 @@ Write a proper README with:
   - Manual: copy scripts, add to .claude/settings.json
 - **Usage**: What happens when you install it, where logs appear, how to read them
 - **Configuration**: What's configurable in defaults.json
-- **Roadmap**: Phase 2 (real-time AI narration), Phase 3 (post-session digests), Phase 4 (interactive /learn command)
+- **Roadmap**: Phase 3 (cross-session history, difficulty levels, plugin registry publishing)
 - **Contributing**: Standard open-source contributing guide
 - **Licence**: MIT
 
@@ -147,12 +147,11 @@ MIT, copyright Gaurang Karia 2026.
   "rotate_on_session_start": true,
   "pause_summary_max_lines": 20,
   "capture_prompts": true,
-  "narration_enabled": false,
-  "digest_on_end": false
+  "digest_min_events": 3
 }
 ```
 
-narration_enabled and digest_on_end are false by default — they're Phase 2/3 features that aren't built yet, but the config structure should anticipate them.
+digest_min_events controls when `/digest` will generate a report (avoids trivially small sessions).
 
 ### 8. Example files
 
