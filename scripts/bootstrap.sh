@@ -3,14 +3,19 @@
 # Initialises the .vibe-learn/ directory, rotates previous logs,
 # and injects prior session context if available.
 
-set -euo pipefail
+# DEBUG trap: log exit code
+trap 'echo "[bootstrap.sh] exited with code $?" >> /tmp/vibe-learn-debug.log 2>&1' EXIT
 
 # Read stdin JSON
 INPUT=$(cat)
 
+# DEBUG: log raw payload to /tmp to diagnose hook errors
+echo "[bootstrap.sh] payload: $INPUT" >> /tmp/vibe-learn-debug.log 2>&1
+echo "[bootstrap.sh] exit will be logged below" >> /tmp/vibe-learn-debug.log 2>&1
+
 # Extract cwd and session_id (jq required)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 
 # Fall back gracefully if cwd is missing
 if [ -z "$CWD" ]; then
