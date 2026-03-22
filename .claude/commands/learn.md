@@ -1,3 +1,7 @@
+---
+description: Summarize recent session activity or answer a specific question about what was built, grounded in the session log
+---
+
 Read .vibe-learn/session-log.jsonl to understand what has happened in this session.
 
 If $ARGUMENTS is empty:

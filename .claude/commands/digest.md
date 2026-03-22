@@ -1,3 +1,7 @@
+---
+description: Generate a structured learning report from the current session — what was built, key decisions, patterns used, and topics to study
+---
+
 Generate a full learning digest from the current session log.
 
 Read .vibe-learn/session-log.jsonl (the full log). Read any relevant source files to understand what was built. Then produce a structured markdown learning report:
