@@ -207,7 +207,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 
 ## Distribution
 
-**Repo:** `vibe-learn` (github.com/gaurangkaria/vibe-learn)
+**Repo:** `vibe-learn` (github.com/gkaria/vibe-learn)
 
 **Format:** Claude Code Plugin (primary) + standalone setup instructions (secondary)
 

@@ -3,7 +3,7 @@
 # Installs vibe-learn to ~/.vibe-learn/ and creates a CLI shim.
 #
 # Usage (from GitHub):
-#   curl -fsSL https://raw.githubusercontent.com/gaurangkaria/vibe-learn/main/scripts/setup.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 #
 # Usage (local testing, no network):
 #   bash /path/to/vibe-learn/scripts/setup.sh --local
@@ -14,7 +14,7 @@ VIBE_LEARN_VERSION="0.1.0"
 INSTALL_DIR="$HOME/.vibe-learn"
 SHIM_DIR="$HOME/.local/bin"
 SHIM_PATH="$SHIM_DIR/vibe-learn"
-GITHUB_RAW="https://raw.githubusercontent.com/gaurangkaria/vibe-learn/main"
+GITHUB_RAW="https://raw.githubusercontent.com/gkaria/vibe-learn/main"
 
 LOCAL_MODE=false
 if [ "${1:-}" = "--local" ]; then
