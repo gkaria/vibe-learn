@@ -54,7 +54,7 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 ### Quick Install (one line)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gaurangkaria/vibe-learn/main/scripts/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
 This installs vibe-learn to `~/.vibe-learn/` and creates a `vibe-learn` CLI command at `~/.local/bin/vibe-learn`.
@@ -80,7 +80,7 @@ The install script:
 ### For contributors / local development
 
 ```bash
-git clone https://github.com/gaurangkaria/vibe-learn.git
+git clone https://github.com/gkaria/vibe-learn.git
 
 # Install into a project from the local clone
 bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
