@@ -81,9 +81,5 @@ SUMMARY+="
 
 Use /learn to understand any of these decisions, or /digest for a full session report."
 
-# Write to file
+# Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
-
-# Inject into Claude's context — Claude will surface this naturally
-ESCAPED=$(echo "$SUMMARY" | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n')
-printf '{"hookSpecificOutput":{"additionalContext":"[vibe-learn] %s"}}\n' "$ESCAPED"
