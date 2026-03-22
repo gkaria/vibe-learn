@@ -24,25 +24,31 @@ echo "✓ Slash commands installed (/learn, /digest)"
 # --- Write or merge settings.local.json ---
 HOOKS_BLOCK=$(cat <<EOF
 {
-  "hooks": [
-    {
-      "event": "SessionStart",
-      "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/bootstrap.sh"}]
-    },
-    {
-      "event": "UserPromptSubmit",
-      "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/capture-prompt.sh"}]
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": "Write|Edit|MultiEdit|Bash",
-      "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/observe.sh"}]
-    },
-    {
-      "event": "Stop",
-      "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/pause-summary.sh"}]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/bootstrap.sh"}]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/capture-prompt.sh"}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/observe.sh"}]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "$VIBE_LEARN_DIR/scripts/pause-summary.sh"}
+        ]
+      }
+    ]
+  }
 }
 EOF
 )
