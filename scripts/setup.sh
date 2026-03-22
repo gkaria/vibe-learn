@@ -84,6 +84,10 @@ chmod +x "$INSTALL_DIR/scripts/"*.sh
 mkdir -p "$SHIM_DIR"
 cat > "$SHIM_PATH" <<'EOF'
 #!/bin/bash
+# Strip the "install" subcommand if present, pass remaining args
+if [ "${1:-}" = "install" ]; then
+  shift
+fi
 exec "$HOME/.vibe-learn/scripts/install.sh" "$@"
 EOF
 chmod +x "$SHIM_PATH"
