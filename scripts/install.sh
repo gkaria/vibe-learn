@@ -71,8 +71,10 @@ else
   fi
 fi
 
-# --- Make scripts executable ---
-chmod +x "$VIBE_LEARN_DIR/scripts/"*.sh
+# --- Make scripts executable (only if writable — setup.sh handles this for curl-installs) ---
+if [ -w "$VIBE_LEARN_DIR/scripts" ]; then
+  chmod +x "$VIBE_LEARN_DIR/scripts/"*.sh
+fi
 echo "✓ Scripts are executable"
 
 # --- Add .vibe-learn/ to .gitignore if not already there ---

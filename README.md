@@ -51,28 +51,43 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 
 ## Installation
 
-### Quick Install (recommended)
-
-Clone the repo once, then run the install script in any project:
+### Quick Install (one line)
 
 ```bash
-git clone https://github.com/gaurangkaria/vibe-learn.git
-
-# Install into a project
-bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
-
-# Or from inside the project
-cd your-project
-bash /path/to/vibe-learn/scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/gaurangkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-The script:
+This installs vibe-learn to `~/.vibe-learn/` and creates a `vibe-learn` CLI command at `~/.local/bin/vibe-learn`.
+
+Then, inside any project you want to instrument:
+
+```bash
+vibe-learn install
+# or, if ~/.local/bin isn't in your PATH yet:
+~/.vibe-learn/scripts/install.sh
+```
+
+The install script:
 
 - Creates `.claude/commands/` with the `/learn` and `/digest` slash commands
 - Writes `.claude/settings.local.json` with the hook config
 - Adds `.vibe-learn/` to `.gitignore`
 
 **Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
+
+**Updating:** re-run the same curl command to update to the latest version.
+
+### For contributors / local development
+
+```bash
+git clone https://github.com/gaurangkaria/vibe-learn.git
+
+# Install into a project from the local clone
+bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
+
+# Or test setup.sh locally without a network round-trip
+bash /path/to/vibe-learn/scripts/setup.sh --local
+```
 
 ### Manual Setup
 
@@ -108,22 +123,22 @@ After installing, try this in any project to see vibe-learn in action:
 ```bash
 # 1. Install vibe-learn into a test project
 mkdir /tmp/demo-app && cd /tmp/demo-app
-bash /path/to/vibe-learn/scripts/install.sh
+~/.vibe-learn/scripts/install.sh
 
 # 2. Simulate a session — bootstrap, then a few tool events
-echo '{"session_id":"demo","cwd":"/tmp/demo-app"}' | bash /path/to/vibe-learn/scripts/bootstrap.sh
+echo '{"session_id":"demo","cwd":"/tmp/demo-app"}' | bash ~/.vibe-learn/scripts/bootstrap.sh
 
 echo '{"cwd":"/tmp/demo-app","prompt":"Build me a REST API with auth"}' \
-  | bash /path/to/vibe-learn/scripts/capture-prompt.sh
+  | bash ~/.vibe-learn/scripts/capture-prompt.sh
 
 echo '{"cwd":"/tmp/demo-app","tool_name":"Write","tool_input":{"file_path":"src/app.ts"},"tool_response":{}}' \
-  | bash /path/to/vibe-learn/scripts/observe.sh
+  | bash ~/.vibe-learn/scripts/observe.sh
 
 echo '{"cwd":"/tmp/demo-app","tool_name":"Bash","tool_input":{"command":"npm install express"},"tool_response":{"exit_code":0}}' \
-  | bash /path/to/vibe-learn/scripts/observe.sh
+  | bash ~/.vibe-learn/scripts/observe.sh
 
 # 3. Generate a pause summary
-echo '{"cwd":"/tmp/demo-app"}' | bash /path/to/vibe-learn/scripts/pause-summary.sh
+echo '{"cwd":"/tmp/demo-app"}' | bash ~/.vibe-learn/scripts/pause-summary.sh
 
 # 4. See what vibe-learn captured
 cat /tmp/demo-app/.vibe-learn/session-log.jsonl | jq .

@@ -66,3 +66,21 @@ load test_helper
   [ -x "$SCRIPTS_DIR/capture-prompt.sh" ]
   [ -x "$SCRIPTS_DIR/pause-summary.sh" ]
 }
+
+@test "install writes correct paths when invoked from a simulated home install" {
+  # Simulate ~/.vibe-learn/ layout
+  FAKE_HOME_INSTALL="$(mktemp -d)"
+  mkdir -p "$FAKE_HOME_INSTALL/scripts"
+  mkdir -p "$FAKE_HOME_INSTALL/.claude/commands"
+  cp "$SCRIPTS_DIR/"*.sh "$FAKE_HOME_INSTALL/scripts/"
+  cp "$SCRIPTS_DIR/../.claude/commands/"*.md "$FAKE_HOME_INSTALL/.claude/commands/"
+  chmod +x "$FAKE_HOME_INSTALL/scripts/"*.sh
+
+  bash "$FAKE_HOME_INSTALL/scripts/install.sh" "$TEST_PROJECT_DIR"
+
+  # Hook paths must point into FAKE_HOME_INSTALL, not the original SCRIPTS_DIR
+  HOOK_PATH=$(jq -r '.hooks.SessionStart[0].hooks[0].command' "$TEST_PROJECT_DIR/.claude/settings.local.json")
+  [ "$HOOK_PATH" = "$FAKE_HOME_INSTALL/scripts/bootstrap.sh" ]
+
+  rm -rf "$FAKE_HOME_INSTALL"
+}
