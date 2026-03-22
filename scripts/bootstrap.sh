@@ -3,15 +3,8 @@
 # Initialises the .vibe-learn/ directory, rotates previous logs,
 # and injects prior session context if available.
 
-# DEBUG trap: log exit code
-trap 'echo "[bootstrap.sh] exited with code $?" >> /tmp/vibe-learn-debug.log 2>&1' EXIT
-
 # Read stdin JSON
 INPUT=$(cat)
-
-# DEBUG: log raw payload to /tmp to diagnose hook errors
-echo "[bootstrap.sh] payload: $INPUT" >> /tmp/vibe-learn-debug.log 2>&1
-echo "[bootstrap.sh] exit will be logged below" >> /tmp/vibe-learn-debug.log 2>&1
 
 # Extract cwd and session_id (jq required)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
@@ -54,7 +47,7 @@ EOF
 # If a prior pause summary exists, inject it as context for Claude
 if [ -f "$PAUSE_SUMMARY" ]; then
   SUMMARY_CONTENT=$(cat "$PAUSE_SUMMARY")
-  printf '{"hookSpecificOutput":{"additionalContext":"Prior session summary:\\n%s"}}\n' \
+  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"Prior session summary:\\n%s"}}\n' \
     "$(echo "$SUMMARY_CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')"
 else
   exit 0
