@@ -1,0 +1,73 @@
+# vibe-learn — Claude Code learning companion
+# Schema: https://github.com/mcs-cli/mcs/blob/main/docs/techpack-schema.md
+# Guide: https://github.com/mcs-cli/mcs/blob/main/docs/creating-tech-packs.md
+
+schemaVersion: 1
+identifier: vibe-learn
+displayName: Vibe Learn
+description: Learning companion that observes Claude Code sessions and helps you understand what was built
+author: "Gaurang Karia"
+
+components:
+  # ── Dependencies ──────────────────────────────────────────
+  - id: jq
+    description: JSON processor (required by all hooks)
+    brew: jq
+
+  # ── Hooks ─────────────────────────────────────────────────
+  - id: hook-bootstrap
+    description: Initialize session logging and rotate previous logs
+    dependencies: [jq]
+    hookEvent: SessionStart
+    hookStatusMessage: "Initializing vibe-learn..."
+    hook:
+      source: scripts/bootstrap.sh
+      destination: bootstrap.sh
+
+  - id: hook-capture-prompt
+    description: Log user prompts for intent context
+    dependencies: [jq]
+    hookEvent: UserPromptSubmit
+    hook:
+      source: scripts/capture-prompt.sh
+      destination: capture-prompt.sh
+
+  - id: hook-observe
+    description: Record Write/Edit/Bash events to session log
+    dependencies: [jq]
+    hookEvent: PostToolUse
+    hook:
+      source: scripts/observe.sh
+      destination: observe.sh
+
+  - id: hook-pause-summary
+    description: Generate human-readable summary after each response
+    dependencies: [jq]
+    hookEvent: Stop
+    hook:
+      source: scripts/pause-summary.sh
+      destination: pause-summary.sh
+
+  # ── Commands ──────────────────────────────────────────────
+  - id: cmd-learn
+    description: /learn — explain what just happened or answer a session question
+    command:
+      source: .claude/commands/learn.md
+      destination: learn.md
+
+  - id: cmd-digest
+    description: /digest — structured learning report for the session
+    command:
+      source: .claude/commands/digest.md
+      destination: digest.md
+
+  # ── Configuration ─────────────────────────────────────────
+  - id: gitignore
+    description: Exclude vibe-learn session data from version control
+    isRequired: true
+    gitignore:
+      - .vibe-learn/
+
+templates:
+  - sectionIdentifier: instructions
+    contentFile: templates/instructions.md
