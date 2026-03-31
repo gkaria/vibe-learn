@@ -51,6 +51,17 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 
 ## Installation
 
+### Install via MCS (recommended)
+
+If you use [MCS](https://github.com/mcs-cli/mcs) to manage your Claude Code configuration:
+
+```bash
+mcs pack add gkaria/vibe-learn
+mcs sync
+```
+
+This installs all hooks, slash commands, and dependencies automatically into any project.
+
 ### Quick Install (one line)
 
 ```bash
