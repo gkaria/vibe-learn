@@ -7,6 +7,7 @@ identifier: vibe-learn
 displayName: Vibe Learn
 description: Learning companion that observes Claude Code sessions and helps you understand what was built
 author: "Gaurang Karia"
+minMCSVersion: "2026.4.1"
 
 components:
   # ── Dependencies ──────────────────────────────────────────
@@ -36,6 +37,7 @@ components:
     description: Record Write/Edit/Bash events to session log
     dependencies: [jq]
     hookEvent: PostToolUse
+    hookMatcher: "Write|Edit|MultiEdit|Bash"
     hook:
       source: scripts/observe.sh
       destination: observe.sh
