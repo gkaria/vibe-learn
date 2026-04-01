@@ -34,7 +34,7 @@ VERSION_FILES=(
 # --- Verify all files contain the current version before touching anything ---
 MISSING=()
 for FILE in "${VERSION_FILES[@]}"; do
-  if ! grep -q "$CURRENT_VERSION" "$REPO_ROOT/$FILE" 2>/dev/null; then
+  if ! grep -qF "$CURRENT_VERSION" "$REPO_ROOT/$FILE" 2>/dev/null; then
     MISSING+=("$FILE")
   fi
 done
@@ -51,7 +51,7 @@ fi
 
 # --- Also check for any other occurrences we might have missed ---
 echo "Scanning for all occurrences of $CURRENT_VERSION..."
-ALL_HITS=$(grep -r --include="*.sh" --include="*.json" --include="*.md" --include="VERSION" \
+ALL_HITS=$(grep -rF --include="*.sh" --include="*.json" --include="*.md" --include="VERSION" \
   -l "$CURRENT_VERSION" "$REPO_ROOT" 2>/dev/null | grep -v '\.git/' || true)
 
 # Check if any hits are outside our known list
