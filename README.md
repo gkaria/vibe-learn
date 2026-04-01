@@ -251,7 +251,7 @@ jq 'select(.tool=="Bash") | .command' .vibe-learn/session-log.jsonl
 
 ## Configuration
 
-Edit `config/defaults.json`:
+`config/defaults.json` contains the intended configuration surface:
 
 ```json
 {
@@ -264,14 +264,16 @@ Edit `config/defaults.json`:
 }
 ```
 
-| Option | Default | Description |
-| ------ | ------- | ----------- |
-| `log_dir` | `.vibe-learn` | Where to store logs (relative to project root) |
-| `max_log_size_mb` | `10` | Max log file size before rotation |
-| `rotate_on_session_start` | `true` | Keep previous log as `.prev.jsonl` on new session |
-| `pause_summary_max_lines` | `20` | Max lines in the pause summary |
-| `capture_prompts` | `true` | Log your messages (disable for privacy) |
-| `digest_min_events` | `3` | Minimum events before `/digest` generates a report |
+Current behavior (important): hook scripts currently implement default behavior directly, and do not yet read/apply every key from `config/defaults.json`.
+
+| Option | Default | Runtime Status | Current Behavior |
+| ------ | ------- | -------------- | ---------------- |
+| `log_dir` | `.vibe-learn` | `active (fixed)` | Scripts currently write to `.vibe-learn` directly. |
+| `rotate_on_session_start` | `true` | `active (fixed)` | Session log rotation currently always runs on `SessionStart`. |
+| `capture_prompts` | `true` | `not yet enforced` | `capture-prompt.sh` currently logs prompts unconditionally. |
+| `pause_summary_max_lines` | `20` | `not yet enforced` | `pause-summary.sh` currently does not cap lines via config. |
+| `max_log_size_mb` | `10` | `not yet enforced` | No size-based rotation logic is currently applied. |
+| `digest_min_events` | `3` | `not yet enforced` | `/digest` prompt file currently does not gate on event count. |
 
 ---
 
