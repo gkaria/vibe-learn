@@ -57,9 +57,17 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-This installs vibe-learn to `~/.vibe-learn/` and creates a `vibe-learn` CLI command at `~/.local/bin/vibe-learn`.
+This installs vibe-learn to `~/.vibe-learn/` and **automatically registers the hooks globally** in `~/.claude/settings.json`. That's it — vibe-learn is now active in every Claude Code session on your machine, across all projects.
 
-Then, inside any project you want to instrument:
+It also copies `/learn` and `/digest` to `~/.claude/commands/` so the slash commands are available everywhere.
+
+**Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
+
+**Updating:** re-run the same curl command to update to the latest version.
+
+### Per-project install (optional)
+
+If you want vibe-learn active only in a specific project, or want to share the config with your team via version control:
 
 ```bash
 vibe-learn install
@@ -67,31 +75,23 @@ vibe-learn install
 ~/.vibe-learn/scripts/install.sh
 ```
 
-The install script:
-
-- Creates `.claude/commands/` with the `/learn` and `/digest` slash commands
-- Writes `.claude/settings.local.json` with the hook config
-- Adds `.vibe-learn/` to `.gitignore`
-
-**Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
-
-**Updating:** re-run the same curl command to update to the latest version.
+This writes hooks into the project's `.claude/settings.local.json` and adds `.vibe-learn/` to `.gitignore`. Useful when you don't want global hooks, or when different projects need different settings.
 
 ### For contributors / local development
 
 ```bash
 git clone https://github.com/gkaria/vibe-learn.git
 
-# Install into a project from the local clone
-bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
-
-# Or test setup.sh locally without a network round-trip
+# Register globally from a local clone (no network)
 bash /path/to/vibe-learn/scripts/setup.sh --local
+
+# Or wire into a specific project only
+bash /path/to/vibe-learn/scripts/install.sh /path/to/your/project
 ```
 
 ### Manual Setup
 
-Add to your project's `.claude/settings.local.json`:
+Add to `~/.claude/settings.json` (global) or your project's `.claude/settings.local.json`:
 
 ```json
 {
@@ -112,18 +112,17 @@ Add to your project's `.claude/settings.local.json`:
 }
 ```
 
-Copy `.claude/commands/learn.md` and `.claude/commands/digest.md` into your project's `.claude/commands/`.
+Copy `.claude/commands/learn.md` and `.claude/commands/digest.md` into `~/.claude/commands/` (global) or your project's `.claude/commands/`.
 
 ---
 
 ## Quick Demo (2 minutes)
 
-After installing, try this in any project to see vibe-learn in action:
+After installing, try this to see vibe-learn in action:
 
 ```bash
-# 1. Install vibe-learn into a test project
-mkdir /tmp/demo-app && cd /tmp/demo-app
-~/.vibe-learn/scripts/install.sh
+# 1. Create a test project (no install step needed — hooks are global)
+mkdir /tmp/demo-app
 
 # 2. Simulate a session — bootstrap, then a few tool events
 echo '{"session_id":"demo","cwd":"/tmp/demo-app"}' | bash ~/.vibe-learn/scripts/bootstrap.sh
@@ -278,6 +277,23 @@ Edit `config/defaults.json`:
 
 ## Testing
 
+### Automated tests
+
+The test suite uses [bats](https://github.com/bats-core/bats-core) (Bash Automated Testing System):
+
+```bash
+# Install bats
+brew install bats-core          # macOS
+apt-get install bats            # Linux
+
+# Run all tests
+bats tests/
+```
+
+49 tests covering all four hook scripts, the installer, and the global setup.
+
+### Manual smoke test
+
 ```bash
 chmod +x scripts/*.sh
 
@@ -295,8 +311,8 @@ echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm inst
 # Test capture-prompt
 echo '{"cwd":"/tmp/test-vl","prompt":"Build me an Express API with auth"}' | bash scripts/capture-prompt.sh
 
-# Test pause-summary
-echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh
+# Test pause-summary (outputs JSON with additionalContext for Stop hook)
+echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh | jq .
 cat /tmp/test-vl/.vibe-learn/pause-summary.txt
 
 rm -rf /tmp/test-vl

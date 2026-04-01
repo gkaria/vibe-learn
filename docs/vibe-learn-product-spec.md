@@ -200,7 +200,6 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 - Configuration UI or config file for preferences
 - Support for multiple learning levels (beginner/intermediate/senior)
 - Cross-session learning history
-- Tests and documentation
 - npm/plugin registry publishing
 
 ---
@@ -209,7 +208,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 
 **Repo:** `vibe-learn` (github.com/gkaria/vibe-learn)
 
-**Format:** Claude Code Plugin (primary) + standalone setup instructions (secondary)
+**Format:** Global setup via `setup.sh` (primary) + per-project `install.sh` (secondary) + manual hook config (tertiary)
 
 **Plugin structure:**
 ```
