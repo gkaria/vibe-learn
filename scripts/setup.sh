@@ -36,6 +36,18 @@ if ! command -v curl &>/dev/null && [ "$LOCAL_MODE" = false ]; then
   exit 1
 fi
 
+download_file() {
+  local url="$1"
+  local dest="$2"
+  # Retry to survive transient GitHub Raw throttling (HTTP 429) and network flakiness.
+  curl -fsSL \
+    --retry 8 \
+    --retry-delay 2 \
+    --retry-all-errors \
+    -A "vibe-learn-setup/$VIBE_LEARN_VERSION" \
+    "$url" -o "$dest"
+}
+
 # --- Version check ---
 if [ -f "$INSTALL_DIR/VERSION" ]; then
   EXISTING_VERSION=$(cat "$INSTALL_DIR/VERSION")
@@ -70,7 +82,7 @@ for FILE in "${FILES[@]}"; do
   if [ "$LOCAL_MODE" = true ]; then
     cp "$LOCAL_SOURCE/$FILE" "$DEST"
   else
-    curl -fsSL "$GITHUB_RAW/$FILE" -o "$DEST"
+    download_file "$GITHUB_RAW/$FILE" "$DEST"
   fi
 done
 
