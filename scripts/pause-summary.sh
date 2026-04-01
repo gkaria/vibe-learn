@@ -83,3 +83,6 @@ Use /learn to understand any of these decisions, or /digest for a full session r
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
+
+# Output JSON for Claude's context injection (Stop hook additionalContext)
+printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'
