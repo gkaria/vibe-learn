@@ -1,0 +1,21 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # PAT required: GITHUB_TOKEN won't trigger downstream workflows (e.g. release.yml)
+          # on tags it creates. Create a PAT with repo scope and add it as RELEASE_TOKEN.
+          token: ${{ secrets.RELEASE_TOKEN }}
+          # No release-type here — manifest mode reads release-please-config.json,
+          # which sets release-type: simple (manages VERSION) + extra-files for setup.sh
