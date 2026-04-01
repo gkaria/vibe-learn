@@ -1,5 +1,6 @@
 #!/bin/bash
-# release.sh — Bump vibe-learn version across all files atomically
+# release.sh — Bump vibe-learn version across all files atomically,
+# commit the change, and create a git tag.
 #
 # Usage:
 #   bash scripts/release.sh 0.2.0
@@ -67,16 +68,21 @@ for HIT in $ALL_HITS; do
   fi
 done
 
-# --- Apply the bump ---
+# --- Apply the bump (portable: works on macOS and Linux) ---
 for FILE in "${VERSION_FILES[@]}"; do
-  sed -i '' "s/$CURRENT_VERSION/$NEW_VERSION/g" "$REPO_ROOT/$FILE"
+  perl -pi -e "s/\Q$CURRENT_VERSION\E/$NEW_VERSION/g" "$REPO_ROOT/$FILE"
   echo "  ✓ $FILE"
 done
 
 echo ""
-echo "Done. Verify the diff:"
-echo "  git diff"
+
+# --- Commit and tag ---
+cd "$REPO_ROOT"
+git add "${VERSION_FILES[@]/#/}"
+git commit -m "chore: release v$NEW_VERSION"
+git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+
+echo "✓ Committed version bump and created tag v$NEW_VERSION"
 echo ""
-echo "Then commit:"
-echo "  git add VERSION scripts/setup.sh scripts/release.sh"
-echo "  git commit -m \"chore: release v$NEW_VERSION\""
+echo "Push to publish:"
+echo "  git push && git push --tags"
