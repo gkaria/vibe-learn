@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-VIBE_LEARN_VERSION="0.1.1"
+VIBE_LEARN_VERSION="0.2.0"
 INSTALL_DIR="$HOME/.vibe-learn"
 SHIM_DIR="$HOME/.local/bin"
 SHIM_PATH="$SHIM_DIR/vibe-learn"
