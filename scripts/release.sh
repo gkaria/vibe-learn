@@ -3,14 +3,14 @@
 # commit the change, and create a git tag.
 #
 # Usage:
-#   bash scripts/release.sh 0.2.0
+#   bash scripts/release.sh <new-version>
 
 set -euo pipefail
 
 NEW_VERSION="${1:-}"
 if [ -z "$NEW_VERSION" ]; then
   echo "Usage: bash scripts/release.sh <new-version>"
-  echo "  e.g. bash scripts/release.sh 0.2.0"
+  echo "  e.g. bash scripts/release.sh 0.3.0"
   exit 1
 fi
 
@@ -76,10 +76,9 @@ done
 
 echo ""
 
-# --- Commit and tag ---
+# --- Commit and tag (only version files, never unrelated staged changes) ---
 cd "$REPO_ROOT"
-git add "${VERSION_FILES[@]/#/}"
-git commit -m "chore: release v$NEW_VERSION"
+git commit -m "chore: release v$NEW_VERSION" -- "${VERSION_FILES[@]}"
 git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
 
 echo "✓ Committed version bump and created tag v$NEW_VERSION"
