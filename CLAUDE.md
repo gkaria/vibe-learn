@@ -23,7 +23,18 @@ All scripts write to `.vibe-learn/` in the target project (never in this repo it
 
 ## Testing Scripts Locally
 
-Scripts accept hook payloads via stdin as JSON. Test them directly:
+### Automated test suite (preferred)
+
+```bash
+bats tests/        # runs all 49 tests
+bats tests/observe.bats   # run a single file
+```
+
+Requires `bats` (`brew install bats-core` / `apt-get install bats`).
+
+### Manual stdin testing
+
+Scripts accept hook payloads via stdin as JSON:
 
 ```bash
 # Test observe.sh with a Write event
@@ -35,8 +46,8 @@ echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm inst
 # Test bootstrap.sh
 echo '{"session_id":"test123","cwd":"/tmp/test-vl"}' | bash scripts/bootstrap.sh
 
-# Test pause-summary.sh
-echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh
+# Test pause-summary.sh (outputs hookSpecificOutput.additionalContext JSON)
+echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh | jq .
 
 # View the session log
 cat /tmp/test-vl/.vibe-learn/session-log.jsonl | jq .
@@ -59,9 +70,25 @@ Key options:
 
 ## Installation
 
-`scripts/install.sh` wires vibe-learn into any project. It copies the slash command definitions from `.claude/commands/`, merges hook configuration into the target project's `.claude/settings.local.json`, and adds `.vibe-learn/` to `.gitignore`.
+**`scripts/setup.sh`** is the primary installer. It copies files to `~/.vibe-learn/`, registers all four hooks globally in `~/.claude/settings.json`, and copies slash commands to `~/.claude/commands/`. One run activates vibe-learn across every Claude Code session on the machine.
 
-The `hooks.json` in this repo uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder — this gets resolved to absolute paths during installation.
+**`scripts/install.sh`** wires vibe-learn into a specific project only. It merges hooks into `.claude/settings.local.json` and adds `.vibe-learn/` to `.gitignore`. Useful for per-project control or sharing config with a team via version control.
+
+The `hooks.json` in this repo uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder — resolved to absolute paths during installation.
+
+## Releasing
+
+```bash
+bash scripts/release.sh 0.3.0
+```
+
+This bumps the version in `VERSION` and `scripts/setup.sh`, commits the change, and creates an annotated git tag `v0.3.0`. Then push:
+
+```bash
+git push && git push --tags
+```
+
+`release.sh` uses `perl -pi -e` for the substitution (portable across macOS and Linux).
 
 ## Slash Commands
 
@@ -90,4 +117,4 @@ Session metadata (event counts, timestamps) is tracked separately in `.vibe-lear
 - **`observe.sh` must complete in <50ms** — it runs synchronously on every tool use. Never add network calls, heavy computation, or multi-step jq pipelines to this script.
 - **Append-only log** — scripts only append to `session-log.jsonl`, never rewrite it. Session rotation creates a `.prev.jsonl` copy instead.
 - **No stdout noise from hooks** — scripts should not print to stdout (Claude Code captures it). Use `>&2` for debug output, or suppress entirely.
-- **`pause-summary.sh` injects via `additionalContext`** — output must be valid JSON with `{"additionalContext": "..."}` when providing summaries to Claude's context.
+- **`pause-summary.sh` injects via `additionalContext`** — output must be valid JSON with `{"hookSpecificOutput": {"additionalContext": "..."}}` when providing summaries to Claude's context.
