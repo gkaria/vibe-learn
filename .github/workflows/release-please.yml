@@ -10,7 +10,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     steps:
       - uses: googleapis/release-please-action@v4
-        with:
-          release-type: simple
+        # No release-type here — manifest mode reads release-please-config.json,
+        # which sets release-type: simple (manages VERSION) + extra-files for setup.sh
