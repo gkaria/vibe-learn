@@ -24,10 +24,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract CHANGELOG section for this tag
+        id: changelog
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NUM="${VERSION#v}"
+          # Extract the section between this version header and the next
+          NOTES=$(awk "/^## \[${VERSION_NUM}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+          fi
+          # Write to file to avoid quoting issues
+          echo "$NOTES" > /tmp/release-notes.md
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
-            --generate-notes
+            --notes-file /tmp/release-notes.md
