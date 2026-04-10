@@ -96,5 +96,11 @@ fi
 
 echo ""
 echo "✅ vibe-learn installed. Open this project in Claude Code to activate."
-echo "   /learn    — explain what just happened, or ask a specific question"
-echo "   /digest   — full session learning report"
+echo "   /learn                      — explain what just happened, or ask a specific question"
+echo "   /digest                     — full session learning report"
+echo ""
+echo "   Obsidian integration:"
+echo "   /learn obsidian             — save learn note to your Obsidian vault"
+echo "   /learn obsidian:recall      — search vault for past learnings on a topic"
+echo "   /digest obsidian            — save session digest to your Obsidian vault"
+echo "   /digest obsidian:recall     — digest enriched with connections to past sessions"

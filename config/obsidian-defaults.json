@@ -1,0 +1,8 @@
+{
+  "vault_path": "",
+  "subfolder": "Development/Sessions",
+  "tags": ["vibe-learn"],
+  "link_style": "wikilink",
+  "include_project_tag": true,
+  "note_naming": "{date}-{project}"
+}

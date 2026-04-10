@@ -68,6 +68,17 @@ Key options:
 - `pause_summary_max_lines` — max lines in the stop-hook summary
 - `rotate_on_session_start` — keeps previous log as `.prev.jsonl`
 
+**Obsidian config** is stored separately in `.vibe-learn/obsidian.json` (project-level) or `~/.vibe-learn/obsidian.json` (global fallback). `config/obsidian-defaults.json` is the reference template. Claude prompts the user for their vault path on first use and offers to save the config automatically.
+
+Key Obsidian options (`config/obsidian-defaults.json`):
+
+- `vault_path` — absolute path to the Obsidian vault root (required, no default)
+- `subfolder` — folder within the vault for vibe-learn notes (default: `Development/Sessions`)
+- `tags` — tags added to every note's frontmatter (default: `["vibe-learn"]`)
+- `link_style` — `"wikilink"` for `[[links]]` or `"markdown"` for standard links
+- `include_project_tag` — auto-add the project directory name as a tag
+- `note_naming` — filename template (default: `{date}-{project}`)
+
 ## Installation
 
 **`scripts/setup.sh`** is the primary installer. It copies files to `~/.vibe-learn/`, registers all four hooks globally in `~/.claude/settings.json`, and copies slash commands to `~/.claude/commands/`. One run activates vibe-learn across every Claude Code session on the machine.
@@ -96,6 +107,14 @@ Defined as markdown instruction files in `.claude/commands/`:
 
 - `/learn [question]` — summarizes recent session activity, or answers a specific question grounded in the session log
 - `/digest` — generates a structured learning report (What Was Built, Key Decisions, Patterns Used, Things to Study)
+
+**Obsidian integration arguments:**
+
+- `/learn obsidian` — save a learn note to the configured Obsidian vault
+- `/learn obsidian <question>` — answer a question and save the result to the vault
+- `/learn obsidian:recall <topic>` — search the vault for past learnings on a topic (read-only, no file written)
+- `/digest obsidian` — save the session digest to the vault
+- `/digest obsidian:recall` — generate a digest enriched with a "Connections to Previous Work" section drawn from previous session notes in the vault, then save it
 
 These files contain plain-language instructions that Claude follows — no code execution.
 

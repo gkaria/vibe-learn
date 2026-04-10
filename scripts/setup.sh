@@ -72,6 +72,7 @@ FILES=(
   ".claude/commands/learn.md"
   ".claude/commands/digest.md"
   "config/defaults.json"
+  "config/obsidian-defaults.json"
 )
 
 # --- Download or copy files ---
@@ -180,4 +181,10 @@ else
   echo ""
   echo "vibe-learn is active globally — hooks fire in every Claude Code session."
   echo "For per-project overrides: vibe-learn install [/path/to/project]"
+  echo ""
+  echo "Obsidian integration:"
+  echo "  /learn obsidian           — save learn note to your Obsidian vault"
+  echo "  /learn obsidian:recall    — search vault for past learnings on a topic"
+  echo "  /digest obsidian          — save session digest to your Obsidian vault"
+  echo "  /digest obsidian:recall   — digest enriched with connections to past sessions"
 fi

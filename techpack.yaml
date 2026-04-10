@@ -64,6 +64,12 @@ components:
       destination: digest.md
 
   # ── Configuration ─────────────────────────────────────────
+  - id: config-obsidian-defaults
+    description: Reference config template for Obsidian integration options
+    config:
+      source: config/obsidian-defaults.json
+      destination: config/obsidian-defaults.json
+
   - id: gitignore
     description: Exclude vibe-learn session data from version control
     isRequired: true

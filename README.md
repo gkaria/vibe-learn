@@ -231,6 +231,20 @@ Generates a full structured learning report for the session:
 
 Optionally saves to `.vibe-learn/digests/` as a markdown file.
 
+### Obsidian integration
+
+Save your learnings to an [Obsidian](https://obsidian.md) vault and recall them across sessions:
+
+| Command | What it does |
+| ------- | ------------ |
+| `/learn obsidian` | Save a learn note to your vault |
+| `/learn obsidian <question>` | Answer a question and save to vault |
+| `/learn obsidian:recall <topic>` | Search vault for past learnings on a topic (read-only) |
+| `/digest obsidian` | Save session digest to your vault |
+| `/digest obsidian:recall` | Digest enriched with connections to past sessions, saved to vault |
+
+On first use, Claude asks for your vault path and offers to save the config to `.vibe-learn/obsidian.json`. See the [Obsidian Integration](#obsidian-integration) section below for setup details.
+
 ---
 
 ## What Gets Created
@@ -257,6 +271,43 @@ jq 'select(.tool=="Write")' .vibe-learn/session-log.jsonl
 # See all bash commands run
 jq 'select(.tool=="Bash") | .command' .vibe-learn/session-log.jsonl
 ```
+
+---
+
+---
+
+## Obsidian Integration
+
+vibe-learn can write your session learnings into an Obsidian vault as tagged, frontmatter-rich notes, and recall past learnings by searching across sessions.
+
+### Setup
+
+No pre-configuration needed. On your first `/learn obsidian` or `/digest obsidian` command, Claude will ask for your vault path and offer to save the config to `.vibe-learn/obsidian.json`.
+
+You can also create the config manually:
+
+```json
+{
+  "vault_path": "/Users/me/MyVault",
+  "subfolder": "Development/Sessions",
+  "tags": ["vibe-learn"],
+  "link_style": "wikilink",
+  "include_project_tag": true,
+  "note_naming": "{date}-{project}"
+}
+```
+
+Save to `.vibe-learn/obsidian.json` (project-level) or `~/.vibe-learn/obsidian.json` (global fallback). All options and their defaults are documented in `config/obsidian-defaults.json`.
+
+### Writing notes
+
+`/learn obsidian` and `/digest obsidian` write a formatted markdown note to `<vault_path>/<subfolder>/`. Notes include YAML frontmatter (`date`, `project`, `tags`, `type`) so they work with Obsidian's Dataview plugin and tag filtering.
+
+### Recalling past learnings
+
+`/learn obsidian:recall <topic>` searches your vault for notes matching the topic and synthesizes a cross-session summary — which sessions touched it, key decisions, recurring patterns, and unchecked study items. Nothing is written.
+
+`/digest obsidian:recall` goes further: it reads previous session notes for the **same project**, generates the full session digest, and enriches it with a **"Connections to Previous Work"** section showing how the current session builds on past work.
 
 ---
 
@@ -343,7 +394,8 @@ rm -rf /tmp/test-vl
 
 ## Roadmap
 
-- **Phase 3:** Cross-session learning history, difficulty level adaptation, plugin registry publishing
+- **v0.5.0:** Obsidian integration — write session notes and digests to your vault, recall past learnings with `obsidian:recall`
+- **Future:** Session-to-session wikilinks, MOC (Map of Content) generation, Dataview query templates, daily notes integration, auto-export
 
 ---
 
