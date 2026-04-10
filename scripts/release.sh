@@ -29,6 +29,7 @@ echo ""
 VERSION_FILES=(
   "VERSION"
   "scripts/setup.sh"
+  ".release-please-manifest.json"
 )
 
 # --- Verify all files contain the current version before touching anything ---
@@ -52,7 +53,7 @@ fi
 # --- Also check for any other occurrences we might have missed ---
 echo "Scanning for all occurrences of $CURRENT_VERSION..."
 ALL_HITS=$(grep -rF --include="*.sh" --include="*.json" --include="*.md" --include="VERSION" \
-  -l "$CURRENT_VERSION" "$REPO_ROOT" 2>/dev/null | grep -v '\.git/' || true)
+  -l "$CURRENT_VERSION" "$REPO_ROOT" 2>/dev/null | grep -v '\.git/' | grep -v 'CHANGELOG.md' | grep -v 'specs/' | grep -v 'scripts/release.sh' | grep -v 'CLAUDE.md' || true)
 
 # Check if any hits are outside our known list
 for HIT in $ALL_HITS; do
