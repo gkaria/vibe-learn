@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/gkaria/vibe-learn/compare/v0.3.0...v0.4.0) (2026-04-10)
+
+
+### Features
+
+* add Obsidian integration (learn/digest obsidian and obsidian:recall) ([a9246c5](https://github.com/gkaria/vibe-learn/commit/a9246c5ff5e43fdfb6811daa8e9e3718aeda6e0b))
+
 ## [0.3.0](https://github.com/gkaria/vibe-learn/compare/v0.2.0...v0.3.0) (2026-04-01)
 
 
