@@ -4,20 +4,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-**vibe-learn** is a Claude Code plugin that observes what Claude does during a development session and helps users understand what was built. It works by registering lifecycle hooks that capture tool use events (file writes, edits, bash commands) into an append-only JSONL session log, then surfaces summaries at natural pause points.
+**vibe-learn** is a coding assistant plugin that observes what the AI does during a development session and helps users understand what was built. It works by registering lifecycle hooks that capture tool use events (file writes, edits, bash commands) into an append-only JSONL session log, then surfaces summaries at natural pause points.
 
-It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands (`/learn` and `/digest`) leverage Claude's own context window to generate explanations and reports.
+It supports **Claude Code** and **Codex CLI**, with a generic adapter system for adding new assistants.
+
+It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands (`/learn` and `/digest`) leverage the AI's own context window to generate explanations and reports.
+
+## Multi-Assistant Architecture
+
+The project is split into a **generic core** and **per-assistant adapters**:
+
+```text
+scripts/          ← assistant-agnostic core (unchanged regardless of which assistant)
+  bootstrap.sh    ← SessionStart hook
+  capture-prompt.sh ← UserPromptSubmit hook
+  observe.sh      ← PostToolUse hook (<50ms, append-only)
+  pause-summary.sh ← Stop hook
+  setup.sh        ← global installer (dispatcher)
+  install.sh      ← per-project installer (dispatcher)
+
+adapters/
+  claude-code/    ← Claude Code adapter
+    hooks.json    ← hook registration template
+    commands/     ← /learn and /digest slash command files
+    install.sh    ← hook registration into ~/.claude/settings.json
+  codex/          ← Codex CLI adapter
+    hooks.toml    ← hook registration template (TOML)
+    prompts/      ← /prompts:learn and /prompts:digest instruction files
+    install.sh    ← hook registration into ~/.codex/config.toml
+```
+
+**Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. The core scripts require no changes.
+
+### Stop Hook / additionalContext
+
+`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex, if this format is not supported, the pause summary is still written to `.vibe-learn/pause-summary.txt` on disk. `bootstrap.sh` reads this file at the next SessionStart and injects it as `additionalContext` — so cross-session summary continuity works for all assistants.
 
 ## How It Works
 
-The plugin registers four Claude Code lifecycle hooks defined in `hooks.json`:
+The plugin registers four lifecycle hooks:
 
 | Hook | Script | Trigger |
 |------|--------|---------|
-| `SessionStart` | `scripts/bootstrap.sh` | New Claude session opens |
+| `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
 | `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash tools |
-| `Stop` | `scripts/pause-summary.sh` | After Claude finishes responding |
+| `Stop` | `scripts/pause-summary.sh` | After AI finishes responding |
+
+Hook registration format differs per assistant:
+
+- **Claude Code**: JSON in `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project)
+- **Codex CLI**: TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project)
 
 All scripts write to `.vibe-learn/` in the target project (never in this repo itself).
 
@@ -26,7 +63,7 @@ All scripts write to `.vibe-learn/` in the target project (never in this repo it
 ### Automated test suite (preferred)
 
 ```bash
-bats tests/        # runs all 49 tests
+bats tests/        # runs all 80 tests
 bats tests/observe.bats   # run a single file
 ```
 
@@ -81,11 +118,17 @@ Key Obsidian options (`config/obsidian-defaults.json`):
 
 ## Installation
 
-**`scripts/setup.sh`** is the primary installer. It copies files to `~/.vibe-learn/`, registers all four hooks globally in `~/.claude/settings.json`, and copies slash commands to `~/.claude/commands/`. One run activates vibe-learn across every Claude Code session on the machine.
+**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex), and registers hooks globally for each. Accepts `--assistant=<name>` or `--assistant=all` to override detection.
 
-**`scripts/install.sh`** wires vibe-learn into a specific project only. It merges hooks into `.claude/settings.local.json` and adds `.vibe-learn/` to `.gitignore`. Useful for per-project control or sharing config with a team via version control.
+**`scripts/install.sh`** wires vibe-learn into a specific project. It auto-detects the assistant from `.claude/` or `.codex/` presence in the target dir, then delegates to `adapters/<assistant>/install.sh`. Accepts `--assistant=<name>` to override.
 
-The `hooks.json` in this repo uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder — resolved to absolute paths during installation.
+Each adapter's `install.sh` handles:
+
+- Hook registration in the assistant's config format
+- Copying command/prompt files to the assistant's command directory
+- Adding `.vibe-learn/` to `.gitignore` (project-level only)
+
+The `adapters/claude-code/hooks.json` uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder (documentation only) — actual hook registration always uses absolute paths.
 
 ## Releasing
 

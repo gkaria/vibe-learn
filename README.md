@@ -1,8 +1,8 @@
 # vibe-learn
 
-**Learn as Claude builds.**
+**Learn as your AI coding assistant builds.**
 
-A learning companion for the vibe coding era. vibe-learn watches what Claude Code does during a session and helps you understand what was built, why, and how — at your own pace.
+A learning companion for the vibe coding era. vibe-learn watches what Claude Code or Codex does during a session and helps you understand what was built, why, and how — at your own pace.
 
 ---
 
@@ -16,11 +16,11 @@ The faster AI gets at coding, the wider the gap between *what was built* and *wh
 
 ## How It Works
 
-vibe-learn hooks into Claude Code's event system. As Claude works, lightweight scripts silently observe and log every action — files created, commands run, patterns used. After each response, a summary of what just happened is injected into Claude's context so it can surface it naturally.
+vibe-learn hooks into your AI assistant's event system. As the AI works, lightweight scripts silently observe and log every action — files created, commands run, patterns used. After each response, a summary of what just happened is injected into the AI's context so it can surface it naturally.
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│                  CLAUDE CODE SESSION                     │
+│                    AI CODING SESSION                     │
 │                                                          │
 │  SessionStart → UserPrompt → [Tool Use]* → Stop          │
 │       ↓              ↓           ↓            ↓          │
@@ -57,9 +57,9 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-This installs vibe-learn to `~/.vibe-learn/` and **automatically registers the hooks globally** in `~/.claude/settings.json`. That's it — vibe-learn is now active in every Claude Code session on your machine, across all projects.
+This installs vibe-learn to `~/.vibe-learn/` and **automatically registers the hooks globally** for whichever assistants are installed on your machine (Claude Code, Codex CLI, or both). It also copies slash commands and prompts to each assistant's command directory.
 
-It also copies `/learn` and `/digest` to `~/.claude/commands/` so the slash commands are available everywhere.
+To target a specific assistant: `bash setup.sh --assistant=codex` or `--assistant=claude-code` or `--assistant=all`.
 
 **Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
 
@@ -75,7 +75,7 @@ vibe-learn install
 ~/.vibe-learn/scripts/install.sh
 ```
 
-This writes hooks into the project's `.claude/settings.local.json` and adds `.vibe-learn/` to `.gitignore`. Useful when you don't want global hooks, or when different projects need different settings.
+This auto-detects your assistant (Claude Code → `.claude/settings.local.json`, Codex → `.codex/config.toml`) and adds `.vibe-learn/` to `.gitignore`. Use `--assistant=<name>` to override. Useful when you don't want global hooks, or when different projects need different settings.
 
 ### Install via MCS (alternative)
 
@@ -163,7 +163,7 @@ In real use, you don't run any of this manually — Claude Code triggers the hoo
 
 **Without vibe-learn** — Claude writes 12 files, installs 4 packages, refactors a module. You hit "accept" on everything. A week later:
 
-```
+```text
 You: "Wait, why is there a middleware folder?"
 You: "What does this bcrypt thing do?"
 You: "Did I even need all these dependencies?"
@@ -354,7 +354,7 @@ apt-get install bats            # Linux
 bats tests/
 ```
 
-49 tests covering all four hook scripts, the installer, and the global setup.
+80 tests covering all four hook scripts, the Claude Code installer, the Codex installer, and the global setup.
 
 ### Manual smoke test
 
@@ -388,13 +388,14 @@ rm -rf /tmp/test-vl
 
 - **Bash** — POSIX-compatible
 - **jq** — JSON processing (`brew install jq` / `apt-get install jq`)
-- **Claude Code** — with hooks support
+- **Claude Code** or **Codex CLI** — with hooks support
 
 ---
 
 ## Roadmap
 
 - **v0.5.0:** Obsidian integration — write session notes and digests to your vault, recall past learnings with `obsidian:recall`
+- **v0.5.5:** Multi-assistant support — Codex CLI adapter, auto-detection at install time, generic adapter system for future assistants
 - **Future:** Session-to-session wikilinks, MOC (Map of Content) generation, Dataview query templates, daily notes integration, auto-export
 
 ---

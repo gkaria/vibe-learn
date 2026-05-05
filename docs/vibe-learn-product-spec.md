@@ -215,17 +215,25 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 vibe-learn/
 ├── README.md
 ├── LICENSE (MIT)
-├── hooks.json                    # Plugin hook configuration
-├── CLAUDE.md                     # Directive for Claude Code awareness
-├── .claude/commands/
-│   ├── learn.md                  # /learn slash command
-│   └── digest.md                 # /digest slash command
+├── CLAUDE.md                     # Developer guide and multi-assistant architecture
 ├── scripts/
 │   ├── bootstrap.sh              # SessionStart: initialise session
 │   ├── observe.sh                # PostToolUse (sync): log events
 │   ├── capture-prompt.sh         # UserPromptSubmit: log human intent
 │   ├── pause-summary.sh          # Stop: brief summary
-│   └── install.sh                # Install vibe-learn into a project
+│   ├── setup.sh                  # Global installer (auto-detects assistants)
+│   └── install.sh                # Per-project installer (dispatcher)
+├── adapters/
+│   ├── claude-code/
+│   │   ├── hooks.json            # Hook registration template
+│   │   ├── commands/learn.md     # /learn slash command
+│   │   ├── commands/digest.md    # /digest slash command
+│   │   └── install.sh           # Registers hooks in ~/.claude/settings.json
+│   └── codex/
+│       ├── hooks.toml            # Hook registration template (TOML)
+│       ├── prompts/learn.md      # /prompts:learn instruction file
+│       ├── prompts/digest.md     # /prompts:digest instruction file
+│       └── install.sh           # Registers hooks in ~/.codex/config.toml
 ├── config/
 │   └── defaults.json             # Default configuration
 └── examples/

@@ -34,12 +34,24 @@ vibe-learn is for the HUMAN, not for Claude. When someone vibe codes, Claude bui
 vibe-learn/
 ├── README.md                         # Project overview, installation, usage, roadmap
 ├── LICENSE                           # MIT
-├── hooks.json                        # Claude Code plugin hook configuration
 ├── scripts/
 │   ├── bootstrap.sh                  # SessionStart hook
 │   ├── observe.sh                    # PostToolUse hook (sync, fast, < 50ms)
 │   ├── capture-prompt.sh             # UserPromptSubmit hook
-│   └── pause-summary.sh             # Stop hook (mechanical summary, no API calls)
+│   ├── pause-summary.sh             # Stop hook (mechanical summary, no API calls)
+│   ├── setup.sh                      # Global installer (auto-detects Claude Code / Codex)
+│   └── install.sh                    # Per-project installer (dispatcher)
+├── adapters/
+│   ├── claude-code/
+│   │   ├── hooks.json                # Hook registration template (${CLAUDE_PLUGIN_ROOT})
+│   │   ├── commands/learn.md         # /learn slash command
+│   │   ├── commands/digest.md        # /digest slash command
+│   │   └── install.sh               # Registers hooks in ~/.claude/settings.json
+│   └── codex/
+│       ├── hooks.toml                # Hook registration template (TOML)
+│       ├── prompts/learn.md          # /prompts:learn instruction file
+│       ├── prompts/digest.md         # /prompts:digest instruction file
+│       └── install.sh               # Registers hooks in ~/.codex/config.toml
 ├── config/
 │   └── defaults.json                 # Default configuration
 └── examples/
@@ -48,9 +60,9 @@ vibe-learn/
     └── sample-digest.md              # Example of what /digest produces
 ```
 
-### 2. hooks.json (Plugin format)
+### 2. Hook registration (per-assistant adapter)
 
-Use ${CLAUDE_PLUGIN_ROOT} for all script paths. Register these hooks:
+Use ${CLAUDE_PLUGIN_ROOT} for all script paths in Claude Code hooks. Register these hooks:
 
 | Hook Event         | Matcher                        | Script               | Async? |
 |--------------------|--------------------------------|----------------------|--------|

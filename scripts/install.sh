@@ -1,106 +1,93 @@
 #!/bin/bash
 # install.sh — Wire vibe-learn into any project
 # Run from the root of the project you want to install vibe-learn into:
-#   bash /path/to/vibe-learn/scripts/install.sh
+#   bash /path/to/vibe-learn/scripts/install.sh [target-dir] [--assistant=<name>]
+#
+# Supported assistants: claude-code, codex
+# Default: auto-detect based on .claude/ or .codex/ presence in target dir,
+#          falling back to claude-code if neither is found.
 
 set -euo pipefail
 
 VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_DIR="${1:-$(pwd)}"
-CLAUDE_DIR="$TARGET_DIR/.claude"
-COMMANDS_DIR="$CLAUDE_DIR/commands"
-SETTINGS_FILE="$CLAUDE_DIR/settings.local.json"
+TARGET_DIR=""
+ASSISTANT=""
 
-echo "Installing vibe-learn into: $TARGET_DIR"
+for arg in "$@"; do
+  case "$arg" in
+    --assistant=*)
+      ASSISTANT="${arg#--assistant=}"
+      ;;
+    --assistant)
+      echo "ERROR: --assistant requires a value, e.g. --assistant=codex" >&2
+      exit 1
+      ;;
+    -*)
+      echo "ERROR: Unknown flag: $arg" >&2
+      exit 1
+      ;;
+    *)
+      if [ -z "$TARGET_DIR" ]; then
+        TARGET_DIR="$arg"
+      fi
+      ;;
+  esac
+done
 
-# --- Create .claude/commands/ ---
-mkdir -p "$COMMANDS_DIR"
+TARGET_DIR="${TARGET_DIR:-$(pwd)}"
 
-# --- Copy slash commands ---
-cp "$VIBE_LEARN_DIR/.claude/commands/learn.md" "$COMMANDS_DIR/learn.md"
-cp "$VIBE_LEARN_DIR/.claude/commands/digest.md" "$COMMANDS_DIR/digest.md"
-echo "✓ Slash commands installed (/learn, /digest)"
-
-# --- Write or merge settings.local.json ---
-HOOKS_BLOCK=$(cat <<EOF
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/bootstrap.sh"}]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/capture-prompt.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|Bash",
-        "hooks": [{"type": "command", "command": "$VIBE_LEARN_DIR/scripts/observe.sh"}]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {"type": "command", "command": "$VIBE_LEARN_DIR/scripts/pause-summary.sh"}
-        ]
-      }
-    ]
-  }
+detect_assistant() {
+  if [ -d "$TARGET_DIR/.claude" ]; then
+    echo "claude-code"
+  elif [ -d "$TARGET_DIR/.codex" ]; then
+    echo "codex"
+  else
+    echo "claude-code"
+  fi
 }
-EOF
-)
 
-if [ ! -f "$SETTINGS_FILE" ]; then
-  # No existing settings — write fresh
-  echo "$HOOKS_BLOCK" > "$SETTINGS_FILE"
-  echo "✓ Created .claude/settings.local.json"
-else
-  # Existing settings — check if hooks already present
-  if jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
-    echo "⚠ .claude/settings.local.json already has hooks — skipping hook merge."
-    echo "  Add the hooks manually or remove existing hooks first, then re-run."
-  else
-    # Merge hooks into existing settings
-    TMP=$(mktemp)
-    jq --argjson hooks "$(echo "$HOOKS_BLOCK" | jq '.hooks')" \
-      '. + {hooks: $hooks}' "$SETTINGS_FILE" > "$TMP" && mv "$TMP" "$SETTINGS_FILE"
-    echo "✓ Merged hooks into existing .claude/settings.local.json"
-  fi
+if [ -z "$ASSISTANT" ]; then
+  ASSISTANT="$(detect_assistant)"
 fi
 
-# --- Make scripts executable (only if writable — setup.sh handles this for curl-installs) ---
-if [ -w "$VIBE_LEARN_DIR/scripts" ]; then
-  chmod +x "$VIBE_LEARN_DIR/scripts/"*.sh
-fi
-echo "✓ Scripts are executable"
+case "$ASSISTANT" in
+  claude-code|codex)
+    ;;
+  *)
+    echo "ERROR: Unknown assistant '$ASSISTANT'. Supported: claude-code, codex" >&2
+    exit 1
+    ;;
+esac
 
-# --- Add .vibe-learn/ to .gitignore if not already there ---
-GITIGNORE="$TARGET_DIR/.gitignore"
-if [ -f "$GITIGNORE" ]; then
-  if ! grep -q '\.vibe-learn' "$GITIGNORE"; then
-    echo "" >> "$GITIGNORE"
-    echo "# vibe-learn session logs" >> "$GITIGNORE"
-    echo ".vibe-learn/" >> "$GITIGNORE"
-    echo "✓ Added .vibe-learn/ to .gitignore"
-  else
-    echo "✓ .gitignore already excludes .vibe-learn/"
-  fi
-else
-  echo "# vibe-learn session logs" > "$GITIGNORE"
-  echo ".vibe-learn/" >> "$GITIGNORE"
-  echo "✓ Created .gitignore with .vibe-learn/"
+echo "Installing vibe-learn into: $TARGET_DIR (assistant: $ASSISTANT)"
+
+ADAPTER_SCRIPT="$VIBE_LEARN_DIR/adapters/$ASSISTANT/install.sh"
+if [ ! -f "$ADAPTER_SCRIPT" ]; then
+  echo "ERROR: Adapter not found: $ADAPTER_SCRIPT" >&2
+  exit 1
 fi
+
+bash "$ADAPTER_SCRIPT" "$VIBE_LEARN_DIR" "$TARGET_DIR"
 
 echo ""
-echo "✅ vibe-learn installed. Open this project in Claude Code to activate."
-echo "   /learn                      — explain what just happened, or ask a specific question"
-echo "   /digest                     — full session learning report"
-echo ""
-echo "   Obsidian integration:"
-echo "   /learn obsidian             — save learn note to your Obsidian vault"
-echo "   /learn obsidian:recall      — search vault for past learnings on a topic"
-echo "   /digest obsidian            — save session digest to your Obsidian vault"
-echo "   /digest obsidian:recall     — digest enriched with connections to past sessions"
+if [ "$ASSISTANT" = "claude-code" ]; then
+  echo "✅ vibe-learn installed. Open this project in Claude Code to activate."
+  echo "   /learn                      — explain what just happened, or ask a specific question"
+  echo "   /digest                     — full session learning report"
+  echo ""
+  echo "   Obsidian integration:"
+  echo "   /learn obsidian             — save learn note to your Obsidian vault"
+  echo "   /learn obsidian:recall      — search vault for past learnings on a topic"
+  echo "   /digest obsidian            — save session digest to your Obsidian vault"
+  echo "   /digest obsidian:recall     — digest enriched with connections to past sessions"
+elif [ "$ASSISTANT" = "codex" ]; then
+  echo "✅ vibe-learn installed. Open this project in Codex to activate."
+  echo "   /prompts:learn              — explain what just happened, or ask a follow-up question"
+  echo "   /prompts:digest             — full session learning report"
+  echo ""
+  echo "   Obsidian integration:"
+  echo "   /prompts:learn then: obsidian             — save learn note to your Obsidian vault"
+  echo "   /prompts:learn then: obsidian:recall      — search vault for past learnings"
+  echo "   /prompts:digest then: obsidian            — save session digest to your Obsidian vault"
+  echo "   /prompts:digest then: obsidian:recall     — digest enriched with past sessions"
+fi

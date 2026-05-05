@@ -2,6 +2,6 @@
 
 Compatibility file for tooling that looks for `AGENTS.md`.
 
-Canonical assistant instructions live in [`CLAUDE.md`](./CLAUDE.md).
+Canonical developer instructions live in [`CLAUDE.md`](./CLAUDE.md).
 
-This repository is Claude Code-focused. Keep behavior, terminology, and paths aligned with `CLAUDE.md`.
+This repository supports Claude Code and Codex CLI. See `CLAUDE.md` for the multi-assistant architecture and adapter layout.
