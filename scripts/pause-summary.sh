@@ -6,6 +6,7 @@
 
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+HOOK_EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
 
 if [ -z "$CWD" ]; then
   exit 0
@@ -31,10 +32,12 @@ fi
 
 RECENT_ACTIONS=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r '
   select(.event=="tool_use") |
-  if .tool == "Write" then
+  if .tool == "Write" or .action == "created" then
     "  ✦ Created \(.file // "file")"
-  elif .tool == "Edit" or .tool == "MultiEdit" then
+  elif .tool == "Edit" or .tool == "MultiEdit" or .action == "edited" then
     "  ✦ Edited \(.file // "file")"
+  elif .action == "deleted" then
+    "  ✦ Deleted \(.file // "file")"
   elif .tool == "Bash" then
     if .context.exit_code != 0 then
       "  ✦ Ran: \(.command // "command") [failed ✗]"
@@ -46,13 +49,14 @@ RECENT_ACTIONS=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r '
 ' 2>/dev/null)
 
 # --- Count files and commands in this response ---
-FILES_CREATED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Write")' | jq -s 'length' 2>/dev/null || echo 0)
-FILES_MODIFIED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and (.tool=="Edit" or .tool=="MultiEdit"))' | jq -s 'length' 2>/dev/null || echo 0)
+FILES_CREATED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and (.tool=="Write" or .action=="created"))' | jq -s 'length' 2>/dev/null || echo 0)
+FILES_MODIFIED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and (.tool=="Edit" or .tool=="MultiEdit" or .action=="edited"))' | jq -s 'length' 2>/dev/null || echo 0)
+FILES_DELETED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action=="deleted")' | jq -s 'length' 2>/dev/null || echo 0)
 BASH_TOTAL=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash")' | jq -s 'length' 2>/dev/null || echo 0)
 BASH_FAILURES=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash" and .context.exit_code!=0)' | jq -s 'length' 2>/dev/null || echo 0)
 
 # Nothing happened this response — skip
-if [ "$FILES_CREATED" -eq 0 ] && [ "$FILES_MODIFIED" -eq 0 ] && [ "$BASH_TOTAL" -eq 0 ]; then
+if [ "$FILES_CREATED" -eq 0 ] && [ "$FILES_MODIFIED" -eq 0 ] && [ "$FILES_DELETED" -eq 0 ] && [ "$BASH_TOTAL" -eq 0 ]; then
   exit 0
 fi
 
@@ -85,4 +89,8 @@ Use /learn to understand any of these decisions, or /digest for a full session r
 echo "$SUMMARY" > "$SUMMARY_FILE"
 
 # Output JSON for Claude's context injection (Stop hook additionalContext)
-printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'
+if [ "$HOOK_EVENT_NAME" = "Stop" ]; then
+  printf '{"continue":true}\n'
+else
+  printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'
+fi

@@ -1,10 +1,8 @@
 # vibe-learn hooks for Codex CLI
 # INSTALL_DIR_PLACEHOLDER is replaced with the actual install path during installation.
 #
-# NOTE: Codex currently fires PostToolUse reliably for Bash tool calls only.
-# File edit hooks (Write/Edit via apply_patch) do not fire in most Codex versions.
-# Session logs will capture bash commands; file write/edit events require Codex
-# to add apply_patch PostToolUse support in a future release.
+# NOTE: Codex reports shell commands as Bash and file edits through apply_patch.
+# observe.sh normalizes both into vibe-learn's session-log schema.
 
 [features]
 codex_hooks = true
@@ -22,7 +20,7 @@ type = "command"
 command = "INSTALL_DIR_PLACEHOLDER/scripts/capture-prompt.sh"
 
 [[hooks.PostToolUse]]
-matcher = "^Bash$"
+matcher = "^(Bash|apply_patch)$"
 [[hooks.PostToolUse.hooks]]
 type = "command"
 command = "INSTALL_DIR_PLACEHOLDER/scripts/observe.sh"

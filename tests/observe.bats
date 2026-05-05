@@ -37,6 +37,31 @@ load test_helper
   [ "$(echo "$entry" | jq -r '.action')" = "edited" ]
 }
 
+@test "observe logs apply_patch file changes" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  local patch
+  patch='*** Begin Patch
+*** Add File: src/new.ts
++export const created = true
+*** Update File: src/app.ts
+@@
+-old
++new
+*** Delete File: src/old.ts
+*** End Patch'
+
+  jq -n --arg cwd "$TEST_PROJECT_DIR" --arg patch "$patch" \
+    '{cwd:$cwd,tool_name:"apply_patch",tool_input:{command:$patch},tool_response:{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local line_count
+  line_count=$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$line_count" -eq 3 ]
+  [ "$(jq -r 'select(.file=="src/new.ts").action' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "created" ]
+  [ "$(jq -r 'select(.file=="src/app.ts").action' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "edited" ]
+  [ "$(jq -r 'select(.file=="src/old.ts").action' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "deleted" ]
+}
+
 @test "observe logs Bash event with command and exit code" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   echo '{"cwd":"'"$TEST_PROJECT_DIR"'","tool_name":"Bash","tool_input":{"command":"npm install"},"tool_response":{"exit_code":0}}' \
@@ -59,6 +84,17 @@ load test_helper
   [ "$exit_code" = "2" ]
 }
 
+@test "observe handles Bash string tool_response" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","tool_name":"Bash","tool_input":{"command":"pwd"},"tool_response":"Process exited with code 0"}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Bash" ]
+  [ "$(echo "$entry" | jq '.context.exit_code')" = "0" ]
+}
+
 @test "observe ignores unknown tools" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","tool_name":"Read","tool_input":{},"tool_response":{}}'"'"' | bash '"$SCRIPTS_DIR/observe.sh"
@@ -76,6 +112,28 @@ load test_helper
   local count
   count=$(jq '.event_count' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
   [ "$count" -eq 1 ]
+}
+
+@test "observe increments event_count for every apply_patch file" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"session_id":"t1","event_count":0}' > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  local patch
+  patch='*** Begin Patch
+*** Add File: a.ts
++a
+*** Update File: b.ts
+@@
+-b
++bb
+*** End Patch'
+
+  jq -n --arg cwd "$TEST_PROJECT_DIR" --arg patch "$patch" \
+    '{cwd:$cwd,tool_name:"apply_patch",tool_input:{command:$patch},tool_response:{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local count
+  count=$(jq '.event_count' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
+  [ "$count" -eq 2 ]
 }
 
 @test "observe appends multiple events to same log file" {

@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-VIBE_LEARN_VERSION="0.5.1" # x-release-please-version
+VIBE_LEARN_VERSION="0.5.5" # x-release-please-version
 INSTALL_DIR="$HOME/.vibe-learn"
 SHIM_DIR="$HOME/.local/bin"
 SHIM_PATH="$SHIM_DIR/vibe-learn"
@@ -95,6 +95,7 @@ FILES=(
   "adapters/codex/hooks.toml"
   "adapters/codex/prompts/learn.md"
   "adapters/codex/prompts/digest.md"
+  "adapters/codex/skills/vibe-learn/SKILL.md"
   "adapters/codex/install.sh"
 )
 
@@ -148,12 +149,44 @@ detect_assistants() {
   echo "${detected[@]}"
 }
 
+assistant_list_contains() {
+  local needle="$1"
+  shift
+  local assistant
+  for assistant in "$@"; do
+    if [ "$assistant" = "$needle" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+join_assistants() {
+  local result=""
+  local assistant
+  for assistant in "$@"; do
+    if [ -z "$result" ]; then
+      result="$assistant"
+    else
+      result="$result, $assistant"
+    fi
+  done
+  echo "$result"
+}
+
 if [ -n "$ASSISTANT_FLAG" ]; then
-  if [ "$ASSISTANT_FLAG" = "all" ]; then
-    read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
-  else
-    ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
-  fi
+  case "$ASSISTANT_FLAG" in
+    all)
+      read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
+      ;;
+    claude-code|codex)
+      ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
+      ;;
+    *)
+      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, all" >&2
+      exit 1
+      ;;
+  esac
 else
   read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
 fi
@@ -169,6 +202,25 @@ for ASSISTANT in "${ASSISTANTS_TO_CONFIGURE[@]}"; do
   bash "$ADAPTER_SCRIPT" --global "$INSTALL_DIR"
 done
 
+echo ""
+CONFIGURED="$(join_assistants "${ASSISTANTS_TO_CONFIGURE[@]}")"
+echo "vibe-learn is active globally for: $CONFIGURED"
+
+if assistant_list_contains "claude-code" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "Claude Code:"
+  echo "  /learn                      — explain what just happened, or ask a specific question"
+  echo "  /digest                     — full session learning report"
+fi
+
+if assistant_list_contains "codex" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "Codex:"
+  echo "  Codex does not support custom /learn slash commands."
+  echo "  Use the global skill: \"Use vibe-learn to learn what happened.\""
+  echo "  Prompt fallbacks are installed in ~/.codex/prompts/."
+fi
+
 # --- PATH advisory ---
 if [[ ":$PATH:" != *":$SHIM_DIR:"* ]]; then
   echo ""
@@ -180,8 +232,6 @@ if [[ ":$PATH:" != *":$SHIM_DIR:"* ]]; then
   echo "    ~/.vibe-learn/scripts/install.sh /path/to/your/project"
 else
   echo ""
-  CONFIGURED=$(IFS=", "; echo "${ASSISTANTS_TO_CONFIGURE[*]}")
-  echo "vibe-learn is active globally for: $CONFIGURED"
   echo "For per-project overrides: vibe-learn install [/path/to/project]"
   echo ""
   echo "Obsidian integration:"

@@ -2,21 +2,23 @@
 
 **Learn as your AI coding assistant builds.**
 
-A learning companion for the vibe coding era. vibe-learn watches what Claude Code or Codex does during a session and helps you understand what was built, why, and how — at your own pace.
+You can outsource your thinking, but you can't outsource your understanding.
+
+A learning companion for the vibe coding era. vibe-learn watches what Claude Code or Codex App/CLI does during a session and helps you understand what was built, why, and how — at your own pace.
 
 ---
 
 ## The Problem
 
-Vibe coding is fast. Claude writes 15 files, refactors a module, installs three dependencies — and you hit "accept" on all of it. A week later you can't debug your own app because you never really understood what was built.
+Vibe coding is fast. Your assistant writes 15 files, refactors a module, installs three dependencies — and you hit "accept" on all of it. A week later you can't debug your own app because you never really understood what was built.
 
-The faster AI gets at coding, the wider the gap between *what was built* and *what you understand*. vibe-learn closes that gap.
+The faster AI gets at coding, the wider the gap between *what was built* and *what you understand*. vibe-learn exists because you can outsource your thinking, but you can't outsource your understanding.
 
 ---
 
 ## How It Works
 
-vibe-learn hooks into your AI assistant's event system. As the AI works, lightweight scripts silently observe and log every action — files created, commands run, patterns used. After each response, a summary of what just happened is injected into the AI's context so it can surface it naturally.
+vibe-learn hooks into your AI assistant's event system. As the AI works, lightweight scripts silently observe and log every action — files created, commands run, patterns used. At natural pause points, a summary of what just happened is written to disk and injected into the assistant context where the host supports it.
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
@@ -42,8 +44,8 @@ vibe-learn hooks into your AI assistant's event system. As the AI works, lightwe
 | ---- | ------------- | ------------ |
 | `SessionStart` | When you open a project | Creates `.vibe-learn/`, rotates old logs |
 | `UserPromptSubmit` | When you send a message | Logs your intent |
-| `PostToolUse` | After each Write/Edit/Bash | Appends a JSONL entry (<50ms, sync) |
-| `Stop` | After each Claude response | Writes and injects a pause summary |
+| `PostToolUse` | After each Write/Edit/MultiEdit/Bash/apply_patch | Appends JSONL entries (<50ms, sync) |
+| `Stop` | After each AI response | Writes a pause summary and injects it where supported |
 
 No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 
@@ -57,9 +59,9 @@ No AI, no API calls, no external services. Just a fast, reliable data pipeline.
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-This installs vibe-learn to `~/.vibe-learn/` and **automatically registers the hooks globally** for whichever assistants are installed on your machine (Claude Code, Codex CLI, or both). It also copies slash commands and prompts to each assistant's command directory.
+This installs vibe-learn to `~/.vibe-learn/` and **automatically registers the hooks globally** for whichever assistants are installed on your machine (Claude Code, Codex App/CLI, or both). It copies Claude slash commands, Codex prompt fallbacks, and the global Codex `vibe-learn` skill when Codex is detected.
 
-To target a specific assistant: `bash setup.sh --assistant=codex` or `--assistant=claude-code` or `--assistant=all`.
+To target a specific assistant: `bash setup.sh --assistant=codex` or `--assistant=claude-code`. To explicitly configure every detected assistant, use `--assistant=all`.
 
 **Requires:** `jq` — install with `brew install jq` (macOS) or `apt-get install jq` (Linux).
 
@@ -75,7 +77,46 @@ vibe-learn install
 ~/.vibe-learn/scripts/install.sh
 ```
 
-This auto-detects your assistant (Claude Code → `.claude/settings.local.json`, Codex → `.codex/config.toml`) and adds `.vibe-learn/` to `.gitignore`. Use `--assistant=<name>` to override. Useful when you don't want global hooks, or when different projects need different settings.
+This installs all relevant assistants by default and adds `.vibe-learn/` to `.gitignore`.
+
+Detection order:
+
+- Existing `.claude/` installs Claude Code support.
+- Existing `.codex/` installs Codex support.
+- If both directories exist, both are installed.
+- If neither directory exists, installed tools/configs are detected (`claude` or `~/.claude`, `codex` or `~/.codex`).
+- If no assistant is detected, vibe-learn falls back to Claude Code for backward compatibility.
+
+Use `--assistant=codex` for Codex-only setup, `--assistant=claude-code` for Claude-only setup, or `--assistant=all` to install all detected/relevant assistants. Useful when you don't want global hooks, or when different projects need different settings.
+
+### Codex App setup choices
+
+For Codex App users, global setup is the smoothest path because it installs the `vibe-learn` skill:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
+```
+
+After global setup, use vibe-learn in Codex by typing natural-language requests like:
+
+```text
+Use vibe-learn to learn what happened.
+Use vibe-learn to create a digest of this session.
+Use vibe-learn to answer: why did we add this auth middleware?
+```
+
+Project-only Codex installs are still supported:
+
+```bash
+vibe-learn install --assistant=codex
+```
+
+Project-only installs add hooks and prompt fallbacks under `.codex/`, but they do not install the global Codex skill. In that case, ask Codex:
+
+```text
+Read .codex/prompts/learn.md and follow it.
+Read .codex/prompts/digest.md and follow it.
+```
 
 ### Install via MCS (alternative)
 
@@ -125,6 +166,38 @@ Add to `~/.claude/settings.json` (global) or your project's `.claude/settings.lo
 
 Copy `.claude/commands/learn.md` and `.claude/commands/digest.md` into `~/.claude/commands/` (global) or your project's `.claude/commands/`.
 
+For Codex, global setup installs `~/.codex/skills/vibe-learn/SKILL.md` plus prompt fallbacks at `~/.codex/prompts/learn.md` and `~/.codex/prompts/digest.md`. Project Codex installs keep prompt fallbacks in `.codex/prompts/`.
+
+Manual Codex hook setup goes in `~/.codex/config.toml` (global) or `.codex/config.toml` (project):
+
+```toml
+[features]
+codex_hooks = true
+
+[hooks]
+
+[[hooks.SessionStart]]
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "/path/to/vibe-learn/scripts/bootstrap.sh"
+
+[[hooks.UserPromptSubmit]]
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "/path/to/vibe-learn/scripts/capture-prompt.sh"
+
+[[hooks.PostToolUse]]
+matcher = "^(Bash|apply_patch)$"
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "/path/to/vibe-learn/scripts/observe.sh"
+
+[[hooks.Stop]]
+[[hooks.Stop.hooks]]
+type = "command"
+command = "/path/to/vibe-learn/scripts/pause-summary.sh"
+```
+
 ---
 
 ## Quick Demo (2 minutes)
@@ -155,13 +228,13 @@ cat /tmp/demo-app/.vibe-learn/session-log.jsonl | jq .
 cat /tmp/demo-app/.vibe-learn/pause-summary.txt
 ```
 
-In real use, you don't run any of this manually — Claude Code triggers the hooks automatically. This just shows what's happening behind the scenes.
+In real use, you don't run any of this manually — Claude Code or Codex triggers the hooks automatically. This just shows what's happening behind the scenes.
 
 ---
 
 ## Before vs After
 
-**Without vibe-learn** — Claude writes 12 files, installs 4 packages, refactors a module. You hit "accept" on everything. A week later:
+**Without vibe-learn** — your assistant writes 12 files, installs 4 packages, refactors a module. You hit "accept" on everything. A week later:
 
 ```text
 You: "Wait, why is there a middleware folder?"
@@ -182,18 +255,24 @@ Goal: Build a REST API with JWT authentication
   ✦ Edited src/index.ts
   ✦ Ran: npx tsc --noEmit ✓
 
-Use /learn to understand any of these decisions, or /digest for a full session report.
+Use /learn in Claude Code, or ask Codex to use the vibe-learn skill, to understand any of these decisions. Use /digest in Claude Code, or ask Codex for a vibe-learn digest, for a full session report.
 ```
 
-Then ask `/learn why did Claude use middleware?` or run `/digest` for a full breakdown of what was built, key decisions, patterns used, and topics to study next.
+Then ask `/learn why did we add middleware?` in Claude Code, or ask Codex "Use vibe-learn to explain why middleware was used." Run `/digest` in Claude Code, or ask Codex "Use vibe-learn to create a digest" for a full breakdown of what was built, key decisions, patterns used, and topics to study next.
 
 ---
 
 ## Usage
 
-Once installed, vibe-learn runs silently. You don't need to do anything differently — just use Claude Code as normal.
+Once installed, vibe-learn runs silently. You don't need to do anything differently — just use Claude Code or Codex as normal.
 
-**After each response**, if Claude made changes, a summary appears showing what just happened:
+**After each response**, if the assistant made changes, vibe-learn writes a pause summary. In Claude Code, that summary can appear automatically. In Codex App, ask the skill to explain or digest the session:
+
+```text
+Use vibe-learn to explain what just happened.
+```
+
+Example pause summary:
 
 ```text
 ⏸ vibe-learn — what just happened:
@@ -203,10 +282,12 @@ Goal: add JWT auth middleware
   ✦ Edited src/routes/user.ts
   ✦ Ran: npm install jsonwebtoken
 
-Use /learn to understand any of these decisions, or /digest for a full session report.
+Use /learn in Claude Code, or ask Codex to use the vibe-learn skill, to understand any of these decisions. Use /digest in Claude Code, or ask Codex for a vibe-learn digest, for a full session report.
 ```
 
-**Slash commands** (available mid-session or at end):
+### Claude Code commands
+
+Claude Code supports custom slash commands, so these are available mid-session or at the end:
 
 ### `/learn`
 
@@ -215,7 +296,7 @@ No arguments — explains the most recent actions: what was built, decisions mad
 With a question — answers it grounded in your actual session and code:
 
 ```text
-/learn why did Claude use middleware here?
+/learn why did we add middleware here?
 /learn what does the auth flow do?
 /learn explain the database connection setup
 ```
@@ -225,25 +306,56 @@ With a question — answers it grounded in your actual session and code:
 Generates a full structured learning report for the session:
 
 - **What Was Built** — plain-language summary
-- **Key Decisions** — why Claude made specific choices
+- **Key Decisions** — why the assistant made specific choices
 - **Patterns Used** — techniques and concepts from the code
 - **Things to Study** — a checklist of topics to explore further
 
 Optionally saves to `.vibe-learn/digests/` as a markdown file.
 
+### Codex App usage
+
+Codex App does not support custom `/learn` or `/digest` slash commands. Use the global skill when installed:
+
+```text
+Use vibe-learn to learn what happened.
+Use vibe-learn to answer: why did we add middleware?
+Use vibe-learn to create a digest.
+Use vibe-learn to save this learn note to Obsidian.
+Use vibe-learn to recall past Obsidian notes about authentication.
+```
+
+Common Codex examples:
+
+| What you want | Type this in Codex |
+| ------------- | ------------------ |
+| Recent explanation | `Use vibe-learn to explain what just happened.` |
+| Specific question | `Use vibe-learn to answer: why did we install bcrypt?` |
+| Full report | `Use vibe-learn to create a digest of this session.` |
+| Save learn note | `Use vibe-learn to save this learn note to Obsidian.` |
+| Save digest | `Use vibe-learn to create a digest and save it to Obsidian.` |
+| Recall a topic | `Use vibe-learn to recall past Obsidian notes about authentication.` |
+
+If the global skill is not installed, project installs include prompt-file fallbacks:
+
+```text
+Read .codex/prompts/learn.md and follow it.
+Read .codex/prompts/digest.md and follow it.
+Read .codex/prompts/learn.md and follow it for obsidian:recall authentication.
+```
+
 ### Obsidian integration
 
 Save your learnings to an [Obsidian](https://obsidian.md) vault and recall them across sessions:
 
-| Command | What it does |
-| ------- | ------------ |
-| `/learn obsidian` | Save a learn note to your vault |
-| `/learn obsidian <question>` | Answer a question and save to vault |
-| `/learn obsidian:recall <topic>` | Search vault for past learnings on a topic (read-only) |
-| `/digest obsidian` | Save session digest to your vault |
-| `/digest obsidian:recall` | Digest enriched with connections to past sessions, saved to vault |
+| What it does | Claude Code | Codex App |
+| ------------ | ----------- | --------- |
+| Save a learn note to your vault | `/learn obsidian` | `Use vibe-learn to save this learn note to Obsidian.` |
+| Answer a question and save to vault | `/learn obsidian why did we add middleware?` | `Use vibe-learn to answer why we added middleware and save it to Obsidian.` |
+| Search vault for past learnings on a topic | `/learn obsidian:recall authentication` | `Use vibe-learn to recall past Obsidian notes about authentication.` |
+| Save session digest to your vault | `/digest obsidian` | `Use vibe-learn to create a digest and save it to Obsidian.` |
+| Digest enriched with previous sessions | `/digest obsidian:recall` | `Use vibe-learn to create a digest with Obsidian recall.` |
 
-On first use, Claude asks for your vault path and offers to save the config to `.vibe-learn/obsidian.json`. See the [Obsidian Integration](#obsidian-integration) section below for setup details.
+On first use, Claude or Codex asks for your vault path and offers to save the config to `.vibe-learn/obsidian.json`. See the [Obsidian Integration](#obsidian-integration) section below for setup details.
 
 ---
 
@@ -256,7 +368,7 @@ your-project/
     ├── session-log.prev.jsonl   ← previous session's log (kept as backup)
     ├── session-meta.json        ← session stats and config
     ├── pause-summary.txt        ← last pause summary
-    └── digests/                 ← saved /digest reports (if you choose to save)
+    └── digests/                 ← saved digest reports (if you choose to save)
 ```
 
 **Useful log queries:**
@@ -265,7 +377,7 @@ your-project/
 # Watch events in real-time
 tail -f .vibe-learn/session-log.jsonl
 
-# See all files Claude created
+# See all files the assistant created
 jq 'select(.tool=="Write")' .vibe-learn/session-log.jsonl
 
 # See all bash commands run
@@ -282,7 +394,7 @@ vibe-learn can write your session learnings into an Obsidian vault as tagged, fr
 
 ### Setup
 
-No pre-configuration needed. On your first `/learn obsidian` or `/digest obsidian` command, Claude will ask for your vault path and offer to save the config to `.vibe-learn/obsidian.json`.
+No pre-configuration needed. On your first `/learn obsidian` or `/digest obsidian` command in Claude Code, or the equivalent Codex skill request, the assistant will ask for your vault path and offer to save the config to `.vibe-learn/obsidian.json`.
 
 You can also create the config manually:
 
@@ -301,13 +413,13 @@ Save to `.vibe-learn/obsidian.json` (project-level) or `~/.vibe-learn/obsidian.j
 
 ### Writing notes
 
-`/learn obsidian` and `/digest obsidian` write a formatted markdown note to `<vault_path>/<subfolder>/`. Notes include YAML frontmatter (`date`, `project`, `tags`, `type`) so they work with Obsidian's Dataview plugin and tag filtering.
+`/learn obsidian` and `/digest obsidian` in Claude Code, or equivalent Codex skill requests, write a formatted markdown note to `<vault_path>/<subfolder>/`. Notes include YAML frontmatter (`date`, `project`, `tags`, `type`) so they work with Obsidian's Dataview plugin and tag filtering.
 
 ### Recalling past learnings
 
-`/learn obsidian:recall <topic>` searches your vault for notes matching the topic and synthesizes a cross-session summary — which sessions touched it, key decisions, recurring patterns, and unchecked study items. Nothing is written.
+`/learn obsidian:recall <topic>` in Claude Code, or "Use vibe-learn to recall past Obsidian notes about <topic>" in Codex, searches your vault for notes matching the topic and synthesizes a cross-session summary — which sessions touched it, key decisions, recurring patterns, and unchecked study items. Nothing is written.
 
-`/digest obsidian:recall` goes further: it reads previous session notes for the **same project**, generates the full session digest, and enriches it with a **"Connections to Previous Work"** section showing how the current session builds on past work.
+`/digest obsidian:recall` in Claude Code, or "Use vibe-learn to create a digest with Obsidian recall" in Codex, goes further: it reads previous session notes for the **same project**, generates the full session digest, and enriches it with a **"Connections to Previous Work"** section showing how the current session builds on past work.
 
 ---
 
@@ -335,7 +447,7 @@ Current behavior (important): hook scripts currently implement default behavior 
 | `capture_prompts` | `true` | `not yet enforced` | `capture-prompt.sh` currently logs prompts unconditionally. |
 | `pause_summary_max_lines` | `20` | `not yet enforced` | `pause-summary.sh` currently does not cap lines via config. |
 | `max_log_size_mb` | `10` | `not yet enforced` | No size-based rotation logic is currently applied. |
-| `digest_min_events` | `3` | `not yet enforced` | `/digest` prompt file currently does not gate on event count. |
+| `digest_min_events` | `3` | `not yet enforced` | Digest prompt files currently do not gate on event count. |
 
 ---
 
@@ -354,7 +466,7 @@ apt-get install bats            # Linux
 bats tests/
 ```
 
-80 tests covering all four hook scripts, the Claude Code installer, the Codex installer, and the global setup.
+100 tests covering all four hook scripts, the Claude Code installer, the Codex installer, assistant-aware project install defaults, and the global setup.
 
 ### Manual smoke test
 
@@ -388,15 +500,27 @@ rm -rf /tmp/test-vl
 
 - **Bash** — POSIX-compatible
 - **jq** — JSON processing (`brew install jq` / `apt-get install jq`)
-- **Claude Code** or **Codex CLI** — with hooks support
+- **Claude Code** or **Codex App/CLI** — with hooks support
 
 ---
 
 ## Roadmap
 
-- **v0.5.0:** Obsidian integration — write session notes and digests to your vault, recall past learnings with `obsidian:recall`
-- **v0.5.5:** Multi-assistant support — Codex CLI adapter, auto-detection at install time, generic adapter system for future assistants
-- **Future:** Session-to-session wikilinks, MOC (Map of Content) generation, Dataview query templates, daily notes integration, auto-export
+Recent releases:
+
+- **v0.5.0: Obsidian integration** — save learn notes and session digests to your vault, then recall past learnings with `obsidian:recall`.
+- **v0.5.5: Multi-assistant support** — Claude Code and Codex App/CLI support, assistant auto-detection at install time, and a generic adapter layout for future assistants.
+
+Future ideas:
+
+- **Better Codex experience** — keep improving the Codex skill and prompt fallback flow so `Use vibe-learn...` feels natural in Codex App.
+- **Session-to-session links** — when saving a new Obsidian note, automatically link it to related previous notes so learning compounds over time.
+- **Topic index notes** — generate optional index pages for recurring topics like authentication, testing, React, or database migrations. These would act as learning hubs inside Obsidian.
+- **Obsidian Dataview examples** — provide copy-paste Dataview snippets for browsing vibe-learn notes by project, topic, date, or unchecked study items.
+- **Daily notes integration** — optionally append a short session summary to your Obsidian daily note, so coding learnings show up in your daily journal.
+- **Auto-save options** — let users choose whether digests should be saved automatically at the end of a session instead of only on request.
+
+These are directions, not promises. The core mission stays the same: make AI-assisted work easier to understand, remember, and build on.
 
 ---
 
@@ -406,7 +530,7 @@ Contributions welcome. Best contributions right now:
 
 - Bug reports and edge cases in the hook scripts
 - Testing on different OS/shell environments
-- Ideas for improving the pause summary or slash command prompts
+- Ideas for improving the pause summary, slash commands, Codex skill, or prompt fallbacks
 
 Please open an issue before submitting a pull request for anything significant.
 

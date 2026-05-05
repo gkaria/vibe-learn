@@ -87,17 +87,70 @@ load test_helper
   rm -rf "$FAKE_HOME_INSTALL"
 }
 
-@test "install defaults to claude-code when no .claude or .codex dir exists" {
-  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+@test "install with no assistant config installs all detected tools" {
+  local fake_home
+  local fake_bin
+  fake_home="$(mktemp -d)"
+  fake_bin="$(mktemp -d)"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/claude"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/codex"
+  chmod +x "$fake_bin/claude" "$fake_bin/codex"
+
+  PATH="$fake_bin:$PATH" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
   [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
   jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
-}
-
-@test "install auto-detects codex when .codex dir exists in target" {
-  mkdir -p "$TEST_PROJECT_DIR/.codex"
-  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
   [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
+
+  rm -rf "$fake_home" "$fake_bin"
+}
+
+@test "install with .codex only installs Codex" {
+  mkdir -p "$TEST_PROJECT_DIR/.codex"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+  grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+}
+
+@test "install with .claude only installs Claude" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  [ ! -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+}
+
+@test "install with .claude and .codex installs both" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude" "$TEST_PROJECT_DIR/.codex"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+  grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "install --assistant=all installs all detected tools" {
+  local fake_home
+  local fake_bin
+  fake_home="$(mktemp -d)"
+  fake_bin="$(mktemp -d)"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/claude"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/codex"
+  chmod +x "$fake_bin/claude" "$fake_bin/codex"
+
+  PATH="$fake_bin:$PATH" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=all
+
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+  grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
+
+  rm -rf "$fake_home" "$fake_bin"
 }
 
 @test "install --assistant=codex creates .codex/config.toml and copies prompts" {
@@ -106,4 +159,10 @@ load test_helper
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
   [ -f "$TEST_PROJECT_DIR/.codex/prompts/learn.md" ]
   [ -f "$TEST_PROJECT_DIR/.codex/prompts/digest.md" ]
+}
+
+@test "install unknown assistant errors" {
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=not-real
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "Unknown assistant 'not-real'"
 }

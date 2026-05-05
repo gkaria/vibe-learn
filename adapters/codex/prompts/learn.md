@@ -4,7 +4,7 @@ description: Summarize recent session activity or answer a specific question abo
 
 Read .vibe-learn/session-log.jsonl to understand what has happened in this session.
 
-To pass a question or topic, type it as a follow-up message after invoking `/prompts:learn`.
+Codex does not support custom `/learn` slash commands. To use this project prompt fallback, ask Codex to read `.codex/prompts/learn.md` and follow it. Include any question, `obsidian`, or `obsidian:recall <topic>` mode in the same message or as a follow-up.
 
 ---
 

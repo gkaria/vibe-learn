@@ -4,7 +4,7 @@ description: Generate a structured learning report from the current session — 
 
 Read .vibe-learn/session-log.jsonl (the full log). Read any relevant source files to understand what was built.
 
-To specify a mode (obsidian, obsidian:recall), type it as a follow-up message after invoking `/prompts:digest`.
+Codex does not support custom `/digest` slash commands. To use this project prompt fallback, ask Codex to read `.codex/prompts/digest.md` and follow it. Include `obsidian` or `obsidian:recall` in the same message or as a follow-up when you want that mode.
 
 ---
 
