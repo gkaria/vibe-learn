@@ -5,16 +5,10 @@
 
 ### Features
 
-* add Claude Code and Codex App/CLI adapter layout with assistant-specific hooks and prompts ([59f4ad4](https://github.com/gkaria/vibe-learn/commit/59f4ad4ea8ae6e83c671c8037973a3a4a61fbecd))
-* add Codex-aware install defaults that configure all relevant detected assistants ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
+* add multi-assistant support for Claude Code and Codex App/CLI, with assistant-specific adapters, hooks, prompts, and install scripts ([59f4ad4](https://github.com/gkaria/vibe-learn/commit/59f4ad4ea8ae6e83c671c8037973a3a4a61fbecd))
+* add Codex-aware install defaults that configure all relevant detected assistants, including existing Codex installs ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
 * install a global Codex `vibe-learn` skill with project prompt fallbacks ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
-
-
-### Bug Fixes
-
-* capture Codex `apply_patch` file edits in the session log ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
-* re-enable disabled Codex hooks during install when `codex_hooks = false` already exists ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
-* bump installable setup version so existing installs can pick up Codex support ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
+* expand Codex session logging to include `apply_patch` file edits for complete learning and digest context ([5377060](https://github.com/gkaria/vibe-learn/commit/53770607433196a25a5c9df35380ff1c13a83895))
 
 
 ### Documentation
