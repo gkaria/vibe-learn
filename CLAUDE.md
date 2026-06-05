@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Product principle: users can outsource thinking to an assistant, but they cannot outsource understanding. The project should make AI-assisted work easier to learn from, not just easier to accept.
 
-It supports **Claude Code** and **Codex App/CLI**, with a generic adapter system for adding new assistants.
+It supports **Claude Code**, **Codex App/CLI**, and **OpenCode**, with a generic adapter system for adding new assistants.
 
 It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands/prompts (`/learn`, `/digest`, and the Codex `vibe-learn` skill) leverage the AI's own context window to generate explanations and reports.
 
@@ -22,8 +22,10 @@ scripts/          ← assistant-agnostic core (unchanged regardless of which ass
   capture-prompt.sh ← UserPromptSubmit hook
   observe.sh      ← PostToolUse hook (<50ms, append-only)
   pause-summary.sh ← Stop hook
-  setup.sh        ← global installer (dispatcher)
-  install.sh      ← per-project installer (dispatcher)
+  setup.sh        ← global installer
+  install.sh      ← per-project installer
+  cli.sh          ← command dispatcher for install/dashboard
+  dashboard.sh    ← static session briefing generator
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -35,13 +37,17 @@ adapters/
     prompts/      ← learn and digest prompt-file fallbacks
     skills/       ← global Codex vibe-learn skill
     install.sh    ← hook registration into ~/.codex/config.toml
+  opencode/       ← OpenCode adapter
+    plugins/      ← local plugin for event capture
+    commands/     ← /learn and /digest markdown commands
+    install.sh    ← plugin/command install into .opencode or ~/.config/opencode
 ```
 
 **Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. The core scripts require no changes.
 
 ### Stop Hook / additionalContext
 
-`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex, if this format is not supported, the pause summary is still written to `.vibe-learn/pause-summary.txt` on disk. `bootstrap.sh` reads this file at the next SessionStart and injects it as `additionalContext` — so cross-session summary continuity works for all assistants.
+`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex Stop hooks, it returns Codex-compatible JSON (`{"continue": true}`) and writes the summary to `.vibe-learn/pause-summary.txt`. `bootstrap.sh` reads this file at the next SessionStart and injects it as `additionalContext` — so cross-session summary continuity works for all assistants.
 
 ## How It Works
 
@@ -57,7 +63,11 @@ The plugin registers four lifecycle hooks:
 Hook registration format differs per assistant:
 
 - **Claude Code**: JSON in `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project)
-- **Codex App/CLI**: TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project)
+- **Codex App/CLI**: inline TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project). Codex also supports `hooks.json`, but vibe-learn keeps inline TOML as its install format so the canonical `[features] hooks = true` flag and hook registrations live together. Hooks are enabled by default in current Codex; the flag keeps installs working if hooks were disabled. The older `codex_hooks` feature key is deprecated.
+
+Codex merges matching hooks from multiple hook sources instead of replacing lower-precedence hooks. Project-local `.codex/` hook layers require the project to be trusted before they run.
+
+Codex PostToolUse currently covers Bash, `apply_patch`, and MCP tool calls upstream. vibe-learn registers Bash plus `apply_patch` and Codex's documented `Edit`/`Write` matcher aliases, but `observe.sh` intentionally logs only Bash and file edits. Arbitrary MCP tool logging and the Codex `PermissionRequest` hook are out of scope for the current observational adapter.
 
 All scripts write to `.vibe-learn/` in the target project (never in this repo itself).
 
@@ -121,9 +131,9 @@ Key Obsidian options (`config/obsidian-defaults.json`):
 
 ## Installation
 
-**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex), and registers hooks globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Accepts `--assistant=claude-code`, `--assistant=codex`, or `--assistant=all` to override detection.
+**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex, OpenCode), and registers hooks/plugins globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=all` to override detection.
 
-**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/` and `.codex/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `codex` or `~/.codex`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, or `--assistant=all` to override.
+**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/`, `.codex/`, and `.opencode/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `codex` or `~/.codex`, `opencode` or `~/.config/opencode`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=all` to override.
 
 Each adapter's `install.sh` handles:
 
@@ -132,6 +142,20 @@ Each adapter's `install.sh` handles:
 - Adding `.vibe-learn/` to `.gitignore` (project-level only)
 
 The `adapters/claude-code/hooks.json` uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder (documentation only) — actual hook registration always uses absolute paths.
+
+The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
+
+The `adapters/opencode/` adapter installs `.opencode/plugins/vibe-learn.js` plus `.opencode/commands/learn.md` and `.opencode/commands/digest.md` for project installs, or the equivalent paths under `~/.config/opencode/` for global installs. The plugin bridges straightforward OpenCode tool events into the existing core scripts.
+
+## Session Briefing
+
+`scripts/briefing.sh` generates an on-demand static HTML session briefing from `.vibe-learn/session-log.jsonl`, `session-meta.json`, `pause-summary.txt`, and optional `git diff` context. It writes under `.vibe-learn/briefing/`:
+
+- `index.html` — dashboard index for recent generated sessions
+- `sessions/<date>-<project>-<session>.html` — interactive session briefing
+- `exports/<date>-<project>-<session>-notebooklm-pack.md` — source pack for NotebookLM/audio overview workflows
+
+Do not call dashboard generation from hooks. It is intentionally on-demand via `vibe-learn briefing` so hooks remain fast.
 
 ## Releasing
 
@@ -154,7 +178,7 @@ Claude Code supports custom slash commands defined as markdown instruction files
 - `/learn [question]` — summarizes recent session activity, or answers a specific question grounded in the session log
 - `/digest` — generates a structured learning report (What Was Built, Key Decisions, Patterns Used, Things to Study)
 
-Codex does not support custom `/learn` or `/digest` slash commands. Use the global `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks.
+Use the global Codex `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; current Codex can expose those as `/prompts:learn` and `/prompts:digest`, but the skill remains the primary durable interface.
 
 Codex examples to keep docs and prompts aligned:
 

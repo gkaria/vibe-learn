@@ -57,3 +57,24 @@ load test_helper
   line_count=$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
   [ "$line_count" -eq 2 ]
 }
+
+@test "capture-prompt increments turn counter in session-meta.json" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" <<'JSON'
+{"session_id":"t","started_at":"2026-01-01T00:00:00Z","event_count":0,"current_turn":0}
+JSON
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"First prompt"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  [ "$(jq '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = "1" ]
+
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"Second prompt"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  [ "$(jq '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = "2" ]
+}
+
+@test "capture-prompt includes turn number in session log entry" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" <<'JSON'
+{"session_id":"t","started_at":"2026-01-01T00:00:00Z","event_count":0,"current_turn":4}
+JSON
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"Test prompt"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  [ "$(jq '.turn' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "5" ]
+}

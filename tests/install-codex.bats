@@ -46,10 +46,11 @@ run_codex_global_install() {
   grep -q '^\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install writes [features] codex_hooks = true" {
+@test "codex install writes [features] hooks = true" {
   run_codex_install
   grep -q '^\[features\]' "$TEST_PROJECT_DIR/.codex/config.toml"
-  grep -q 'codex_hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  ! grep -q 'codex_hooks' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
 @test "codex install uses nested [[hooks.Event.hooks]] structure with type = command" {
@@ -58,9 +59,33 @@ run_codex_global_install() {
   grep -q 'type = "command"' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install matches Bash and apply_patch PostToolUse events" {
+@test "codex install matches Bash apply_patch and documented file edit aliases" {
   run_codex_install
-  grep -q 'matcher = "\^(Bash|apply_patch)\$"' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'matcher = "\^(Bash|apply_patch|Edit|Write)\$"' "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "codex install writes explicit hook timeouts" {
+  run_codex_install
+  grep -q 'timeout = 5' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'timeout = 2' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'timeout = 10' "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "codex install writes timeout on command handlers" {
+  run_codex_install
+  awk '
+    /^\[\[hooks\.PostToolUse\.hooks\]\]/ { in_handler = 1 }
+    in_handler && /^timeout = 2$/ { found = 1 }
+    in_handler && /^statusMessage = "Recording vibe-learn tool activity"$/ { found_status = 1 }
+    /^\[\[hooks\.Stop\]\]/ { in_handler = 0 }
+    END { exit !(found && found_status) }
+  ' "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "codex install writes hook status messages" {
+  run_codex_install
+  grep -q 'statusMessage = "Preparing vibe-learn session context"' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'statusMessage = "Recording vibe-learn tool activity"' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
 @test "codex install writes SessionStart hook pointing to bootstrap.sh" {
@@ -81,6 +106,19 @@ run_codex_global_install() {
 @test "codex install hook paths point to VIBE_LEARN_DIR scripts" {
   run_codex_install
   grep -q "$VIBE_LEARN_DIR/scripts/bootstrap.sh" "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "codex install renders paths containing sed replacement characters" {
+  local special_dir="$TEST_PROJECT_DIR/vibe & learn|root"
+  local target_dir="$TEST_PROJECT_DIR/project"
+
+  mkdir -p "$special_dir/adapters" "$special_dir/scripts" "$target_dir"
+  cp -R "$ADAPTERS_DIR/codex" "$special_dir/adapters/codex"
+  cp "$SCRIPTS_DIR/bootstrap.sh" "$special_dir/scripts/bootstrap.sh"
+
+  bash "$ADAPTERS_DIR/codex/install.sh" "$special_dir" "$target_dir"
+
+  grep -Fq "$special_dir/scripts/bootstrap.sh" "$target_dir/.codex/config.toml"
 }
 
 @test "codex install appends hooks to existing config.toml without hooks section" {
@@ -105,43 +143,54 @@ run_codex_global_install() {
   grep -q "other-tool.sh" "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install adds [features] codex_hooks = true when [features] section is absent" {
+@test "codex install adds [features] hooks = true when [features] section is absent" {
   mkdir -p "$TEST_PROJECT_DIR/.codex"
   echo '[model]' > "$TEST_PROJECT_DIR/.codex/config.toml"
 
   run_codex_install
 
-  grep -q 'codex_hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  ! grep -q 'codex_hooks' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install adds codex_hooks under existing [features] section" {
+@test "codex install adds hooks under existing [features] section" {
   mkdir -p "$TEST_PROJECT_DIR/.codex"
   printf '[features]\nsome_other_flag = true\n' > "$TEST_PROJECT_DIR/.codex/config.toml"
 
   run_codex_install
 
-  grep -q 'codex_hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
   grep -q 'some_other_flag = true' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install changes existing codex_hooks false to true" {
+@test "codex install changes existing hooks false to true" {
+  mkdir -p "$TEST_PROJECT_DIR/.codex"
+  printf '[features]\nhooks = false\n' > "$TEST_PROJECT_DIR/.codex/config.toml"
+
+  run_codex_install
+
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  ! grep -q 'hooks = false' "$TEST_PROJECT_DIR/.codex/config.toml"
+}
+
+@test "codex install migrates deprecated codex_hooks false to hooks true" {
   mkdir -p "$TEST_PROJECT_DIR/.codex"
   printf '[features]\ncodex_hooks = false\n' > "$TEST_PROJECT_DIR/.codex/config.toml"
 
   run_codex_install
 
-  grep -q 'codex_hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
-  ! grep -q 'codex_hooks = false' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  ! grep -q 'codex_hooks' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
-@test "codex install re-enables codex_hooks when vibe-learn hooks already exist" {
+@test "codex install re-enables hooks when vibe-learn hooks already exist" {
   run_codex_install
-  perl -0pi -e 's/codex_hooks = true/codex_hooks = false/' "$TEST_PROJECT_DIR/.codex/config.toml"
+  perl -0pi -e 's/hooks = true/hooks = false/' "$TEST_PROJECT_DIR/.codex/config.toml"
 
   run_codex_install
 
-  grep -q 'codex_hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
-  ! grep -q 'codex_hooks = false' "$TEST_PROJECT_DIR/.codex/config.toml"
+  grep -q 'hooks = true' "$TEST_PROJECT_DIR/.codex/config.toml"
+  ! grep -q 'hooks = false' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
 @test "codex install is idempotent — running twice does not duplicate hooks" {

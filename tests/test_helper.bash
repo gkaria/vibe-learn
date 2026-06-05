@@ -11,8 +11,9 @@ setup() {
 }
 
 teardown() {
-  # Clean up temp directory
-  rm -rf "$TEST_PROJECT_DIR"
+  # Clean up temp directory. Use || true so background processes that are still
+  # writing to the directory (e.g. auto-generated dashboards) don't fail the test.
+  rm -rf "$TEST_PROJECT_DIR" || true
 }
 
 # Helper: build a hook input JSON with cwd set to the test project
