@@ -4,6 +4,8 @@
 # focused on decisions and changes — not just counts.
 # Injects into Claude's context so it surfaces naturally in the next response.
 
+VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 HOOK_EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
@@ -83,10 +85,14 @@ fi
 
 SUMMARY+="
 
-Use /learn to understand any of these decisions, or /digest for a full session report."
+ /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
+
+# Auto-generate dashboard in background — keeps the learning layer passive.
+# Stdout is suppressed so hooks never see noise from dashboard generation.
+bash "$VIBE_LEARN_DIR/scripts/briefing.sh" "$CWD" >/dev/null 2>&1 &
 
 # Output JSON for Claude's context injection (Stop hook additionalContext)
 if [ "$HOOK_EVENT_NAME" = "Stop" ]; then

@@ -166,3 +166,20 @@ load test_helper
   cmd_len=$(jq -r '.command | length' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
   [ "$cmd_len" -le 200 ]
 }
+
+@test "observe includes turn field from session-meta current_turn" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" <<'JSON'
+{"session_id":"t","started_at":"2026-01-01T00:00:00Z","event_count":0,"current_turn":3}
+JSON
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","tool_name":"Write","tool_input":{"file_path":"foo.ts"},"tool_response":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+  [ "$(jq '.turn' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "3" ]
+}
+
+@test "observe defaults turn to 1 when session-meta has no current_turn" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","tool_name":"Write","tool_input":{"file_path":"bar.ts"},"tool_response":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+  [ "$(jq '.turn' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "1" ]
+}

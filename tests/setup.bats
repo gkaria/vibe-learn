@@ -84,3 +84,13 @@ teardown() {
   [ -f "$FAKE_HOME/.codex/prompts/learn.md" ]
   [ -f "$FAKE_HOME/.codex/prompts/digest.md" ]
 }
+
+@test "setup installs OpenCode commands and plugin when OpenCode is selected" {
+  bash "$SCRIPTS_DIR/setup.sh" --local --assistant=opencode
+
+  [ -f "$FAKE_HOME/.config/opencode/commands/learn.md" ]
+  [ -f "$FAKE_HOME/.config/opencode/commands/digest.md" ]
+  [ -f "$FAKE_HOME/.config/opencode/plugins/vibe-learn.js" ]
+  grep -q "const VIBE_LEARN_DIR = \"$FAKE_INSTALL_DIR\"" "$FAKE_HOME/.config/opencode/plugins/vibe-learn.js"
+  grep -q 'runScript("observe.sh"' "$FAKE_HOME/.config/opencode/plugins/vibe-learn.js"
+}

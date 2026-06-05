@@ -6,15 +6,17 @@
 #   adapters/codex/install.sh --global <VIBE_LEARN_DIR>
 #   adapters/codex/install.sh <VIBE_LEARN_DIR> <TARGET_DIR>
 #
-# Codex requires [features] codex_hooks = true to activate any hooks.
-# This script writes that flag and the vibe-learn hook entries.
+# Codex hooks are enabled by default. This script writes the canonical
+# [features] hooks = true flag in case hooks were disabled, plus vibe-learn
+# hook entries.
 #
 # Idempotency: keyed on the "# vibe-learn" marker in config.toml.
 # Safe to run alongside existing unrelated Codex hooks — does NOT skip
 # if other hooks are already present, only skips if vibe-learn is already there.
 #
 # NOTE: Codex reports shell commands as Bash and file edits through apply_patch.
-# observe.sh normalizes both into vibe-learn's session-log schema.
+# Edit and Write are documented matcher aliases; hook input still reports
+# tool_name = "apply_patch", which observe.sh normalizes into session-log entries.
 
 set -euo pipefail
 
@@ -40,6 +42,7 @@ fi
 HOOKS_TEMPLATE="$VIBE_LEARN_DIR/adapters/codex/hooks.toml"
 PROMPTS_SOURCE="$VIBE_LEARN_DIR/adapters/codex/prompts"
 SKILL_SOURCE="$VIBE_LEARN_DIR/adapters/codex/skills/vibe-learn/SKILL.md"
+ESCAPED_VIBE_LEARN_DIR="$(printf '%s' "$VIBE_LEARN_DIR" | sed 's/[&|\\]/\\&/g')"
 
 if [ "$MODE" = "global" ]; then
   CODEX_DIR="$HOME/.codex"
@@ -71,36 +74,57 @@ if [ "$MODE" = "global" ]; then
 fi
 
 # Render hooks block (replace INSTALL_DIR_PLACEHOLDER with actual path)
-RENDERED_HOOKS=$(sed "s|INSTALL_DIR_PLACEHOLDER|$VIBE_LEARN_DIR|g" "$HOOKS_TEMPLATE")
+RENDERED_HOOKS=$(sed "s|INSTALL_DIR_PLACEHOLDER|$ESCAPED_VIBE_LEARN_DIR|g" "$HOOKS_TEMPLATE")
 
 # Idempotency marker — keyed on our specific hook path, not on [hooks] existence.
 # This lets us append safely alongside existing unrelated Codex hooks.
 IDEMPOTENCY_MARKER="$VIBE_LEARN_DIR/scripts/bootstrap.sh"
 
-ensure_codex_hooks_enabled() {
-  # Ensure the [features] codex_hooks flag is true — required to activate any hooks.
+ensure_hooks_enabled() {
+  # Ensure the canonical [features] hooks flag is true. codex_hooks is deprecated.
   if ! grep -q '^\[features\]' "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
-    printf '[features]\ncodex_hooks = true\n' >> "$CONFIG_FILE"
-  elif grep -q '^[[:space:]]*codex_hooks[[:space:]]*=' "$CONFIG_FILE"; then
+    printf '[features]\nhooks = true\n' >> "$CONFIG_FILE"
+  elif grep -q '^[[:space:]]*\(hooks\|codex_hooks\)[[:space:]]*=' "$CONFIG_FILE"; then
     TMP=$(mktemp)
-    sed 's/^[[:space:]]*codex_hooks[[:space:]]*=.*/codex_hooks = true/' "$CONFIG_FILE" > "$TMP" && mv "$TMP" "$CONFIG_FILE"
+    awk '
+      /^\[features\]/ { in_features = 1; wrote_hooks = 0; print; next }
+      /^\[/ {
+        if (in_features && !wrote_hooks) {
+          print "hooks = true"
+        }
+        in_features = 0
+      }
+      in_features && /^[[:space:]]*(hooks|codex_hooks)[[:space:]]*=/ {
+        if (!wrote_hooks) {
+          print "hooks = true"
+          wrote_hooks = 1
+        }
+        next
+      }
+      { print }
+      END {
+        if (in_features && !wrote_hooks) {
+          print "hooks = true"
+        }
+      }
+    ' "$CONFIG_FILE" > "$TMP" && mv "$TMP" "$CONFIG_FILE"
   else
-    # [features] section exists but codex_hooks not set — insert after the header
+    # [features] section exists but hooks not set — insert after the header.
     TMP=$(mktemp)
-    awk '/^\[features\]/{print; print "codex_hooks = true"; next}1' "$CONFIG_FILE" > "$TMP" && mv "$TMP" "$CONFIG_FILE"
+    awk '/^\[features\]/{print; print "hooks = true"; next}1' "$CONFIG_FILE" > "$TMP" && mv "$TMP" "$CONFIG_FILE"
   fi
 }
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "$RENDERED_HOOKS" > "$CONFIG_FILE"
   if [ "$MODE" = "global" ]; then
-    echo "✓ Created ~/.codex/config.toml with hooks and codex_hooks feature flag"
+    echo "✓ Created ~/.codex/config.toml with hooks"
   else
-    echo "✓ Created .codex/config.toml with hooks and codex_hooks feature flag"
+    echo "✓ Created .codex/config.toml with hooks"
   fi
 else
-  ensure_codex_hooks_enabled
+  ensure_hooks_enabled
 
   if grep -qF "$IDEMPOTENCY_MARKER" "$CONFIG_FILE"; then
     if [ "$MODE" = "global" ]; then

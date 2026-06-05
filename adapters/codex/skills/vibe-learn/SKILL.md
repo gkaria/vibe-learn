@@ -58,4 +58,6 @@ When the user asks for `obsidian:recall`, "recall past learnings", or similar:
 
 ## Codex UX Notes
 
-Codex does not support custom `/learn` or `/digest` slash commands. Treat natural-language requests like "Use vibe-learn to learn what happened" and "Use vibe-learn to create a digest" as the primary interface. Project installs may also include `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks.
+Treat natural-language requests like "Use vibe-learn to learn what happened" and "Use vibe-learn to create a digest" as the primary Codex interface. Project installs may also include `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; in current Codex these can also be invoked as custom prompt slash commands under the `/prompts:*` namespace, but skills are the durable interface.
+
+When the user wants a richer operational view, suggest running `vibe-learn briefing` in the project to generate a local HTML maintainer briefing and NotebookLM-ready audio source pack.

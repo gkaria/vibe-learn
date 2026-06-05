@@ -11,6 +11,7 @@
 # Assistant selection:
 #   --assistant=claude-code   Configure Claude Code only
 #   --assistant=codex         Configure Codex CLI only
+#   --assistant=opencode      Configure OpenCode only
 #   --assistant=all           Configure all detected assistants
 #   (default: auto-detect based on installed binaries / config dirs)
 
@@ -84,6 +85,10 @@ FILES=(
   "scripts/capture-prompt.sh"
   "scripts/observe.sh"
   "scripts/pause-summary.sh"
+  "scripts/audio-prep.sh"
+  "scripts/briefing.sh"
+  "scripts/dashboard.sh"
+  "scripts/cli.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
   "config/defaults.json"
@@ -97,6 +102,10 @@ FILES=(
   "adapters/codex/prompts/digest.md"
   "adapters/codex/skills/vibe-learn/SKILL.md"
   "adapters/codex/install.sh"
+  "adapters/opencode/commands/learn.md"
+  "adapters/opencode/commands/digest.md"
+  "adapters/opencode/plugins/vibe-learn.js"
+  "adapters/opencode/install.sh"
 )
 
 # --- Download or copy files ---
@@ -118,16 +127,13 @@ echo "$VIBE_LEARN_VERSION" > "$INSTALL_DIR/VERSION"
 chmod +x "$INSTALL_DIR/scripts/"*.sh
 chmod +x "$INSTALL_DIR/adapters/claude-code/install.sh"
 chmod +x "$INSTALL_DIR/adapters/codex/install.sh"
+chmod +x "$INSTALL_DIR/adapters/opencode/install.sh"
 
 # --- Install CLI shim ---
 mkdir -p "$SHIM_DIR"
 cat > "$SHIM_PATH" <<'EOF'
 #!/bin/bash
-# Strip the "install" subcommand if present, pass remaining args
-if [ "${1:-}" = "install" ]; then
-  shift
-fi
-exec "$HOME/.vibe-learn/scripts/install.sh" "$@"
+exec "$HOME/.vibe-learn/scripts/cli.sh" "$@"
 EOF
 chmod +x "$SHIM_PATH"
 
@@ -142,6 +148,9 @@ detect_assistants() {
   fi
   if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
     detected+=("codex")
+  fi
+  if command -v opencode &>/dev/null || [ -d "$HOME/.config/opencode" ]; then
+    detected+=("opencode")
   fi
   if [ ${#detected[@]} -eq 0 ]; then
     detected+=("claude-code")
@@ -179,11 +188,11 @@ if [ -n "$ASSISTANT_FLAG" ]; then
     all)
       read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
       ;;
-    claude-code|codex)
+    claude-code|codex|opencode)
       ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, all" >&2
       exit 1
       ;;
   esac
@@ -216,9 +225,16 @@ fi
 if assistant_list_contains "codex" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo ""
   echo "Codex:"
-  echo "  Codex does not support custom /learn slash commands."
   echo "  Use the global skill: \"Use vibe-learn to learn what happened.\""
-  echo "  Prompt fallbacks are installed in ~/.codex/prompts/."
+  echo "  Prompt fallbacks are installed in ~/.codex/prompts/ and may be available as /prompts:learn and /prompts:digest."
+fi
+
+if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "OpenCode:"
+  echo "  /learn                      — explain what just happened, or ask a specific question"
+  echo "  /digest                     — full session learning report"
+  echo "  vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi
 
 # --- PATH advisory ---

@@ -4,7 +4,7 @@ description: Summarize recent session activity or answer a specific question abo
 
 Read .vibe-learn/session-log.jsonl to understand what has happened in this session.
 
-Codex does not support custom `/learn` slash commands. To use this project prompt fallback, ask Codex to read `.codex/prompts/learn.md` and follow it. Include any question, `obsidian`, or `obsidian:recall <topic>` mode in the same message or as a follow-up.
+This project prompt fallback can be used by asking Codex to read `.codex/prompts/learn.md` and follow it, or through `/prompts:learn` when custom prompts are available. Include any question, `obsidian`, or `obsidian:recall <topic>` mode in the same message or as a follow-up.
 
 ---
 

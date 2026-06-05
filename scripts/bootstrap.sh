@@ -38,6 +38,7 @@ cat > "$META_FILE" <<EOF
   "session_id": "${SESSION_ID:-unknown}",
   "started_at": "$STARTED_AT",
   "event_count": 0,
+  "current_turn": 0,
   "config": {
     "log_dir": ".vibe-learn"
   }

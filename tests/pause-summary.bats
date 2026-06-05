@@ -108,6 +108,18 @@ JSONL
   [ -z "$output" ]
 }
 
+@test "pause-summary auto-generates dashboard in background" {
+  seed_session_log
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  # Allow the background job to finish (dashboard.sh is fast but runs async)
+  local deadline=$(($(date +%s) + 5))
+  while [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" ]; do
+    [ "$(date +%s)" -lt "$deadline" ] || break
+    sleep 0.2
+  done
+  [ -f "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" ]
+}
+
 @test "pause-summary only shows events after last prompt" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'JSONL'

@@ -3,7 +3,7 @@
 # Run from the root of the project you want to install vibe-learn into:
 #   bash /path/to/vibe-learn/scripts/install.sh [target-dir] [--assistant=<name>]
 #
-# Supported assistants: claude-code, codex, all
+# Supported assistants: claude-code, codex, opencode, all
 # Default: install all relevant assistants detected for the project or machine,
 #          falling back to claude-code if no assistant can be detected.
 
@@ -45,6 +45,9 @@ detect_assistants() {
   if [ -d "$TARGET_DIR/.codex" ]; then
     detected+=("codex")
   fi
+  if [ -d "$TARGET_DIR/.opencode" ]; then
+    detected+=("opencode")
+  fi
 
   if [ ${#detected[@]} -eq 0 ]; then
     if command -v claude &>/dev/null || [ -d "$HOME/.claude" ]; then
@@ -52,6 +55,9 @@ detect_assistants() {
     fi
     if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
       detected+=("codex")
+    fi
+    if command -v opencode &>/dev/null || [ -d "$HOME/.config/opencode" ]; then
+      detected+=("opencode")
     fi
   fi
 
@@ -91,11 +97,11 @@ if [ -z "$ASSISTANT" ] || [ "$ASSISTANT" = "all" ]; then
   read -ra ASSISTANTS_TO_INSTALL <<< "$(detect_assistants)"
 else
   case "$ASSISTANT" in
-    claude-code|codex)
+    claude-code|codex|opencode)
       ASSISTANTS_TO_INSTALL=("$ASSISTANT")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT'. Supported: claude-code, codex, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT'. Supported: claude-code, codex, opencode, all" >&2
       exit 1
       ;;
   esac
@@ -132,9 +138,16 @@ fi
 if assistant_list_contains "codex" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo ""
   echo "Codex:"
-  echo "   Codex does not support custom /learn slash commands."
   echo "   Use the global skill when installed: \"Use vibe-learn to learn what happened.\""
-  echo "   Prompt fallback: \"Read .codex/prompts/learn.md and follow it.\""
-  echo "   Digest fallback: \"Read .codex/prompts/digest.md and follow it.\""
+  echo "   Prompt fallback: \"Read .codex/prompts/learn.md and follow it.\" or /prompts:learn"
+  echo "   Digest fallback: \"Read .codex/prompts/digest.md and follow it.\" or /prompts:digest"
   echo "   Obsidian: ask vibe-learn to save or recall learn/digest notes, or use the prompt fallback with obsidian / obsidian:recall."
+fi
+
+if assistant_list_contains "opencode" "${ASSISTANTS_TO_INSTALL[@]}"; then
+  echo ""
+  echo "OpenCode:"
+  echo "   /learn                      — explain what just happened, or ask a specific question"
+  echo "   /digest                     — full session learning report"
+  echo "   vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi

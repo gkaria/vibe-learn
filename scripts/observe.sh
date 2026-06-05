@@ -25,6 +25,16 @@ mkdir -p "$LOG_DIR"
 # Get current timestamp
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Read current turn — defaults to 1 when no meta exists yet.
+# Use a string arg + in-jq cast so stray whitespace never breaks --argjson.
+CURRENT_TURN="1"
+if [ -f "$META_FILE" ]; then
+  _t="$(jq -r '.current_turn // 0' "$META_FILE" 2>/dev/null || true)"
+  # Arithmetic strip: coerce to integer, fall back to 1 if not positive
+  _t=$(( ${_t:-0} + 0 )) 2>/dev/null || _t=0
+  [ "$_t" -gt 0 ] && CURRENT_TURN="$_t"
+fi
+
 # Build JSONL entries based on tool type
 ENTRIES=""
 EVENT_COUNT=1
@@ -36,7 +46,8 @@ case "$TOOL" in
       --arg ts "$TS" \
       --arg tool "$TOOL" \
       --arg file "$FILE" \
-      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"created",context:{new_file:true}}')
+      --arg turn "$CURRENT_TURN" \
+      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"created",turn:($turn|tonumber? // 1),context:{new_file:true}}')
     ;;
   Edit|MultiEdit)
     FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
@@ -44,7 +55,8 @@ case "$TOOL" in
       --arg ts "$TS" \
       --arg tool "$TOOL" \
       --arg file "$FILE" \
-      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"edited",context:{}}')
+      --arg turn "$CURRENT_TURN" \
+      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"edited",turn:($turn|tonumber? // 1),context:{}}')
     ;;
   Bash)
     CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -62,7 +74,8 @@ case "$TOOL" in
       --arg tool "$TOOL" \
       --arg cmd "$CMD" \
       --argjson exit_code "${EXIT_CODE:-0}" \
-      '{timestamp:$ts,event:"tool_use",tool:$tool,command:$cmd,action:"ran",context:{exit_code:$exit_code}}')
+      --arg turn "$CURRENT_TURN" \
+      '{timestamp:$ts,event:"tool_use",tool:$tool,command:$cmd,action:"ran",turn:($turn|tonumber? // 1),context:{exit_code:$exit_code}}')
     ;;
   apply_patch)
     PATCH=$(echo "$INPUT" | jq -r '.tool_input.command // .tool_input.patch // empty')
@@ -99,7 +112,8 @@ case "$TOOL" in
         --arg tool "$TOOL" \
         --arg file "$FILE" \
         --arg action "$ACTION" \
-        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:$action,context:(if $action == "created" then {new_file:true} else {} end)}')
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:$action,turn:($turn|tonumber? // 1),context:(if $action == "created" then {new_file:true} else {} end)}')
 
       if [ -z "$ENTRIES" ]; then
         ENTRIES="$ENTRY"

@@ -115,6 +115,16 @@ load test_helper
   [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
 }
 
+@test "install with .opencode only installs OpenCode" {
+  mkdir -p "$TEST_PROJECT_DIR/.opencode"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
+  [ -f "$TEST_PROJECT_DIR/.opencode/commands/learn.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+}
+
 @test "install with .claude only installs Claude" {
   mkdir -p "$TEST_PROJECT_DIR/.claude"
   bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
@@ -134,6 +144,15 @@ load test_helper
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
 }
 
+@test "install with .claude .codex and .opencode installs all three" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude" "$TEST_PROJECT_DIR/.codex" "$TEST_PROJECT_DIR/.opencode"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+  [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
+}
+
 @test "install --assistant=all installs all detected tools" {
   local fake_home
   local fake_bin
@@ -141,7 +160,8 @@ load test_helper
   fake_bin="$(mktemp -d)"
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/claude"
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/codex"
-  chmod +x "$fake_bin/claude" "$fake_bin/codex"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/opencode"
+  chmod +x "$fake_bin/claude" "$fake_bin/codex" "$fake_bin/opencode"
 
   PATH="$fake_bin:$PATH" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=all
 
@@ -149,6 +169,7 @@ load test_helper
   jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
   [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
+  [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
 
   rm -rf "$fake_home" "$fake_bin"
 }
@@ -159,6 +180,13 @@ load test_helper
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
   [ -f "$TEST_PROJECT_DIR/.codex/prompts/learn.md" ]
   [ -f "$TEST_PROJECT_DIR/.codex/prompts/digest.md" ]
+}
+
+@test "install --assistant=opencode creates .opencode plugin and commands" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=opencode
+  [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
+  [ -f "$TEST_PROJECT_DIR/.opencode/commands/learn.md" ]
+  [ -f "$TEST_PROJECT_DIR/.opencode/commands/digest.md" ]
 }
 
 @test "install unknown assistant errors" {
