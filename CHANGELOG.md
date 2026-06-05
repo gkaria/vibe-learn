@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/gkaria/vibe-learn/compare/v0.5.5...v0.6.0) (2026-06-05)
+
+
+### Features
+
+* v0.6.0 — session briefing, OpenCode adapter, turn structure, audio-prep ([6a3bfca](https://github.com/gkaria/vibe-learn/commit/6a3bfcaabee726ebeb1a7dcc7adc6c95710791a8))
+* v0.6.0 — session briefing, OpenCode adapter, turn structure, audio-prep ([b193ff4](https://github.com/gkaria/vibe-learn/commit/b193ff482b2c049c205c13ae0949bafce44d71d7))
+
 ## [0.6.0](https://github.com/gkaria/vibe-learn/compare/v0.5.6...v0.6.0) (2026-06-05)
 
 This release makes the learning layer passive.
