@@ -24,6 +24,10 @@ Digest format:
 
 ### Things To Study Next
 
+If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, make "Things To Study Next" cumulative: merge in unresolved ledger items — concepts with status `shaky`, plus `new` concepts seen in 2+ sessions — oldest first. Mention `/quiz review` when shaky items appear.
+
+After generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (use `bash scripts/knowledge.sh` in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
+
 Also mention that `vibe-learn briefing` creates an interactive maintainer briefing and NotebookLM-ready audio source pack.
 
 If the session log is missing or empty, say vibe-learn has not captured events for this project yet and offer to help from available repository context.

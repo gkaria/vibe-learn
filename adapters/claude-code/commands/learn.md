@@ -4,6 +4,8 @@ description: Summarize recent session activity or answer a specific question abo
 
 Read .vibe-learn/session-log.jsonl to understand what has happened in this session.
 
+**Knowledge ledger check (all modes):** if `.vibe-learn/knowledge.json` exists, run the knowledge helper's `due` command via Bash (`bash ~/.vibe-learn/scripts/knowledge.sh due`, or `bash scripts/knowledge.sh due` when working in the vibe-learn repo itself). If a due concept was also touched in this session's log, open your response with a single heads-up line, e.g. "Heads up: this session touched JWT refresh tokens again — you marked that shaky on July 11. Want a quick recap first, or `/quiz review`?" At most one such line, and never let it block or replace the actual answer. If the ledger or helper is missing, skip this silently.
+
 Parse $ARGUMENTS to determine the mode:
 
 ---
@@ -81,6 +83,7 @@ tags:
   - vibe-learn
   - <project-name if include_project_tag is true>
 type: learn
+recall_status: <only when the knowledge ledger has entries with last_quizzed = today, e.g. "2 solid, 1 shaky" — omit the field otherwise>
 ---
 
 # Learn Note — <YYYY-MM-DD>

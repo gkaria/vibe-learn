@@ -89,21 +89,26 @@ FILES=(
   "scripts/briefing.sh"
   "scripts/dashboard.sh"
   "scripts/cli.sh"
+  "scripts/knowledge.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
   "config/defaults.json"
   "config/obsidian-defaults.json"
+  "config/knowledge-defaults.json"
   "adapters/claude-code/hooks.json"
   "adapters/claude-code/commands/learn.md"
   "adapters/claude-code/commands/digest.md"
+  "adapters/claude-code/commands/quiz.md"
   "adapters/claude-code/install.sh"
   "adapters/codex/hooks.toml"
   "adapters/codex/prompts/learn.md"
   "adapters/codex/prompts/digest.md"
+  "adapters/codex/prompts/quiz.md"
   "adapters/codex/skills/vibe-learn/SKILL.md"
   "adapters/codex/install.sh"
   "adapters/opencode/commands/learn.md"
   "adapters/opencode/commands/digest.md"
+  "adapters/opencode/commands/quiz.md"
   "adapters/opencode/plugins/vibe-learn.js"
   "adapters/opencode/install.sh"
 )
@@ -220,13 +225,14 @@ if assistant_list_contains "claude-code" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "Claude Code:"
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
+  echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
 fi
 
 if assistant_list_contains "codex" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo ""
   echo "Codex:"
-  echo "  Use the global skill: \"Use vibe-learn to learn what happened.\""
-  echo "  Prompt fallbacks are installed in ~/.codex/prompts/ and may be available as /prompts:learn and /prompts:digest."
+  echo "  Use the global skill: \"Use vibe-learn to learn what happened.\" or \"Use vibe-learn to quiz me.\""
+  echo "  Prompt fallbacks are installed in ~/.codex/prompts/ and may be available as /prompts:learn, /prompts:digest, and /prompts:quiz."
 fi
 
 if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
@@ -234,6 +240,7 @@ if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "OpenCode:"
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
+  echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
   echo "  vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi
 

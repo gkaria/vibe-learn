@@ -129,6 +129,7 @@ if assistant_list_contains "claude-code" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "Claude Code:"
   echo "   /learn                      — explain what just happened, or ask a specific question"
   echo "   /digest                     — full session learning report"
+  echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
   echo "   /learn obsidian             — save learn note to your Obsidian vault"
   echo "   /learn obsidian:recall      — search vault for past learnings on a topic"
   echo "   /digest obsidian            — save session digest to your Obsidian vault"
@@ -138,9 +139,10 @@ fi
 if assistant_list_contains "codex" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo ""
   echo "Codex:"
-  echo "   Use the global skill when installed: \"Use vibe-learn to learn what happened.\""
+  echo "   Use the global skill when installed: \"Use vibe-learn to learn what happened.\" or \"Use vibe-learn to quiz me.\""
   echo "   Prompt fallback: \"Read .codex/prompts/learn.md and follow it.\" or /prompts:learn"
   echo "   Digest fallback: \"Read .codex/prompts/digest.md and follow it.\" or /prompts:digest"
+  echo "   Quiz fallback:   \"Read .codex/prompts/quiz.md and follow it.\" or /prompts:quiz"
   echo "   Obsidian: ask vibe-learn to save or recall learn/digest notes, or use the prompt fallback with obsidian / obsidian:recall."
 fi
 
@@ -149,5 +151,6 @@ if assistant_list_contains "opencode" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "OpenCode:"
   echo "   /learn                      — explain what just happened, or ask a specific question"
   echo "   /digest                     — full session learning report"
+  echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
   echo "   vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi

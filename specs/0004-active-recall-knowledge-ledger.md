@@ -1,6 +1,6 @@
 # Spec 0004: Active Recall and Cross-Session Knowledge Ledger
 
-**Status:** Proposed
+**Status:** Implemented
 **Target version:** 0.7.0
 **Date:** 2026-07-11
 

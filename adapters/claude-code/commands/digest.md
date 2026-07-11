@@ -93,6 +93,7 @@ tags:
   - vibe-learn
   - <project-name if include_project_tag is true>
 type: session-digest
+recall_status: <only when the knowledge ledger has entries with last_quizzed = today, e.g. "2 solid, 1 shaky" — omit the field otherwise>
 ---
 
 # Session Digest — <YYYY-MM-DD>
@@ -149,8 +150,12 @@ Key programming patterns, techniques, or concepts that appeared. Brief bullets.
 
 - [ ] topic
 
+If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, make this list cumulative: merge in unresolved ledger items — concepts with status `shaky`, plus `new` concepts seen in 2+ sessions — oldest first, alongside this session's new topics. Mention `/quiz review` when shaky items appear.
+
 ---
 
 Keep the tone warm and encouraging. Plain language. If the session was short, keep the digest short.
+
+**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (use `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
 
 After generating, offer to save it: ask the user if they want it written to .vibe-learn/digests/ as a markdown file.

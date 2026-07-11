@@ -1,11 +1,11 @@
 ---
 name: vibe-learn
-description: Explain and digest the current vibe-learn coding session, with optional Obsidian save and recall workflows grounded in .vibe-learn/session-log.jsonl.
+description: Explain, digest, and quiz the current vibe-learn coding session, with cross-session knowledge tracking and optional Obsidian save and recall workflows grounded in .vibe-learn/session-log.jsonl.
 ---
 
 # vibe-learn
 
-Use this skill when the user asks to learn from the current coding session, understand what just happened, generate a session digest, save learnings to Obsidian, or recall related Obsidian notes from past sessions.
+Use this skill when the user asks to learn from the current coding session, understand what just happened, generate a session digest, quiz themselves on what was built, save learnings to Obsidian, or recall related Obsidian notes from past sessions.
 
 ## Core Workflow
 
@@ -36,6 +36,20 @@ When the user asks for a "digest", produce a structured report:
 - Things To Study Next
 
 Offer to save a digest only when the user asks for saving or Obsidian.
+
+## Quiz Mode
+
+When the user asks to be quizzed ("Use vibe-learn to quiz me", "check my understanding", "quiz me on what's due"):
+
+1. Follow `.codex/prompts/quiz.md` when the project has it; otherwise apply the same flow from this skill.
+2. Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" questions over trivia. For a review quiz, select from `knowledge.sh due` output instead.
+3. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam.
+4. Record results in the knowledge ledger via the helper — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
+5. Close with a recap: solid concepts, shaky concepts, and what to revisit.
+
+## Knowledge Ledger
+
+`.vibe-learn/knowledge.json` tracks concepts across sessions (first_seen, last_seen, sessions, last_quizzed, status new/shaky/solid). Learn responses may open with a one-line heads-up when a shaky concept resurfaces; digests merge unresolved ledger items into "Things To Study Next" and `touch` newly introduced concepts. All reads and writes go through `knowledge.sh` (`record`, `touch`, `list`, `due`).
 
 ## Obsidian Save
 

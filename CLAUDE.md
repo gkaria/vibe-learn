@@ -26,20 +26,21 @@ scripts/          ← assistant-agnostic core (unchanged regardless of which ass
   install.sh      ← per-project installer
   cli.sh          ← command dispatcher for install/dashboard
   dashboard.sh    ← static session briefing generator
+  knowledge.sh    ← knowledge ledger helper (record/touch/list/due)
 
 adapters/
   claude-code/    ← Claude Code adapter
     hooks.json    ← hook registration template
-    commands/     ← /learn and /digest slash command files
+    commands/     ← /learn, /digest, and /quiz slash command files
     install.sh    ← hook registration into ~/.claude/settings.json
   codex/          ← Codex App/CLI adapter
     hooks.toml    ← hook registration template (TOML)
-    prompts/      ← learn and digest prompt-file fallbacks
+    prompts/      ← learn, digest, and quiz prompt-file fallbacks
     skills/       ← global Codex vibe-learn skill
     install.sh    ← hook registration into ~/.codex/config.toml
   opencode/       ← OpenCode adapter
     plugins/      ← local plugin for event capture
-    commands/     ← /learn and /digest markdown commands
+    commands/     ← /learn, /digest, and /quiz markdown commands
     install.sh    ← plugin/command install into .opencode or ~/.config/opencode
 ```
 
@@ -145,7 +146,7 @@ The `adapters/claude-code/hooks.json` uses `${CLAUDE_PLUGIN_ROOT}` as a path pla
 
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
-The `adapters/opencode/` adapter installs `.opencode/plugins/vibe-learn.js` plus `.opencode/commands/learn.md` and `.opencode/commands/digest.md` for project installs, or the equivalent paths under `~/.config/opencode/` for global installs. The plugin bridges straightforward OpenCode tool events into the existing core scripts.
+The `adapters/opencode/` adapter installs `.opencode/plugins/vibe-learn.js` plus `.opencode/commands/learn.md`, `digest.md`, and `quiz.md` for project installs, or the equivalent paths under `~/.config/opencode/` for global installs. The plugin bridges straightforward OpenCode tool events into the existing core scripts.
 
 ## Session Briefing
 
@@ -177,6 +178,7 @@ Claude Code supports custom slash commands defined as markdown instruction files
 
 - `/learn [question]` — summarizes recent session activity, or answers a specific question grounded in the session log
 - `/digest` — generates a structured learning report (What Was Built, Key Decisions, Patterns Used, Things to Study)
+- `/quiz [topic|review]` — recall questions grounded in the session log, asked one at a time and graded conversationally; `review` re-quizzes ledger concepts that are shaky or stale
 
 Use the global Codex `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; current Codex can expose those as `/prompts:learn` and `/prompts:digest`, but the skill remains the primary durable interface.
 
@@ -185,6 +187,7 @@ Codex examples to keep docs and prompts aligned:
 - `Use vibe-learn to explain what just happened.`
 - `Use vibe-learn to answer: why did we install bcrypt?`
 - `Use vibe-learn to create a digest of this session.`
+- `Use vibe-learn to quiz me on this session.`
 - `Use vibe-learn to save this learn note to Obsidian.`
 - `Use vibe-learn to recall past Obsidian notes about authentication.`
 - `Read .codex/prompts/learn.md and follow it for obsidian:recall authentication.`
@@ -197,7 +200,26 @@ Codex examples to keep docs and prompts aligned:
 - `/digest obsidian` — save the session digest to the vault
 - `/digest obsidian:recall` — generate a digest enriched with a "Connections to Previous Work" section drawn from previous session notes in the vault, then save it
 
-These files contain plain-language instructions that the assistant follows — no code execution.
+These files contain plain-language instructions that the assistant follows — no code execution. The one bridge to code is the knowledge ledger: quiz/learn/digest prompts instruct the assistant to invoke `scripts/knowledge.sh` through its shell tool rather than hand-editing JSON.
+
+## Knowledge Ledger
+
+`.vibe-learn/knowledge.json` (project-level, no global fallback) tracks concepts across sessions:
+
+```json
+{"version":1,"concepts":[{"name":"jwt-auth","label":"JWT authentication","first_seen":"2026-06-20","last_seen":"2026-07-11","sessions":3,"last_quizzed":"2026-07-11","status":"shaky","notes":"..."}]}
+```
+
+`status` is `new` (never quizzed), `shaky`, or `solid`. Quizzing sets status; touching a concept in a later session never downgrades it. All reads and writes go through `scripts/knowledge.sh`:
+
+- `record <name> --label=... --status=<new|shaky|solid> [--notes=...]` — store a quiz result (stamps `last_quizzed`)
+- `touch <name> --label=...` — mark a concept seen this session (bumps `sessions` at most once per day)
+- `list [--status=<s>]` — print the ledger as JSON
+- `due [--days=14]` — concepts due for review (shaky, or unquizzed past the cutoff)
+
+A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
+
+The feedback loop: `/quiz` records results; `/learn` opens with a one-line heads-up when a due concept resurfaces in the session; `/digest` merges unresolved ledger items into "Things to Study" and `touch`es newly introduced concepts. Obsidian notes gain an optional `recall_status` frontmatter field when quiz results exist for the day.
 
 ## Session Log Schema
 
@@ -218,3 +240,4 @@ Session metadata (event counts, timestamps) is tracked separately in `.vibe-lear
 - **Append-only log** — scripts only append to `session-log.jsonl`, never rewrite it. Session rotation creates a `.prev.jsonl` copy instead.
 - **No stdout noise from hooks** — scripts should not print to stdout (Claude Code captures it). Use `>&2` for debug output, or suppress entirely.
 - **`pause-summary.sh` injects via `additionalContext`** — output must be valid JSON with `{"hookSpecificOutput": {"additionalContext": "..."}}` when providing summaries to Claude's context.
+- **Hooks never write the knowledge ledger** — `.vibe-learn/knowledge.json` is updated only by learning commands via `scripts/knowledge.sh`. Do not call `knowledge.sh` from any hook script.

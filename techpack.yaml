@@ -63,7 +63,19 @@ components:
       source: .claude/commands/digest.md
       destination: digest.md
 
+  - id: cmd-quiz
+    description: /quiz — recall questions that check understanding, tracked in the knowledge ledger
+    command:
+      source: .claude/commands/quiz.md
+      destination: quiz.md
+
   # ── Configuration ─────────────────────────────────────────
+  - id: config-knowledge-defaults
+    description: Reference config template for quiz and knowledge ledger options
+    config:
+      source: config/knowledge-defaults.json
+      destination: config/knowledge-defaults.json
+
   - id: config-obsidian-defaults
     description: Reference config template for Obsidian integration options
     config:
