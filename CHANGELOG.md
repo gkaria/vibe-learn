@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/gkaria/vibe-learn/compare/v0.6.0...v0.7.0) (2026-07-12)
+
+
+### Features
+
+* add active recall (/quiz) and cross-session knowledge ledger ([a8029b1](https://github.com/gkaria/vibe-learn/commit/a8029b18a0ca9ffb7a49b7c7f57575b1475c351d))
+
+
+### Bug Fixes
+
+* address PR review — record bumps sessions, helper lookup covers checkout installs ([5c4bdcc](https://github.com/gkaria/vibe-learn/commit/5c4bdcc78a0d4537956a3be46f522106481d1dd5))
+* ship knowledge.sh via techpack installs ([4229001](https://github.com/gkaria/vibe-learn/commit/42290016a46be3507a55b59b167f7d156a5b786e))
+
 ## [0.6.0](https://github.com/gkaria/vibe-learn/compare/v0.5.5...v0.6.0) (2026-06-05)
 
 
