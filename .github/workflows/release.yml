@@ -3,6 +3,14 @@ name: Release
 on:
   push:
     tags: ['v*.*.*']
+  # Manual re-sync: rewrite an existing release's notes from the current
+  # CHANGELOG.md section (e.g. after improving the notes post-release).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag whose release notes should be synced from CHANGELOG.md (e.g. v0.7.0)"
+        required: true
+        type: string
 
 jobs:
   test:
@@ -27,7 +35,7 @@ jobs:
       - name: Extract CHANGELOG section for this tag
         id: changelog
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ inputs.tag || github.ref_name }}"
           VERSION_NUM="${VERSION#v}"
           # Extract the section between this version header and the next
           NOTES=$(awk "/^## \[${VERSION_NUM}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
@@ -37,10 +45,16 @@ jobs:
           # Write to file to avoid quoting issues
           echo "$NOTES" > /tmp/release-notes.md
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --notes-file /tmp/release-notes.md
+          TAG="${{ inputs.tag || github.ref_name }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" &>/dev/null; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" \
+              --notes-file /tmp/release-notes.md
+          else
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --notes-file /tmp/release-notes.md
+          fi
