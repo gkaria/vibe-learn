@@ -54,7 +54,10 @@ jobs:
             gh release edit "$TAG" --repo "${{ github.repository }}" \
               --notes-file /tmp/release-notes.md
           else
+            # --verify-tag: fail if the git tag doesn't exist, so a mistyped
+            # workflow_dispatch input can't mint a new tag/release from main.
             gh release create "$TAG" --repo "${{ github.repository }}" \
+              --verify-tag \
               --title "$TAG" \
               --notes-file /tmp/release-notes.md
           fi
