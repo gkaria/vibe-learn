@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/gkaria/vibe-learn/compare/v0.7.0...v0.7.1) (2026-07-12)
+
+
+### Bug Fixes
+
+* use valid techpack component types and make release notes re-syncable ([9f39121](https://github.com/gkaria/vibe-learn/commit/9f39121c36329174d4802a573aa97cc45f3fb984)), closes [#9](https://github.com/gkaria/vibe-learn/issues/9)
+* valid techpack component types ([#9](https://github.com/gkaria/vibe-learn/issues/9)) + clear v0.7.0 release notes ([334579e](https://github.com/gkaria/vibe-learn/commit/334579e7d059da942c15b6e27083dff6151eed3d))
+* verify tag exists before manual release creation ([2b50fb3](https://github.com/gkaria/vibe-learn/commit/2b50fb3f2cff4aa213cc5fffbad2434546fd0184))
+
 ## [0.7.0](https://github.com/gkaria/vibe-learn/compare/v0.6.0...v0.7.0) (2026-07-12)
 
 This release closes the loop on understanding.
