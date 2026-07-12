@@ -80,6 +80,78 @@ Use vibe-learn to quiz me on this session.
 
 ---
 
+## What it looks like
+
+Continuing the JWT session from above:
+
+**`/learn`** — a plain-language recap, grounded in the actual log:
+
+```
+📘 What just happened:
+
+• Added JWT auth middleware (src/middleware/auth.ts) — every request to a
+  protected route now passes a token check before reaching the handler
+• Wired it into the user routes (src/routes/user.ts), so /profile and
+  /settings require a valid token
+• Installed jsonwebtoken to sign and verify tokens
+• Pattern worth knowing: middleware ordering — auth runs before the route
+  handlers, so handlers can safely assume req.user exists
+```
+
+**`/digest`** — the structured session report:
+
+```
+## 📘 Session Digest
+
+### What Was Built
+JWT authentication for the user routes: a reusable auth middleware that
+verifies tokens and attaches the decoded user to the request.
+
+### Key Decisions
+- Middleware over per-route checks — one enforcement point, no duplication
+- jsonwebtoken over hand-rolling — battle-tested signing and expiry handling
+
+### Patterns Used
+- Express middleware chaining and ordering
+- Fail-closed auth (reject first, then continue)
+
+### Things to Study
+- [ ] How JWT expiry and refresh interact
+- [ ] What happens to routes registered before the auth middleware
+- [ ] (carried over from Jul 2) Environment-based config for secrets
+```
+
+**`/quiz`** — one question at a time, graded against what actually happened:
+
+```
+Question 1 of 3: The auth check lives in middleware instead of inside each
+route handler. What does that buy us — and what's the risk when someone
+adds a new route later?
+
+> no repeated checks in every handler, and new routes are protected
+  automatically?
+
+Right on the first half — one enforcement point, no duplication. One nuance
+you missed: routes are only protected if they're registered *after* the
+middleware. A new route mounted above app.use(auth) skips the check
+entirely. That ordering is the thing to remember.
+
+Question 2 of 3: ...
+```
+
+After the last question you get a recap, and the results are recorded:
+
+```
+Solid: jwt-verification, fail-closed-auth
+Revisit: express-middleware-ordering — you had the what, not the when
+
+  ✔ 3 concepts recorded to the knowledge ledger
+```
+
+That recording is the ledger at work — next session, `/learn` will nudge you if middleware ordering comes up again, and `/quiz review` will re-ask until it's solid.
+
+---
+
 ## Check your understanding
 
 Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add a fourth adapter?" — one at a time, then tells you what you got right and what you missed.
