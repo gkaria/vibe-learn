@@ -2,6 +2,52 @@
 
 ## [0.7.0](https://github.com/gkaria/vibe-learn/compare/v0.6.0...v0.7.0) (2026-07-12)
 
+This release closes the loop on understanding.
+
+Until now, vibe-learn explained things *to* you — pause summaries, `/learn`
+answers, digests, briefings, audio packs. Reading a digest feels like
+learning, but nothing ever checked whether it stuck. v0.7.0 adds the
+verification layer: quiz yourself on what the agent built, and let vibe-learn
+remember what you actually know across sessions.
+
+### Active recall — `/quiz`
+
+Available in Claude Code, Codex (skill + `/prompts:quiz` fallback), and
+OpenCode:
+
+- `/quiz` — 3–5 recall questions grounded in this session's log, favoring
+  "why" and "what would break" over trivia
+- `/quiz <topic>` — focus on one topic from the session or the ledger
+- `/quiz review` — re-quiz concepts that are shaky or unreviewed for 14+ days
+
+Questions are asked one at a time and graded conversationally — what you got
+right, what you missed, and a short correct explanation. Colleague tone, not
+an exam.
+
+### Knowledge ledger
+
+Quiz results land in `.vibe-learn/knowledge.json`, a per-project ledger that
+tracks each concept's `first_seen`, `last_seen`, session count, quiz history,
+and a status of `new`, `shaky`, or `solid`. All reads and writes go through
+the new `scripts/knowledge.sh` helper (`record` / `touch` / `list` / `due`) —
+atomic merge-by-name writes, never touched by hooks, no network.
+
+### The feedback loop
+
+- `/learn` opens with a one-line heads-up when a concept you marked shaky
+  resurfaces in the current session
+- `/digest`'s "Things to Study" now accumulates unresolved ledger items
+  across sessions instead of resetting each time
+- Obsidian notes gain an optional `recall_status` frontmatter field when quiz
+  results exist for the day
+
+### Upgrading
+
+Rerun the installer (`curl -fsSL
+https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh |
+bash`) to pick up `knowledge.sh`, the `/quiz` commands, and
+`knowledge-defaults.json`. Existing session logs and Obsidian notes are
+unaffected; a missing `knowledge.json` simply means an empty ledger.
 
 ### Features
 

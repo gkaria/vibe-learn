@@ -81,17 +81,25 @@ components:
       destination: quiz.md
 
   # ── Configuration ─────────────────────────────────────────
+  # Reference templates are plain files, not merged settings, so they ship via
+  # copyPackFile — there is no `config:` shorthand in the techpack schema.
   - id: config-knowledge-defaults
     description: Reference config template for quiz and knowledge ledger options
-    config:
+    type: configuration
+    installAction:
+      type: copyPackFile
       source: config/knowledge-defaults.json
       destination: config/knowledge-defaults.json
+      fileType: generic
 
   - id: config-obsidian-defaults
     description: Reference config template for Obsidian integration options
-    config:
+    type: configuration
+    installAction:
+      type: copyPackFile
       source: config/obsidian-defaults.json
       destination: config/obsidian-defaults.json
+      fileType: generic
 
   - id: gitignore
     description: Exclude vibe-learn session data from version control
