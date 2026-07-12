@@ -136,10 +136,19 @@ you missed: routes are only protected if they're registered *after* the
 middleware. A new route mounted above app.use(auth) skips the check
 entirely. That ordering is the thing to remember.
 
-  ✔ recorded: express-middleware-ordering → shaky
+Question 2 of 3: ...
 ```
 
-That last line is the knowledge ledger at work — next session, `/learn` will nudge you if middleware ordering comes up again, and `/quiz review` will re-ask until it's solid.
+After the last question you get a recap, and the results are recorded:
+
+```
+Solid: jwt-verification, fail-closed-auth
+Revisit: express-middleware-ordering — you had the what, not the when
+
+  ✔ 3 concepts recorded to the knowledge ledger
+```
+
+That recording is the ledger at work — next session, `/learn` will nudge you if middleware ordering comes up again, and `/quiz review` will re-ask until it's solid.
 
 ---
 
