@@ -39,13 +39,14 @@ mkdir -p "$COMMANDS_DIR" "$PLUGINS_DIR"
 
 cp "$COMMANDS_SOURCE/learn.md" "$COMMANDS_DIR/learn.md"
 cp "$COMMANDS_SOURCE/digest.md" "$COMMANDS_DIR/digest.md"
+cp "$COMMANDS_SOURCE/quiz.md" "$COMMANDS_DIR/quiz.md"
 sed "s|INSTALL_DIR_PLACEHOLDER|$ESCAPED_VIBE_LEARN_DIR|g" "$PLUGIN_SOURCE" > "$PLUGINS_DIR/vibe-learn.js"
 
 if [ "$MODE" = "global" ]; then
-  echo "✓ OpenCode commands installed (~/.config/opencode/commands/learn.md, digest.md)"
+  echo "✓ OpenCode commands installed (~/.config/opencode/commands/learn.md, digest.md, quiz.md)"
   echo "✓ OpenCode plugin installed (~/.config/opencode/plugins/vibe-learn.js)"
 else
-  echo "✓ OpenCode commands installed (.opencode/commands/learn.md, digest.md)"
+  echo "✓ OpenCode commands installed (.opencode/commands/learn.md, digest.md, quiz.md)"
   echo "✓ OpenCode plugin installed (.opencode/plugins/vibe-learn.js)"
 fi
 

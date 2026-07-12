@@ -6,6 +6,9 @@ This project has vibe-learn installed. Session activity (file writes, edits, bas
 - `/learn` — explain what just happened, or answer a specific question grounded in the session log
 - `/learn [question]` — e.g. `/learn why did you use middleware here?`
 - `/digest` — generate a structured learning report (what was built, key decisions, patterns, topics to study)
+- `/quiz` — check your understanding with recall questions grounded in the session log
+- `/quiz [topic]` — quiz on a specific topic
+- `/quiz review` — quiz on knowledge-ledger concepts that are shaky or due for review
 
 **Obsidian integration** (requires vault config — prompted on first use):
 
@@ -19,5 +22,6 @@ This project has vibe-learn installed. Session activity (file writes, edits, bas
 - `.vibe-learn/session-log.jsonl` — append-only event stream
 - `.vibe-learn/session-meta.json` — session counters and timestamps
 - `.vibe-learn/pause-summary.txt` — last pause summary (injected on next session start)
+- `.vibe-learn/knowledge.json` — cross-session knowledge ledger (updated only via `knowledge.sh`, never by hooks)
 
 After each response where changes were made, a pause summary is generated showing what just happened. Suggest `/learn` or `/digest` when the user might benefit from understanding recent changes.

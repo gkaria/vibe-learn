@@ -56,6 +56,8 @@ Goal: add JWT auth middleware
 /learn                              — explain what just happened
 /learn why did we add middleware?   — answer a specific question
 /digest                             — full structured session report
+/quiz                               — check your understanding of this session
+/quiz review                        — re-quiz concepts that are shaky or due again
 ```
 
 ### Codex
@@ -64,6 +66,7 @@ Goal: add JWT auth middleware
 Use vibe-learn to learn what happened.
 Use vibe-learn to answer: why did we install bcrypt?
 Use vibe-learn to create a digest.
+Use vibe-learn to quiz me on this session.
 ```
 
 ### OpenCode
@@ -72,7 +75,18 @@ Use vibe-learn to create a digest.
 /learn
 /learn why did we add middleware?
 /digest
+/quiz
 ```
+
+---
+
+## Check your understanding
+
+Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add a fourth adapter?" — one at a time, then tells you what you got right and what you missed.
+
+Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. Concepts you answered shakily come back: `/quiz review` re-quizzes anything shaky or unreviewed for two weeks, `/learn` gives you a one-line heads-up when a shaky concept resurfaces in a new session, and `/digest`'s "Things to Study" accumulates across sessions instead of resetting.
+
+The ledger is updated only by the learning commands (via `scripts/knowledge.sh`) — never by hooks, never over the network.
 
 ---
 
@@ -117,9 +131,9 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
-| **Claude Code** | JSON hooks in `settings.json`, native `/learn` and `/digest` slash commands |
+| **Claude Code** | JSON hooks in `settings.json`, native `/learn`, `/digest`, and `/quiz` slash commands |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
-| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn` and `/digest` commands |
+| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, and `/quiz` commands |
 
 Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, or `--assistant=opencode`.
 
@@ -174,7 +188,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 138 tests
+bats tests/               # 179 tests
 ```
 
 ---
@@ -189,7 +203,8 @@ bats tests/               # 138 tests
 
 ## Releases
 
-- **v0.6.0 (this branch):** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`
+- **v0.7.0 (this branch):** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
+- **v0.6.0:** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`
 - **v0.5.5:** Multi-assistant support — Claude Code and Codex, assistant auto-detection, generic adapter layout
 - **v0.5.0:** Obsidian integration — save notes, recall past learnings with `obsidian:recall`
 

@@ -46,7 +46,8 @@ mkdir -p "$COMMANDS_DIR"
 # Copy slash commands
 cp "$COMMANDS_SOURCE/learn.md" "$COMMANDS_DIR/learn.md"
 cp "$COMMANDS_SOURCE/digest.md" "$COMMANDS_DIR/digest.md"
-echo "✓ Slash commands installed (/learn, /digest)"
+cp "$COMMANDS_SOURCE/quiz.md" "$COMMANDS_DIR/quiz.md"
+echo "✓ Slash commands installed (/learn, /digest, /quiz)"
 
 HOOKS_JSON=$(cat <<EOF
 {

@@ -21,6 +21,7 @@ Installing vibe-learn to ~/.vibe-learn/
 Claude Code:
   /learn              — explain what just happened
   /digest             — full session learning report
+  /quiz               — check your understanding
   vibe-learn briefing — maintainer briefing
   vibe-learn audio-prep — prepare NotebookLM audio overview
 
@@ -132,7 +133,32 @@ Save it to a file with `/digest` — Claude will offer to write it to `.vibe-lea
 
 ---
 
-## 6. Open the session briefing
+## 6. Check your understanding with `/quiz`
+
+Reading the digest feels like learning; answering questions proves it. Run:
+
+```
+/quiz
+```
+
+Claude picks 3–5 moments from the session and asks about them one at a time:
+
+```
+Question 1 of 3: The health route was separated into its own file instead
+of living in index.ts. Why, and what does that make easier later?
+```
+
+Answer in your own words. After each answer, Claude tells you what you got right, what you missed, and gives a short correct explanation — colleague tone, not an exam.
+
+Results are saved to `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. That makes the learning cumulative:
+
+- `/quiz review` — re-quizzes concepts you answered shakily, or anything unreviewed for two weeks
+- `/learn` — opens with a one-line heads-up when a shaky concept comes up again in a later session
+- `/digest` — "Things To Study Next" carries unresolved items forward instead of resetting each session
+
+---
+
+## 7. Open the session briefing
 
 The session briefing was already generated automatically in the background. Open it:
 
@@ -152,7 +178,7 @@ Open `index.html` directly in your browser — no server needed. You'll see the 
 
 ---
 
-## 7. Prepare an audio overview (optional)
+## 8. Prepare an audio overview (optional)
 
 If you want to listen to a walkthrough of the session on your commute:
 
@@ -197,6 +223,7 @@ Once installed, this is your normal workflow:
 | Claude runs a command | Logged with exit code |
 | Claude finishes a response | Pause summary written, session briefing regenerated in background |
 | You type `/learn` | Claude explains the session grounded in the real log |
+| You type `/quiz` | Claude checks your understanding and tracks it across sessions |
 | You run `vibe-learn audio-prep` | Pack ready, NotebookLM opens |
 
 You don't change how you work. You just have a trail to learn from afterward.

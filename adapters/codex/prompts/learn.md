@@ -6,6 +6,8 @@ Read .vibe-learn/session-log.jsonl to understand what has happened in this sessi
 
 This project prompt fallback can be used by asking Codex to read `.codex/prompts/learn.md` and follow it, or through `/prompts:learn` when custom prompts are available. Include any question, `obsidian`, or `obsidian:recall <topic>` mode in the same message or as a follow-up.
 
+**Knowledge ledger check (all modes):** if `.vibe-learn/knowledge.json` exists, run the knowledge helper's `due` command via your shell tool (`bash ~/.vibe-learn/scripts/knowledge.sh due`; if that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` your vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`, or `bash scripts/knowledge.sh due` when working in the vibe-learn repo itself). If a due concept was also touched in this session's log, open your response with a single heads-up line, e.g. "Heads up: this session touched JWT refresh tokens again — you marked that shaky on July 11. Want a quick recap first, or a review quiz?" At most one such line, and never let it block or replace the actual answer. If the ledger or helper is missing, skip this silently.
+
 ---
 
 ## Mode: `obsidian:recall <topic>`
@@ -81,6 +83,7 @@ tags:
   - vibe-learn
   - <project-name if include_project_tag is true>
 type: learn
+recall_status: <only when the knowledge ledger has entries with last_quizzed = today, e.g. "2 solid, 1 shaky" — omit the field otherwise>
 ---
 
 # Learn Note — <YYYY-MM-DD>
