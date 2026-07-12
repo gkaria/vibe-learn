@@ -9,7 +9,8 @@
 #   knowledge.sh list   [--status=<s>] [--dir=<project>]
 #   knowledge.sh due    [--days=14] [--dir=<project>]
 #
-# record — store a quiz result: sets status, stamps last_quizzed/last_seen.
+# record — store a quiz result: sets status, stamps last_quizzed/last_seen,
+#          and bumps sessions (at most once per day).
 # touch  — mark a concept as seen this session: bumps last_seen (and sessions
 #          once per day); never changes status or last_quizzed.
 # list   — print the ledger as JSON ({"version":1,"concepts":[...]}), filtered
@@ -107,6 +108,7 @@ case "$COMMAND" in
         if any(.[]?; .name == $name) then
           map(if .name == $name then
             .label = (if $label != "" then $label else .label end)
+            | .sessions = (if .last_seen == $today then .sessions else .sessions + 1 end)
             | .last_seen = $today
             | .last_quizzed = $today
             | .status = $status

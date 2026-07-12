@@ -4,7 +4,7 @@ description: Check your understanding of the vibe-learn session — recall quest
 
 Read `.vibe-learn/session-log.jsonl` to understand what happened in this session. Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
-To read or update the ledger, use the `knowledge.sh` helper via your shell tool (`~/.vibe-learn/scripts/knowledge.sh`, or `scripts/knowledge.sh` when working in the vibe-learn repo itself) — never hand-edit the JSON. If the helper is missing, skip ledger updates and say so briefly.
+To read or update the ledger, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it at `~/.vibe-learn/scripts/knowledge.sh`, or next to the vibe-learn scripts path referenced in `.opencode/plugins/vibe-learn.js` (project installs from a cloned checkout), or `scripts/knowledge.sh` when working in the vibe-learn repo itself. If the helper is missing, skip ledger updates and say so briefly.
 
 Parse `$ARGUMENTS` to determine the mode:
 

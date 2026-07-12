@@ -66,6 +66,22 @@ TODAY="$(date +%Y-%m-%d)"
   [ "$status" -ne 0 ]
 }
 
+@test "record bumps sessions when last_seen is an earlier day" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$(ledger)" <<EOF
+{"version":1,"concepts":[{"name":"jwt-auth","label":"JWT","first_seen":"2026-06-01","last_seen":"2026-06-01","sessions":2,"last_quizzed":"2026-06-01","status":"shaky","notes":""}]}
+EOF
+  run_knowledge record jwt-auth --status=solid
+  [ "$(jq -r '.concepts[0].sessions' "$(ledger)")" = "3" ]
+  [ "$(jq -r '.concepts[0].last_seen' "$(ledger)")" = "$TODAY" ]
+}
+
+@test "record does not bump sessions twice on the same day" {
+  run_knowledge record jwt-auth --label="JWT" --status=shaky
+  run_knowledge record jwt-auth --status=solid
+  [ "$(jq -r '.concepts[0].sessions' "$(ledger)")" = "1" ]
+}
+
 # ---------------------------------------------------------------------------
 # touch
 # ---------------------------------------------------------------------------

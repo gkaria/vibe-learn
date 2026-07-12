@@ -44,7 +44,7 @@ When the user asks to be quizzed ("Use vibe-learn to quiz me", "check my underst
 1. Follow `.codex/prompts/quiz.md` when the project has it; otherwise apply the same flow from this skill.
 2. Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" questions over trivia. For a review quiz, select from `knowledge.sh due` output instead.
 3. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam.
-4. Record results in the knowledge ledger via the helper — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
+4. Record results in the knowledge ledger via the helper — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. If that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` the vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
 5. Close with a recap: solid concepts, shaky concepts, and what to revisit.
 
 ## Knowledge Ledger

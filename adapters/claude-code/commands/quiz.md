@@ -7,9 +7,10 @@ Read .vibe-learn/session-log.jsonl to understand what happened in this session. 
 **Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via Bash — never hand-edit the JSON. Locate it in this order:
 
 1. `~/.vibe-learn/scripts/knowledge.sh` (global install)
-2. `scripts/knowledge.sh` in the vibe-learn repo, if this project is the vibe-learn repo itself
+2. The install directory this project's hooks point at: read the vibe-learn hook command from `.claude/settings.local.json` (or `~/.claude/settings.json`) — it ends in `<install-dir>/scripts/bootstrap.sh`, and `knowledge.sh` sits in the same directory
+3. `scripts/knowledge.sh` in the vibe-learn repo, if this project is the vibe-learn repo itself
 
-If neither exists, skip ledger updates and say so briefly at the end — the quiz itself still works.
+If none of these exist, skip ledger updates and say so briefly at the end — the quiz itself still works.
 
 Helper usage:
 
