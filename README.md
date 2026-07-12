@@ -188,7 +188,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 177 tests
+bats tests/               # 179 tests
 ```
 
 ---

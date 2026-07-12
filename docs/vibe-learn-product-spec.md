@@ -199,7 +199,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 ### Phase 3: Polish & Distribution
 - Configuration UI or config file for preferences
 - Support for multiple learning levels (beginner/intermediate/senior)
-- Cross-session learning history
+- ~~Cross-session learning history~~ — shipped in v0.7.0 as the knowledge ledger + `/quiz` active recall (see `specs/0004-active-recall-knowledge-ledger.md`)
 - npm/plugin registry publishing
 
 ---
