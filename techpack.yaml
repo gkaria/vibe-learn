@@ -50,6 +50,17 @@ components:
       source: scripts/pause-summary.sh
       destination: pause-summary.sh
 
+  # ── Support scripts ───────────────────────────────────────
+  - id: script-knowledge
+    description: Knowledge ledger helper used by /quiz, /learn, and /digest (record/touch/list/due)
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/knowledge.sh
+      destination: knowledge.sh
+      fileType: generic
+
   # ── Commands ──────────────────────────────────────────────
   - id: cmd-learn
     description: /learn — explain what just happened or answer a session question

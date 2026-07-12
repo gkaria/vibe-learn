@@ -76,6 +76,11 @@ load test_helper
   grep -q "knowledge.sh" "$skill_file"
 }
 
+@test "techpack ships knowledge.sh alongside the quiz command" {
+  grep -q "source: scripts/knowledge.sh" "$VIBE_LEARN_DIR/techpack.yaml"
+  grep -q "source: .claude/commands/quiz.md" "$VIBE_LEARN_DIR/techpack.yaml"
+}
+
 # ---------------------------------------------------------------------------
 # Install behavior
 # ---------------------------------------------------------------------------
