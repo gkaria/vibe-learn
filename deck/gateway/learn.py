@@ -57,15 +57,25 @@ def _session_context(repo: Path) -> str:
     return "\n\n".join(parts)[:MAX_LOG_CHARS]
 
 
+SPOKEN_STYLE = (
+    "CRITICAL OUTPUT RULES: your entire reply is piped directly to "
+    "text-to-speech and a tiny LCD. Reply in plain spoken prose only — "
+    "NO markdown, NO headers, NO bullet lists, NO code formatting. "
+    "Hard limit: {} words. Do not restate these rules."
+)
+
+
 class Learn:
     def __init__(self, cfg):
         self.cfg = cfg
         self.bin = cfg.get("CLAUDE_BIN")
+        self.model = cfg.get("LEARN_MODEL", "haiku")
         self.timeout = int(cfg.get("CHAT_TIMEOUT_S"))
 
     def _claude(self, system: str, prompt: str) -> str:
         proc = subprocess.run(
             [self.bin, "-p", "--output-format", "text",
+             "--model", self.model,
              "--append-system-prompt", system, prompt],
             cwd=_scratch_dir("learn"), capture_output=True, text=True,
             timeout=self.timeout, stdin=subprocess.DEVNULL,
@@ -84,9 +94,9 @@ class Learn:
         repo, context = self._context_or_raise(repo_override)
         answer = self._claude(
             "You are a learning companion. Ground your answer strictly in the "
-            "session log provided. Speak plainly for text-to-speech: under 120 "
-            "words, no markdown, no file paths unless essential.",
-            f"{context}\n\nQuestion about this session: {question}",
+            "session log provided. " + SPOKEN_STYLE.format(110),
+            f"{context}\n\nQuestion about this session (answer in spoken "
+            f"prose, under 110 words): {question}",
         )
         return {"repo": repo.name, "response": answer}
 
@@ -94,9 +104,10 @@ class Learn:
         repo, context = self._context_or_raise(repo_override)
         answer = self._claude(
             "You are a learning companion summarizing an AI coding session "
-            "aloud. Plain spoken prose, no markdown, under 150 words.",
-            f"{context}\n\nGive a digest: what was built or changed, the key "
-            "decisions and why, and one concept worth studying afterward.",
+            "aloud. " + SPOKEN_STYLE.format(140),
+            f"{context}\n\nGive a digest in spoken prose, under 140 words: "
+            "what was built or changed, the key decisions and why, and one "
+            "concept worth studying afterward.",
         )
         return {"repo": repo.name, "response": answer}
 
@@ -105,8 +116,8 @@ class Learn:
         question = self._claude(
             "You generate one short spoken quiz question at a time testing "
             "whether the developer understood what their AI assistant just "
-            "did and why. Return only the question, one or two sentences, "
-            "no markdown.",
+            "did and why. Return only the question, one or two sentences. "
+            + SPOKEN_STYLE.format(40),
             f"{context}\n\nGenerate the next quiz question.",
         )
         state = _load_state()
@@ -124,8 +135,8 @@ class Learn:
         context = _session_context(repo) if (repo / ".vibe-learn").exists() else ""
         verdict = self._claude(
             "You are grading a spoken quiz answer. Start with 'Correct' or "
-            "'Not quite', then give a one- or two-sentence explanation. Plain "
-            "spoken prose, no markdown.",
+            "'Not quite', then give a one- or two-sentence explanation. "
+            + SPOKEN_STYLE.format(60),
             f"{context}\n\nQuiz question: {question}\n"
             f"The developer answered (via speech-to-text): {answer}",
         )
