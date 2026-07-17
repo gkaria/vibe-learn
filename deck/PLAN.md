@@ -1,7 +1,8 @@
 # vibe-deck — Plan & Status
 
 > Continuation doc: everything a fresh session needs to pick this up.
-> Last updated: 2026-07-17 (branch `deck-mvp`, M1 complete).
+> Last updated: 2026-07-17 evening (branch `deck-mvp`, M1 complete;
+> device flashed + online, blocked on device-mic debug — see next steps).
 
 ## What this is
 
@@ -79,20 +80,50 @@ Commits on `deck-mvp`: `c885393` (pristine fork imports) → `40e6534`
 
 ## NOT done — immediate next steps
 
-1. **Push the device app (blocked on hardware — Cardputer wasn't on USB):**
-   ```bash
-   cp deck/device/config.example.py deck/device/config.py
-   # edit: GATEWAY_URL = "http://<Mac LAN IP>:8756"   (ipconfig getifaddr en0)
-   #       GATEWAY_SECRET = value from ~/.vibe-deck/env
-   python3 deck/scripts/push_app_mpy.py --port /dev/cu.usbmodem* \
-       --config deck/device/config.py
-   ```
-   Then verify on hardware: launcher lists "voice center"; voice + text
-   round-trips on targets 1/2; Learn D/G keys; OOM-free boot
-   (`python3 deck/scripts/tail_serial.py --port ...`); note latency.
-   Device keys: 1/2/3 or `,`/`/` targets · SPACE voice · T text · N new
-   chat · D digest · **G quiz** (deviation from PRD's "Q": Q = back
-   everywhere in the bundle) · `;`/`.` scroll · Q/ESC exit.
+### Device bring-up progress (2026-07-17 evening session)
+
+Done on hardware:
+
+- App flashed: `voice_center.mpy` (10.3 KB) + `config.py` at
+  `/flash/apps/` via `~/.vibe-deck/venv/bin/python
+  deck/scripts/push_app_mpy.py --port /dev/cu.usbmodem2101 --config
+  deck/device/config.py`. Boots OOM-free; launcher lists it.
+  (pyserial 3.5 now lives in `~/.vibe-deck/venv`;
+  `deck/scripts/vendor_path.py` shim added — the fork's vendored
+  pyserial was never imported.)
+- Wi-Fi provisioned: creds written into `/flash/wifi_event.py` from
+  `~/.vibe-deck/wifi.env` (SSID=/PASSWORD= lines, chmod 600 — reusable
+  for reflashes; scratchpad script pattern: fetch file over REPL, patch
+  the two constant lines, write back base64-chunked, verify connect).
+  Device gets IP (192.168.0.25, −55 dBm, ~2.4 s connect).
+- Gateway reachable from device: `GATEWAY_URL` is
+  `http://192.168.0.24:8756` (Mac's DHCP moved from .11 — see gotchas);
+  REPL-level GET /health answered. **Get a DHCP reservation for the Mac
+  (MAC addr `84:2f:57:74:af:76`) on the Sky router** or this breaks again.
+
+**BLOCKED HERE — device mic → empty transcript.** First real voice
+attempt reached the gateway (auth OK, WAV streamed) but parakeet
+returned `''` → 422 "could not transcribe audio" on the LCD. The app
+deletes `/flash/last.wav` after upload, so the bad capture is gone.
+Recording code is byte-identical in constants/approach to the fork's
+Whisper-verified `push_to_claude.py` (16 kHz/16-bit/6 s
+`recordWavFile`), so suspicion is on capture level (silent/quiet mic)
+vs upload truncation — not yet distinguished.
+
+**Next step (planned, not run): controlled mic test.** Over the REPL:
+draw "SPEAK NOW" on the LCD, `M5.Mic.recordWavFile` 6 s while the user
+speaks, base64-fetch the WAV to the Mac, check RMS/duration, run it
+through the gateway's own STT locally. If audio is good → debug the
+device's `_post_file_stream` upload path instead. Serial-tail helper
+that survives USB re-enumeration is in the session scratchpad
+(`tail_resilient.py`) — recreate from the gotcha below if lost.
+
+### Remaining M1 verification
+
+1. Voice + text round-trips on targets 1/2; Learn D/G keys; latency
+   numbers. Device keys: 1/2/3 or `,`/`/` targets · SPACE voice ·
+   T text · N new chat · D digest · **G quiz** (deviation from PRD's
+   "Q": Q = back everywhere in the bundle) · `;`/`.` scroll · Q/ESC exit.
 2. **Reboot-survival check** of the launchd agent (needs a real reboot).
 
 ## M2 (next milestone): ④ Claude Code coding target
@@ -141,6 +172,17 @@ dashboard · quiz results tracking · wake-word · LoRa/mesh experiments.
 - Device: mic is 16 kHz-locked; `recordWavFile` is the only reliable
   capture; apps >~25 KB source must ship as `.mpy`; plain-HTTP LAN
   avoids the mbedTLS internal-RAM OOM entirely.
+- The Mac's DHCP address **moves** (lease renewals) and
+  `ipconfig getifaddr en0` can return a stale address the Mac no longer
+  owns (route table shows it as REJECT; even local curl fails with "No
+  route to host"). Trust `ipconfig getpacket en0` (`yiaddr`) or
+  `ifconfig en0` instead — and give the Mac a DHCP reservation on the
+  router so `GATEWAY_URL` on the device stops going stale.
+- Device Wi-Fi creds live in `/flash/wifi_event.py` on the device
+  (shipped empty from the fork — device shows `EHOSTUNREACH` on every
+  request until provisioned). Cardputer is 2.4 GHz-only.
+- ESP32-S3 native USB re-enumerates on every reset; naive serial tails
+  die with "Device not configured" — reopen the port on OSError.
 
 ## File map
 

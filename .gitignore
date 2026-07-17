@@ -16,3 +16,4 @@
 
 # vibe-deck device secrets
 deck/device/config.py
+__pycache__/
