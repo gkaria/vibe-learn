@@ -13,3 +13,6 @@
 
 # Misc
 *.log
+
+# vibe-deck device secrets
+deck/device/config.py

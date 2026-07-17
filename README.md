@@ -10,6 +10,8 @@ vibe-learn watches what Claude Code, Codex, or OpenCode does during a session an
 
 **New here?** Follow the [Getting Started guide](GETTING_STARTED.md) for a step-by-step first session walkthrough.
 
+**Also in this repo:** [`deck/`](deck/README.md) — vibe-deck, a pocket voice control deck (M5Stack Cardputer) that commands your assistants and speaks vibe-learn's answers aloud. Self-contained; not part of the vibe-learn install.
+
 ---
 
 ## Install

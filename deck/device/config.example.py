@@ -1,19 +1,17 @@
-"""Push-to-Claude device config — copy to ``config.py`` and fill in.
+"""vibe-deck device config — copy to ``config.py`` and fill in.
 
-The Push-to-Claude app loads ``WORKER_BASE`` and ``DEVICE_SECRET``
-from this module at import time. ``config.py`` is gitignored so your
-secret never leaves the device. See ``worker/README.md`` for how to
-deploy your own Cloudflare Worker relay and where to get these
-values.
+The Voice Center app loads these at import time. ``config.py`` is
+gitignored so your secret never leaves the device. See deck/README.md.
 """
 
-# Base URL of YOUR deployed Cloudflare Worker, e.g.
-#   "https://push-to-claude.<your-subdomain>.workers.dev"
-# No trailing slash; the app appends "/ask", "/ask-text", "/reset".
-WORKER_BASE = ""
+# Your Mac's LAN address + gateway port. Plain HTTP on the home LAN;
+# an https:// tunnel URL also works. No trailing slash.
+#   Find your Mac's IP: System Settings → Wi-Fi → Details, or
+#   `ipconfig getifaddr en0`.
+GATEWAY_URL = "http://192.168.1.10:8756"
 
-# Shared secret between this device and the Worker. Must match the
-# DEVICE_SECRET you set on the Worker via:
-#   wrangler secret put DEVICE_SECRET
-# Generate one with: ``openssl rand -base64 32`` (or any random 32+ char string).
-DEVICE_SECRET = ""
+# Must match GATEWAY_SECRET in ~/.vibe-deck/env on the Mac.
+GATEWAY_SECRET = ""
+
+# Target selected at boot: "claude" | "chatgpt" | "learn"
+DEFAULT_TARGET = "claude"

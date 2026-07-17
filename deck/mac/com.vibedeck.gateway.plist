@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd job for the vibe-deck gateway daemon (STT + chat + learn + TTS).
+
+  Install with deck/mac/install_gateway.sh — it substitutes the real
+  paths into a copy at ~/Library/LaunchAgents/com.vibedeck.gateway.plist
+  and `launchctl bootstrap`s it. Secrets stay in ~/.vibe-deck/env (read
+  by the gateway itself), not in this file.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.vibedeck.gateway</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__VENV_PYTHON__</string>
+    <string>-m</string>
+    <string>uvicorn</string>
+    <string>gateway.server:app</string>
+    <string>--host</string>
+    <string>0.0.0.0</string>
+    <string>--port</string>
+    <string>8756</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__DECK_DIR__</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/vibe-deck.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/vibe-deck.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__CLI_PATH__:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+  </dict>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>
