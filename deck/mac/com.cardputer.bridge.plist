@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd job for the cardputer-mcp HTTP bridge daemon. Runs the
+  streamable-http transport (CARDPUTER_HTTP=1) so cloud agents (via the
+  MCP tunnel) and local Claude Code (via loopback) can both reach the
+  device through one BLE owner. KeepAlive restarts it on crash.
+
+  Install with mac/install_cardputer_bridge.sh — that script substitutes
+  the real paths + token/domain values (from ~/.config/cardputer-bridge/env)
+  into a copy at:
+    ~/Library/LaunchAgents/com.cardputer.bridge.plist
+  then `launchctl bootstrap`s it.
+
+  The __PLACEHOLDERS__ MUST be replaced before loading or launchd rejects
+  the file silently. The rendered copy is user-only and NOT in the repo;
+  it carries your bearer tokens.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.cardputer.bridge</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__VENV_PYTHON__</string>
+    <string>__SERVER_PY__</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Restart if it crashes; this is a long-lived daemon, not a cron. -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/cardputer-bridge.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/cardputer-bridge.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    <key>CARDPUTER_HTTP</key>
+    <string>1</string>
+    <key>CARDPUTER_HTTP_HOST</key>
+    <string>127.0.0.1</string>
+    <key>CARDPUTER_HTTP_PORT</key>
+    <string>__CARDPUTER_HTTP_PORT__</string>
+    <key>CARDPUTER_TOKENS</key>
+    <string>__CARDPUTER_TOKENS__</string>
+    <key>CARDPUTER_TUNNEL_DOMAIN</key>
+    <string>__CARDPUTER_TUNNEL_DOMAIN__</string>
+  </dict>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>
