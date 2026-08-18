@@ -1,12 +1,19 @@
 # Changelog
 
-## Unreleased
+## [0.8.0](https://github.com/gkaria/vibe-learn/compare/v0.7.1...v0.8.0) (2026-08-18)
 
 ### Features
 
 * add Grok Build support — dedicated `adapters/grok/` hooks, `/learn` `/digest` `/quiz` commands, and a `/vibe-learn` skill
 * accept Grok camelCase hook payloads and canonicalize `write` / `search_replace` / `run_terminal_command` in the session log
+* observe Grok `PostToolUseFailure` events and honor `GROK_HOME` for global install and detection
+
+### Bug Fixes
+
 * keep Grok Stop hooks from emitting `additionalContext` (that envelope is a keep-working gate on Grok)
+* log failed Grok file operations as `action: "failed"` so pause summaries do not count them as changes
+* quote Grok hook command paths so installs with spaces in the path execute
+* do not abort `vibe-learn audio-prep` when `pbcopy` exists but the clipboard is unavailable
 
 ## [0.7.1](https://github.com/gkaria/vibe-learn/compare/v0.7.0...v0.7.1) (2026-07-12)
 
