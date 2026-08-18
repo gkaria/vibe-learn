@@ -2,18 +2,42 @@
 
 ## [0.8.0](https://github.com/gkaria/vibe-learn/compare/v0.7.1...v0.8.0) (2026-08-18)
 
-### Features
+This release adds Grok Build as a first-class assistant.
 
-* add Grok Build support — dedicated `adapters/grok/` hooks, `/learn` `/digest` `/quiz` commands, and a `/vibe-learn` skill
-* accept Grok camelCase hook payloads and canonicalize `write` / `search_replace` / `run_terminal_command` in the session log
-* observe Grok `PostToolUseFailure` events and honor `GROK_HOME` for global install and detection
+vibe-learn already watched Claude Code, Codex, and OpenCode. v0.8.0 does the
+same for Grok Build: session actions are logged, pause summaries are written,
+and `/learn`, `/digest`, `/quiz`, and `/vibe-learn` work the same way they do
+on the other assistants.
 
-### Bug Fixes
+### Grok Build
 
-* keep Grok Stop hooks from emitting `additionalContext` (that envelope is a keep-working gate on Grok)
-* log failed Grok file operations as `action: "failed"` so pause summaries do not count them as changes
-* quote Grok hook command paths so installs with spaces in the path execute
-* do not abort `vibe-learn audio-prep` when `pbcopy` exists but the clipboard is unavailable
+After install, Grok users get:
+
+- Automatic observation of file writes, edits, and shell commands
+- `/learn`, `/digest`, and `/quiz` slash commands
+- A `/vibe-learn` skill for natural-language requests ("use vibe-learn to
+  learn what happened")
+- `--assistant=grok` on `setup.sh` / `vibe-learn install`, plus auto-detection
+  via the `grok` binary, `~/.grok`, or `GROK_HOME`
+
+Global hooks live in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json` and are
+always trusted. Project hooks live in `.grok/hooks/` and need `/hooks-trust`
+before they run.
+
+If Claude Code vibe-learn is also installed, Grok may run both hook sets.
+Set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid
+double-logging.
+
+### Upgrading
+
+Rerun the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
+```
+
+Or, from a checkout: `bash scripts/setup.sh --local --assistant=grok`.
+Existing Claude Code, Codex, and OpenCode installs are unchanged.
 
 ## [0.7.1](https://github.com/gkaria/vibe-learn/compare/v0.7.0...v0.7.1) (2026-07-12)
 
