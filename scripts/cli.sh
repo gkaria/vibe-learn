@@ -10,7 +10,7 @@ usage() {
 vibe-learn — learn from agent-built coding sessions
 
 Usage:
-  vibe-learn install    [target-dir] [--assistant=claude-code|codex|opencode|all]
+  vibe-learn install    [target-dir] [--assistant=claude-code|codex|opencode|grok|all]
   vibe-learn briefing   [target-dir] [--latest]
   vibe-learn audio-prep [target-dir]
   vibe-learn help

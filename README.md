@@ -4,7 +4,7 @@
 
 You can outsource your thinking, but you can't outsource your understanding.
 
-vibe-learn watches what Claude Code, Codex, or OpenCode does during a session and helps you understand what was built, why, and how — without changing how you work.
+vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during a session and helps you understand what was built, why, and how — without changing how you work.
 
 ---
 
@@ -76,6 +76,17 @@ Use vibe-learn to quiz me on this session.
 /learn why did we add middleware?
 /digest
 /quiz
+```
+
+### Grok Build
+
+```
+/learn
+/learn why did we add middleware?
+/digest
+/quiz
+/vibe-learn
+Use vibe-learn to learn what happened.
 ```
 
 ---
@@ -206,8 +217,11 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 | **Claude Code** | JSON hooks in `settings.json`, native `/learn`, `/digest`, and `/quiz` slash commands |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
 | **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, and `/quiz` commands |
+| **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, and a `/vibe-learn` skill |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, or `--assistant=opencode`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=grok`.
+
+Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
 
 ---
 

@@ -1,0 +1,61 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INSTALL_DIR_PLACEHOLDER/scripts/bootstrap.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INSTALL_DIR_PLACEHOLDER/scripts/capture-prompt.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "write|search_replace|run_terminal_command|Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INSTALL_DIR_PLACEHOLDER/scripts/observe.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "write|search_replace|run_terminal_command|Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INSTALL_DIR_PLACEHOLDER/scripts/observe.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INSTALL_DIR_PLACEHOLDER/scripts/pause-summary.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

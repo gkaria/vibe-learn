@@ -70,6 +70,17 @@ JSON
   [ "$(jq '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = "2" ]
 }
 
+@test "capture-prompt reads Grok userPrompt field" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","userPrompt":"Add auth middleware"}' \
+    | bash "$SCRIPTS_DIR/capture-prompt.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.event')" = "user_prompt" ]
+  [ "$(echo "$entry" | jq -r '.prompt')" = "Add auth middleware" ]
+}
+
 @test "capture-prompt includes turn number in session log entry" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" <<'JSON'

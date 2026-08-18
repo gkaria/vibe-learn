@@ -94,3 +94,27 @@ teardown() {
   grep -q "const VIBE_LEARN_DIR = \"$FAKE_INSTALL_DIR\"" "$FAKE_HOME/.config/opencode/plugins/vibe-learn.js"
   grep -q 'runScript("observe.sh"' "$FAKE_HOME/.config/opencode/plugins/vibe-learn.js"
 }
+
+@test "setup installs Grok hooks skill and commands when Grok is selected" {
+  bash "$SCRIPTS_DIR/setup.sh" --local --assistant=grok
+
+  [ -f "$FAKE_HOME/.grok/hooks/vibe-learn.json" ]
+  jq -e '.hooks.SessionStart' "$FAKE_HOME/.grok/hooks/vibe-learn.json" >/dev/null
+  jq -e '.hooks.PostToolUseFailure' "$FAKE_HOME/.grok/hooks/vibe-learn.json" >/dev/null
+  [ -f "$FAKE_HOME/.grok/commands/learn.md" ]
+  [ -f "$FAKE_HOME/.grok/commands/digest.md" ]
+  [ -f "$FAKE_HOME/.grok/commands/quiz.md" ]
+  [ -f "$FAKE_HOME/.grok/skills/vibe-learn/SKILL.md" ]
+  grep -q "$FAKE_INSTALL_DIR/scripts/bootstrap.sh" "$FAKE_HOME/.grok/hooks/vibe-learn.json"
+}
+
+@test "setup installs Grok under GROK_HOME when selected" {
+  local grok_home="$FAKE_HOME/custom-grok"
+  mkdir -p "$grok_home"
+
+  GROK_HOME="$grok_home" bash "$SCRIPTS_DIR/setup.sh" --local --assistant=grok
+
+  [ -f "$grok_home/hooks/vibe-learn.json" ]
+  [ -f "$grok_home/skills/vibe-learn/SKILL.md" ]
+  [ ! -e "$FAKE_HOME/.grok/hooks/vibe-learn.json" ]
+}

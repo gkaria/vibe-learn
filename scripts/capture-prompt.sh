@@ -7,8 +7,11 @@ set -euo pipefail
 # Read stdin JSON
 INPUT=$(cat)
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty')
+CWD=$(echo "$INPUT" | jq -r '.cwd // .workspaceRoot // empty')
+if [ -z "$CWD" ] && [ -n "${GROK_HOOK_EVENT:-}" ]; then
+  CWD="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-}}"
+fi
+PROMPT=$(echo "$INPUT" | jq -r '.prompt // .userPrompt // .text // empty')
 
 if [ -z "$CWD" ]; then
   exit 0

@@ -183,3 +183,90 @@ JSON
     | bash "$SCRIPTS_DIR/observe.sh"
   [ "$(jq '.turn' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "1" ]
 }
+
+@test "observe logs Grok write as Write" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","toolName":"write","toolInput":{"file_path":"src/app.ts"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Write" ]
+  [ "$(echo "$entry" | jq -r '.file')" = "src/app.ts" ]
+  [ "$(echo "$entry" | jq -r '.action')" = "created" ]
+}
+
+@test "observe logs Grok search_replace as Edit" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","toolName":"search_replace","toolInput":{"file_path":"src/routes.ts"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Edit" ]
+  [ "$(echo "$entry" | jq -r '.action')" = "edited" ]
+}
+
+@test "observe logs failed Grok write as action failed" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hookEventName":"post_tool_use_failure","toolName":"write","toolInput":{"file_path":"src/app.ts"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Write" ]
+  [ "$(echo "$entry" | jq -r '.file')" = "src/app.ts" ]
+  [ "$(echo "$entry" | jq -r '.action')" = "failed" ]
+  [ "$(echo "$entry" | jq '.context.failed')" = "true" ]
+}
+
+@test "observe logs failed Grok search_replace as action failed" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hookEventName":"post_tool_use_failure","toolName":"search_replace","toolInput":{"file_path":"src/routes.ts"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Edit" ]
+  [ "$(echo "$entry" | jq -r '.action')" = "failed" ]
+}
+
+@test "observe logs Grok PostToolUseFailure without exit code as a failed Bash command" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hookEventName":"post_tool_use_failure","toolName":"run_terminal_command","toolInput":{"command":"npm test"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Bash" ]
+  [ "$(echo "$entry" | jq -r '.command')" = "npm test" ]
+  [ "$(echo "$entry" | jq '.context.exit_code')" = "1" ]
+}
+
+@test "observe logs Grok run_terminal_command as Bash with toolResult exit code" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","toolName":"run_terminal_command","toolInput":{"command":"npm test"},"toolResult":{"exitCode":2}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Bash" ]
+  [ "$(echo "$entry" | jq -r '.command')" = "npm test" ]
+  [ "$(echo "$entry" | jq '.context.exit_code')" = "2" ]
+}
+
+@test "observe accepts workspaceRoot when cwd is missing" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"workspaceRoot":"'"$TEST_PROJECT_DIR"'","toolName":"write","toolInput":{"path":"src/via-root.ts"},"toolResult":{}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  [ "$(jq -r '.file' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "src/via-root.ts" ]
+}
+
+@test "observe accepts GROK_WORKSPACE_ROOT when payload has no cwd" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"toolName":"write","toolInput":{"file_path":"src/via-env.ts"},"toolResult":{}}' \
+    | GROK_HOOK_EVENT=post_tool_use GROK_WORKSPACE_ROOT="$TEST_PROJECT_DIR" bash "$SCRIPTS_DIR/observe.sh"
+
+  [ "$(jq -r '.file' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "src/via-env.ts" ]
+}

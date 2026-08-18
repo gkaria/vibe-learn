@@ -7,10 +7,19 @@
 VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 INPUT=$(cat)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-HOOK_EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+CWD=$(echo "$INPUT" | jq -r '.cwd // .workspaceRoot // empty')
+if [ -z "$CWD" ] && [ -n "${GROK_HOOK_EVENT:-}" ]; then
+  CWD="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-}}"
+fi
+HOOK_EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // .hookEventName // empty')
+REASON=$(echo "$INPUT" | jq -r '.reason // empty')
 
 if [ -z "$CWD" ]; then
+  exit 0
+fi
+
+# Grok fires an extra observe-only Stop at session end. Only summarise genuine turn ends.
+if [ -n "$REASON" ] && [ "$REASON" != "end_turn" ]; then
   exit 0
 fi
 
@@ -34,7 +43,9 @@ fi
 
 RECENT_ACTIONS=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r '
   select(.event=="tool_use") |
-  if .tool == "Write" or .action == "created" then
+  if .action == "failed" then
+    empty
+  elif .tool == "Write" or .action == "created" then
     "  ✦ Created \(.file // "file")"
   elif .tool == "Edit" or .tool == "MultiEdit" or .action == "edited" then
     "  ✦ Edited \(.file // "file")"
@@ -51,8 +62,8 @@ RECENT_ACTIONS=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r '
 ' 2>/dev/null)
 
 # --- Count files and commands in this response ---
-FILES_CREATED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and (.tool=="Write" or .action=="created"))' | jq -s 'length' 2>/dev/null || echo 0)
-FILES_MODIFIED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and (.tool=="Edit" or .tool=="MultiEdit" or .action=="edited"))' | jq -s 'length' 2>/dev/null || echo 0)
+FILES_CREATED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action != "failed" and (.tool=="Write" or .action=="created"))' | jq -s 'length' 2>/dev/null || echo 0)
+FILES_MODIFIED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action != "failed" and (.tool=="Edit" or .tool=="MultiEdit" or .action=="edited"))' | jq -s 'length' 2>/dev/null || echo 0)
 FILES_DELETED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action=="deleted")' | jq -s 'length' 2>/dev/null || echo 0)
 BASH_TOTAL=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash")' | jq -s 'length' 2>/dev/null || echo 0)
 BASH_FAILURES=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash" and .context.exit_code!=0)' | jq -s 'length' 2>/dev/null || echo 0)
@@ -94,8 +105,12 @@ echo "$SUMMARY" > "$SUMMARY_FILE"
 # Stdout is suppressed so hooks never see noise from dashboard generation.
 bash "$VIBE_LEARN_DIR/scripts/briefing.sh" "$CWD" >/dev/null 2>&1 &
 
-# Output JSON for Claude's context injection (Stop hook additionalContext)
-if [ "$HOOK_EVENT_NAME" = "Stop" ]; then
+# Output JSON for host-specific Stop semantics.
+# Grok treats additionalContext as a keep-working gate — write the file and emit nothing.
+# Codex Stop expects {"continue":true}. Claude uses additionalContext.
+if [ -n "${GROK_HOOK_EVENT:-}" ] || [ "$HOOK_EVENT_NAME" = "stop" ]; then
+  exit 0
+elif [ "$HOOK_EVENT_NAME" = "Stop" ]; then
   printf '{"continue":true}\n'
 else
   printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'

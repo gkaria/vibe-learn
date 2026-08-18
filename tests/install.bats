@@ -153,6 +153,16 @@ load test_helper
   [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
 }
 
+@test "install with .grok only installs Grok" {
+  mkdir -p "$TEST_PROJECT_DIR/.grok"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.grok/hooks/vibe-learn.json" ]
+  [ -f "$TEST_PROJECT_DIR/.grok/commands/learn.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+}
+
 @test "install --assistant=all installs all detected tools" {
   local fake_home
   local fake_bin
@@ -161,7 +171,8 @@ load test_helper
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/claude"
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/codex"
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/opencode"
-  chmod +x "$fake_bin/claude" "$fake_bin/codex" "$fake_bin/opencode"
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/grok"
+  chmod +x "$fake_bin/claude" "$fake_bin/codex" "$fake_bin/opencode" "$fake_bin/grok"
 
   PATH="$fake_bin:$PATH" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=all
 
@@ -170,6 +181,7 @@ load test_helper
   [ -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
   grep -q '\[hooks\]' "$TEST_PROJECT_DIR/.codex/config.toml"
   [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
+  [ -f "$TEST_PROJECT_DIR/.grok/hooks/vibe-learn.json" ]
 
   rm -rf "$fake_home" "$fake_bin"
 }
@@ -187,6 +199,31 @@ load test_helper
   [ -f "$TEST_PROJECT_DIR/.opencode/plugins/vibe-learn.js" ]
   [ -f "$TEST_PROJECT_DIR/.opencode/commands/learn.md" ]
   [ -f "$TEST_PROJECT_DIR/.opencode/commands/digest.md" ]
+}
+
+@test "install --assistant=grok creates .grok hooks commands and skill" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=grok
+  [ -f "$TEST_PROJECT_DIR/.grok/hooks/vibe-learn.json" ]
+  jq -e '.hooks.PostToolUseFailure' "$TEST_PROJECT_DIR/.grok/hooks/vibe-learn.json" >/dev/null
+  [ -f "$TEST_PROJECT_DIR/.grok/commands/learn.md" ]
+  [ -f "$TEST_PROJECT_DIR/.grok/commands/digest.md" ]
+  [ -f "$TEST_PROJECT_DIR/.grok/skills/vibe-learn/SKILL.md" ]
+}
+
+@test "install detects grok via GROK_HOME when no project assistant dirs exist" {
+  local fake_home
+  local grok_home
+  fake_home="$(mktemp -d)"
+  grok_home="$(mktemp -d)/custom-grok"
+  mkdir -p "$grok_home"
+
+  PATH="/usr/bin:/bin" HOME="$fake_home" GROK_HOME="$grok_home" \
+    bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.grok/hooks/vibe-learn.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home" "$(dirname "$grok_home")"
 }
 
 @test "install unknown assistant errors" {

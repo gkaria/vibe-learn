@@ -74,6 +74,33 @@ JSONL
   grep -q "Build an API" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
 }
 
+@test "pause-summary does not treat failed file operations as changes" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'JSONL'
+{"timestamp":"2026-03-17T14:00:00Z","event":"user_prompt","prompt":"Add a helper"}
+{"timestamp":"2026-03-17T14:00:05Z","event":"tool_use","tool":"Write","file":"src/ok.ts","action":"created","context":{"new_file":true}}
+{"timestamp":"2026-03-17T14:00:06Z","event":"tool_use","tool":"Write","file":"src/fail.ts","action":"failed","context":{"failed":true}}
+{"timestamp":"2026-03-17T14:00:07Z","event":"tool_use","tool":"Edit","file":"src/also-fail.ts","action":"failed","context":{"failed":true}}
+JSONL
+
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  echo "$output" | grep -q "Created src/ok.ts"
+  ! echo "$output" | grep -q "Created src/fail.ts"
+  ! echo "$output" | grep -q "Edited src/also-fail.ts"
+}
+
+@test "pause-summary stays silent when only file operations failed" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'JSONL'
+{"timestamp":"2026-03-17T14:00:00Z","event":"user_prompt","prompt":"Add a helper"}
+{"timestamp":"2026-03-17T14:00:05Z","event":"tool_use","tool":"Write","file":"src/fail.ts","action":"failed","context":{"failed":true}}
+JSONL
+
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "pause-summary flags failed commands" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'JSONL'
@@ -118,6 +145,31 @@ JSONL
     sleep 0.2
   done
   [ -f "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" ]
+}
+
+@test "pause-summary emits no stdout for Grok Stop" {
+  seed_session_log
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","hookEventName":"stop","reason":"end_turn"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
+  grep -q "Build an API" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+}
+
+@test "pause-summary emits no stdout when GROK_HOOK_EVENT is set" {
+  seed_session_log
+  run env GROK_HOOK_EVENT=stop bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
+}
+
+@test "pause-summary skips Grok session-end Stop" {
+  seed_session_log
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","hookEventName":"stop","reason":"shutdown"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
 }
 
 @test "pause-summary only shows events after last prompt" {

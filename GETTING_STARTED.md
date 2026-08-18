@@ -232,7 +232,7 @@ You don't change how you work. You just have a trail to learn from afterward.
 
 ## Next steps
 
-- **Codex or OpenCode?** See [README.md](README.md#supported-assistants) for setup.
+- **Codex, OpenCode, or Grok Build?** See [README.md](README.md#supported-assistants) for setup.
 - **Save notes to Obsidian?** See [README.md](README.md#obsidian-integration).
 - **Per-project install** (to share with teammates): `vibe-learn install` in your project root.
 - **Something not working?** Check that `jq` is installed and that `~/.local/bin` is in your `PATH`.

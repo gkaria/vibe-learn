@@ -29,16 +29,26 @@ load test_helper
   grep -q "knowledge.sh" "$cmd_file"
 }
 
+@test "grok quiz.md exists and references the session log and knowledge helper" {
+  local cmd_file="$ADAPTERS_DIR/grok/commands/quiz.md"
+  [ -f "$cmd_file" ]
+  grep -q "session-log.jsonl" "$cmd_file"
+  grep -q "knowledge.sh" "$cmd_file"
+  grep -q "run_terminal_command" "$cmd_file"
+}
+
 @test "quiz commands document the review mode" {
   grep -q "review" "$ADAPTERS_DIR/claude-code/commands/quiz.md"
   grep -q "review" "$ADAPTERS_DIR/codex/prompts/quiz.md"
   grep -q "review" "$ADAPTERS_DIR/opencode/commands/quiz.md"
+  grep -q "review" "$ADAPTERS_DIR/grok/commands/quiz.md"
 }
 
 @test "quiz commands never hand-edit the ledger" {
   grep -q "never hand-edit" "$ADAPTERS_DIR/claude-code/commands/quiz.md"
   grep -q "never hand-edit" "$ADAPTERS_DIR/codex/prompts/quiz.md"
   grep -q "never hand-edit" "$ADAPTERS_DIR/opencode/commands/quiz.md"
+  grep -q "never hand-edit" "$ADAPTERS_DIR/grok/commands/quiz.md"
 }
 
 @test "dogfood .claude/commands/quiz.md matches the adapter copy" {
@@ -53,6 +63,7 @@ load test_helper
   grep -q "knowledge.sh due" "$ADAPTERS_DIR/claude-code/commands/learn.md"
   grep -q "knowledge.sh due" "$ADAPTERS_DIR/codex/prompts/learn.md"
   grep -q "knowledge.sh due" "$ADAPTERS_DIR/opencode/commands/learn.md"
+  grep -q "knowledge.sh due" "$ADAPTERS_DIR/grok/commands/learn.md"
 }
 
 @test "digest commands make Things to Study cumulative and touch new concepts" {
@@ -60,6 +71,7 @@ load test_helper
   grep -q "knowledge.sh touch" "$ADAPTERS_DIR/claude-code/commands/digest.md"
   grep -q "knowledge.sh touch" "$ADAPTERS_DIR/codex/prompts/digest.md"
   grep -q "knowledge.sh touch" "$ADAPTERS_DIR/opencode/commands/digest.md"
+  grep -q "knowledge.sh touch" "$ADAPTERS_DIR/grok/commands/digest.md"
 }
 
 @test "obsidian note templates document recall_status frontmatter" {
@@ -99,6 +111,11 @@ load test_helper
 @test "opencode project install copies quiz command" {
   bash "$ADAPTERS_DIR/opencode/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
   [ -f "$TEST_PROJECT_DIR/.opencode/commands/quiz.md" ]
+}
+
+@test "grok project install copies quiz command" {
+  bash "$ADAPTERS_DIR/grok/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.grok/commands/quiz.md" ]
 }
 
 @test "claude-code global install copies quiz.md" {

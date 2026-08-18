@@ -6,9 +6,18 @@
 # Read stdin JSON
 INPUT=$(cat)
 
-# Extract cwd and session_id (jq required)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+# Extract cwd and session_id (jq required). Accept Claude snake_case and Grok camelCase.
+CWD=$(echo "$INPUT" | jq -r '.cwd // .workspaceRoot // empty' 2>/dev/null || true)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // .sessionId // empty' 2>/dev/null || true)
+# Grok hook-runner env only — GROK_SESSION_ID can leak into agent shells.
+if [ -n "${GROK_HOOK_EVENT:-}" ]; then
+  if [ -z "$CWD" ]; then
+    CWD="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-}}"
+  fi
+  if [ -z "$SESSION_ID" ]; then
+    SESSION_ID="${GROK_SESSION_ID:-}"
+  fi
+fi
 
 # Fall back gracefully if cwd is missing
 if [ -z "$CWD" ]; then

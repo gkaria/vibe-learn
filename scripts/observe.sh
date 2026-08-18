@@ -7,13 +7,29 @@ set -euo pipefail
 # Read stdin JSON
 INPUT=$(cat)
 
-# Extract fields
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
+# Extract fields. Accept Claude snake_case and Grok camelCase envelopes.
+CWD=$(echo "$INPUT" | jq -r '.cwd // .workspaceRoot // empty')
+if [ -z "$CWD" ] && [ -n "${GROK_HOOK_EVENT:-}" ]; then
+  CWD="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-}}"
+fi
+TOOL=$(echo "$INPUT" | jq -r '.tool_name // .toolName // empty')
 
 if [ -z "$CWD" ] || [ -z "$TOOL" ]; then
   exit 0
 fi
+
+# Canonicalize Grok tool names onto the existing session-log vocabulary.
+case "$TOOL" in
+  write) TOOL=Write ;;
+  search_replace) TOOL=Edit ;;
+  run_terminal_command) TOOL=Bash ;;
+esac
+
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // .hookEventName // empty')
+FAILED=0
+case "$HOOK_EVENT" in
+  PostToolUseFailure|post_tool_use_failure) FAILED=1 ;;
+esac
 
 LOG_DIR="$CWD/.vibe-learn"
 SESSION_LOG="$LOG_DIR/session-log.jsonl"
@@ -41,32 +57,58 @@ EVENT_COUNT=1
 
 case "$TOOL" in
   Write)
-    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-    ENTRIES=$(jq -cn \
-      --arg ts "$TS" \
-      --arg tool "$TOOL" \
-      --arg file "$FILE" \
-      --arg turn "$CURRENT_TURN" \
-      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"created",turn:($turn|tonumber? // 1),context:{new_file:true}}')
+    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .toolInput.file_path // .tool_input.path // .toolInput.path // empty')
+    if [ "$FAILED" -eq 1 ]; then
+      ENTRIES=$(jq -cn \
+        --arg ts "$TS" \
+        --arg tool "$TOOL" \
+        --arg file "$FILE" \
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"failed",turn:($turn|tonumber? // 1),context:{failed:true}}')
+    else
+      ENTRIES=$(jq -cn \
+        --arg ts "$TS" \
+        --arg tool "$TOOL" \
+        --arg file "$FILE" \
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"created",turn:($turn|tonumber? // 1),context:{new_file:true}}')
+    fi
     ;;
   Edit|MultiEdit)
-    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-    ENTRIES=$(jq -cn \
-      --arg ts "$TS" \
-      --arg tool "$TOOL" \
-      --arg file "$FILE" \
-      --arg turn "$CURRENT_TURN" \
-      '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"edited",turn:($turn|tonumber? // 1),context:{}}')
+    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .toolInput.file_path // .tool_input.path // .toolInput.path // empty')
+    if [ "$FAILED" -eq 1 ]; then
+      ENTRIES=$(jq -cn \
+        --arg ts "$TS" \
+        --arg tool "$TOOL" \
+        --arg file "$FILE" \
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"failed",turn:($turn|tonumber? // 1),context:{failed:true}}')
+    else
+      ENTRIES=$(jq -cn \
+        --arg ts "$TS" \
+        --arg tool "$TOOL" \
+        --arg file "$FILE" \
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"edited",turn:($turn|tonumber? // 1),context:{}}')
+    fi
     ;;
   Bash)
-    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // .toolInput.command // empty')
     EXIT_CODE=$(echo "$INPUT" | jq -r '
-      if (.tool_response | type) == "object" then
-        (.tool_response.exit_code // .tool_response.exitCode // 0)
+      (.tool_response // .toolResult) as $r |
+      if ($r | type) == "object" then
+        ($r.exit_code // $r.exitCode // empty)
       else
-        0
+        empty
       end
     ')
+    if [ -z "$EXIT_CODE" ]; then
+      if [ "$FAILED" -eq 1 ]; then
+        EXIT_CODE=1
+      else
+        EXIT_CODE=0
+      fi
+    fi
     # Truncate command to 200 chars to keep log compact
     CMD="${CMD:0:200}"
     ENTRIES=$(jq -cn \
@@ -78,7 +120,14 @@ case "$TOOL" in
       '{timestamp:$ts,event:"tool_use",tool:$tool,command:$cmd,action:"ran",turn:($turn|tonumber? // 1),context:{exit_code:$exit_code}}')
     ;;
   apply_patch)
-    PATCH=$(echo "$INPUT" | jq -r '.tool_input.command // .tool_input.patch // empty')
+    if [ "$FAILED" -eq 1 ]; then
+      ENTRIES=$(jq -cn \
+        --arg ts "$TS" \
+        --arg tool "$TOOL" \
+        --arg turn "$CURRENT_TURN" \
+        '{timestamp:$ts,event:"tool_use",tool:$tool,action:"failed",turn:($turn|tonumber? // 1),context:{failed:true}}')
+    else
+    PATCH=$(echo "$INPUT" | jq -r '.tool_input.command // .toolInput.command // .tool_input.patch // .toolInput.patch // empty')
     PATCH_SUMMARY=$(printf '%s\n' "$PATCH" | awk '
       /^\*\*\* Add File: / {
         file = $0
@@ -125,6 +174,7 @@ $ENTRY"
     done <<EOF
 $PATCH_SUMMARY
 EOF
+    fi
     ;;
   *)
     exit 0

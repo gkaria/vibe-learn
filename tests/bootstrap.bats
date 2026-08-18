@@ -53,3 +53,18 @@ load test_helper
   sid=$(jq -r '.session_id' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
   [ "$sid" = "unknown" ]
 }
+
+@test "bootstrap reads Grok sessionId" {
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","sessionId":"grok-789"}' | bash "$SCRIPTS_DIR/bootstrap.sh"
+  local sid
+  sid=$(jq -r '.session_id' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
+  [ "$sid" = "grok-789" ]
+}
+
+@test "bootstrap reads GROK_SESSION_ID when running as a Grok hook" {
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'"}' \
+    | GROK_HOOK_EVENT=session_start GROK_SESSION_ID="env-session" bash "$SCRIPTS_DIR/bootstrap.sh"
+  local sid
+  sid=$(jq -r '.session_id' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
+  [ "$sid" = "env-session" ]
+}

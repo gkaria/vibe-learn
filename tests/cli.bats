@@ -49,8 +49,19 @@ load test_helper
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"
   echo "# pack" > "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports/2026-06-05-proj-abc-notebooklm-pack.md"
 
-  run bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
+  local fake_bin
+  fake_bin="$(mktemp -d)"
+  printf '#!/bin/sh\nexit 1\n' > "$fake_bin/pbcopy"
+  printf '#!/bin/sh\nexit 1\n' > "$fake_bin/xclip"
+  printf '#!/bin/sh\nexit 1\n' > "$fake_bin/open"
+  chmod +x "$fake_bin/pbcopy" "$fake_bin/xclip" "$fake_bin/open"
+
+  run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "notebooklm-pack.md"
   echo "$output" | grep -qi "notebooklm"
+  echo "$output" | grep -q "Path:"
+  ! echo "$output" | grep -q "copied to clipboard"
+
+  rm -rf "$fake_bin"
 }

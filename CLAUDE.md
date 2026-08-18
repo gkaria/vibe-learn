@@ -8,16 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Product principle: users can outsource thinking to an assistant, but they cannot outsource understanding. The project should make AI-assisted work easier to learn from, not just easier to accept.
 
-It supports **Claude Code**, **Codex App/CLI**, and **OpenCode**, with a generic adapter system for adding new assistants.
+It supports **Claude Code**, **Codex App/CLI**, **OpenCode**, and **Grok Build**, with a generic adapter system for adding new assistants.
 
-It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands/prompts (`/learn`, `/digest`, and the Codex `vibe-learn` skill) leverage the AI's own context window to generate explanations and reports.
+It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands/prompts (`/learn`, `/digest`, `/quiz`, and the Codex/Grok `vibe-learn` skill) leverage the AI's own context window to generate explanations and reports.
 
 ## Multi-Assistant Architecture
 
 The project is split into a **generic core** and **per-assistant adapters**:
 
 ```text
-scripts/          ← assistant-agnostic core (unchanged regardless of which assistant)
+scripts/          ← assistant-agnostic core (accepts Claude and Grok hook envelopes)
   bootstrap.sh    ← SessionStart hook
   capture-prompt.sh ← UserPromptSubmit hook
   observe.sh      ← PostToolUse hook (<50ms, append-only)
@@ -42,13 +42,18 @@ adapters/
     plugins/      ← local plugin for event capture
     commands/     ← /learn, /digest, and /quiz markdown commands
     install.sh    ← plugin/command install into .opencode or ~/.config/opencode
+  grok/           ← Grok Build adapter
+    hooks.json    ← hook registration template
+    commands/     ← /learn, /digest, and /quiz slash command files
+    skills/       ← /vibe-learn skill
+    install.sh    ← hook file + skill/command install into ~/.grok or .grok
 ```
 
-**Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. The core scripts require no changes.
+**Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. Prefer translating host payloads in the adapter (OpenCode does this). Grok is the exception: it invokes the core scripts directly and also runs Claude hook files via `[compat.claude]`, so the core scripts accept both Claude snake_case and Grok camelCase envelopes and canonicalize Grok tool names (`write` → `Write`, `search_replace` → `Edit`, `run_terminal_command` → `Bash`).
 
 ### Stop Hook / additionalContext
 
-`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex Stop hooks, it returns Codex-compatible JSON (`{"continue": true}`) and writes the summary to `.vibe-learn/pause-summary.txt`. `bootstrap.sh` reads this file at the next SessionStart and injects it as `additionalContext` — so cross-session summary continuity works for all assistants.
+`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex Stop hooks, it returns Codex-compatible JSON (`{"continue": true}`) and writes the summary to `.vibe-learn/pause-summary.txt`. For Grok Stop hooks it writes the same file and emits **no stdout**: Grok treats `additionalContext` as a keep-working gate, and SessionStart stdout is ignored. `bootstrap.sh` still injects the file as `additionalContext` on hosts that support it. Grok learn/digest/skill instructions tell the model to read `pause-summary.txt` instead.
 
 ## How It Works
 
@@ -58,17 +63,20 @@ The plugin registers four lifecycle hooks:
 |------|--------|---------|
 | `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
-| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch tools |
+| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Grok also registers `PostToolUseFailure` so failed tools are logged. |
 | `Stop` | `scripts/pause-summary.sh` | After AI finishes responding |
 
 Hook registration format differs per assistant:
 
 - **Claude Code**: JSON in `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project)
 - **Codex App/CLI**: inline TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project). Codex also supports `hooks.json`, but vibe-learn keeps inline TOML as its install format so the canonical `[features] hooks = true` flag and hook registrations live together. Hooks are enabled by default in current Codex; the flag keeps installs working if hooks were disabled. The older `codex_hooks` feature key is deprecated.
+- **Grok Build**: dedicated JSON file at `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json` (global, always trusted) or `.grok/hooks/vibe-learn.json` (project; requires `/hooks-trust`). Commands go in `${GROK_HOME:-~/.grok}/commands/` or `.grok/commands/`; the skill goes in `${GROK_HOME:-~/.grok}/skills/vibe-learn/` or `.grok/skills/vibe-learn/`. Do not edit `config.toml`. Global install and detection honor `GROK_HOME`. Hook `command` values are POSIX-quoted so paths with spaces execute.
 
 Codex merges matching hooks from multiple hook sources instead of replacing lower-precedence hooks. Project-local `.codex/` hook layers require the project to be trusted before they run.
 
 Codex PostToolUse currently covers Bash, `apply_patch`, and MCP tool calls upstream. vibe-learn registers Bash plus `apply_patch` and Codex's documented `Edit`/`Write` matcher aliases, but `observe.sh` intentionally logs only Bash and file edits. Arbitrary MCP tool logging and the Codex `PermissionRequest` hook are out of scope for the current observational adapter.
+
+Grok PostToolUse and PostToolUseFailure matchers list both Grok names (`write`, `search_replace`, `run_terminal_command`) and Claude aliases (`Write`, `Edit`, `MultiEdit`, `Bash`). Matcher regex is case-sensitive. Grok reports failures on `PostToolUseFailure`, not `PostToolUse`; both call `observe.sh`. Failed file ops are logged with `action: "failed"` so pause summaries and briefings do not count them as created/edited. Failed shell commands keep `action: "ran"` with a non-zero `exit_code`. Grok also scans Claude hook files by default; if both adapters are installed, the same tool event can be logged twice. Document `[compat.claude] hooks = false` as the opt-out — do not auto-edit `~/.claude/settings.json`. Grok fires an extra observe-only Stop at session end (`reason` is not `end_turn`); `pause-summary.sh` ignores those.
 
 All scripts write to `.vibe-learn/` in the target project (never in this repo itself).
 
@@ -132,9 +140,9 @@ Key Obsidian options (`config/obsidian-defaults.json`):
 
 ## Installation
 
-**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex, OpenCode), and registers hooks/plugins globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=all` to override detection.
+**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex, OpenCode, Grok Build), and registers hooks/plugins globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Global Grok setup installs `~/.grok/hooks/vibe-learn.json`, `~/.grok/skills/vibe-learn/SKILL.md`, and `~/.grok/commands/{learn,digest,quiz}.md`. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=all` to override detection.
 
-**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/`, `.codex/`, and `.opencode/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `codex` or `~/.codex`, `opencode` or `~/.config/opencode`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=all` to override.
+**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/`, `.codex/`, `.opencode/`, and `.grok/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `codex` or `~/.codex`, `opencode` or `~/.config/opencode`, `grok` or `~/.grok`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=all` to override.
 
 Each adapter's `install.sh` handles:
 
@@ -147,6 +155,8 @@ The `adapters/claude-code/hooks.json` uses `${CLAUDE_PLUGIN_ROOT}` as a path pla
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
 The `adapters/opencode/` adapter installs `.opencode/plugins/vibe-learn.js` plus `.opencode/commands/learn.md`, `digest.md`, and `quiz.md` for project installs, or the equivalent paths under `~/.config/opencode/` for global installs. The plugin bridges straightforward OpenCode tool events into the existing core scripts.
+
+The `adapters/grok/` adapter writes a dedicated `vibe-learn.json` hook file (never merges into `config.toml` or other hook files) plus commands and a skill. `install.sh` renders command paths with `jq` and POSIX-quotes them. Timeouts: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` / `PostToolUseFailure` at 2 seconds, and `Stop` at 10 seconds.
 
 ## Session Briefing
 
@@ -181,6 +191,8 @@ Claude Code supports custom slash commands defined as markdown instruction files
 - `/quiz [topic|review]` — recall questions grounded in the session log, asked one at a time and graded conversationally; `review` re-quizzes ledger concepts that are shaky or stale
 
 Use the global Codex `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; current Codex can expose those as `/prompts:learn` and `/prompts:digest`, but the skill remains the primary durable interface.
+
+Grok Build uses the same slash commands (`/learn`, `/digest`, `/quiz`) plus a `/vibe-learn` skill. Prefer the skill for natural-language requests ("Use vibe-learn to learn what happened"). Grok commands live in `~/.grok/commands/` or `.grok/commands/`.
 
 Codex examples to keep docs and prompts aligned:
 

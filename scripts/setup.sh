@@ -12,6 +12,7 @@
 #   --assistant=claude-code   Configure Claude Code only
 #   --assistant=codex         Configure Codex CLI only
 #   --assistant=opencode      Configure OpenCode only
+#   --assistant=grok          Configure Grok Build only
 #   --assistant=all           Configure all detected assistants
 #   (default: auto-detect based on installed binaries / config dirs)
 
@@ -111,6 +112,12 @@ FILES=(
   "adapters/opencode/commands/quiz.md"
   "adapters/opencode/plugins/vibe-learn.js"
   "adapters/opencode/install.sh"
+  "adapters/grok/hooks.json"
+  "adapters/grok/commands/learn.md"
+  "adapters/grok/commands/digest.md"
+  "adapters/grok/commands/quiz.md"
+  "adapters/grok/skills/vibe-learn/SKILL.md"
+  "adapters/grok/install.sh"
 )
 
 # --- Download or copy files ---
@@ -133,6 +140,7 @@ chmod +x "$INSTALL_DIR/scripts/"*.sh
 chmod +x "$INSTALL_DIR/adapters/claude-code/install.sh"
 chmod +x "$INSTALL_DIR/adapters/codex/install.sh"
 chmod +x "$INSTALL_DIR/adapters/opencode/install.sh"
+chmod +x "$INSTALL_DIR/adapters/grok/install.sh"
 
 # --- Install CLI shim ---
 mkdir -p "$SHIM_DIR"
@@ -156,6 +164,9 @@ detect_assistants() {
   fi
   if command -v opencode &>/dev/null || [ -d "$HOME/.config/opencode" ]; then
     detected+=("opencode")
+  fi
+  if command -v grok &>/dev/null || [ -d "${GROK_HOME:-$HOME/.grok}" ]; then
+    detected+=("grok")
   fi
   if [ ${#detected[@]} -eq 0 ]; then
     detected+=("claude-code")
@@ -193,11 +204,11 @@ if [ -n "$ASSISTANT_FLAG" ]; then
     all)
       read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
       ;;
-    claude-code|codex|opencode)
+    claude-code|codex|opencode|grok)
       ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, grok, all" >&2
       exit 1
       ;;
   esac
@@ -242,6 +253,16 @@ if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /digest                     — full session learning report"
   echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
   echo "  vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
+fi
+
+if assistant_list_contains "grok" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "Grok Build:"
+  echo "  /learn                      — explain what just happened, or ask a specific question"
+  echo "  /digest                     — full session learning report"
+  echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /vibe-learn                 — same workflows via the vibe-learn skill"
+  echo "  vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
 fi
 
 # --- PATH advisory ---

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* add Grok Build support — dedicated `adapters/grok/` hooks, `/learn` `/digest` `/quiz` commands, and a `/vibe-learn` skill
+* accept Grok camelCase hook payloads and canonicalize `write` / `search_replace` / `run_terminal_command` in the session log
+* keep Grok Stop hooks from emitting `additionalContext` (that envelope is a keep-working gate on Grok)
+
 ## [0.7.1](https://github.com/gkaria/vibe-learn/compare/v0.7.0...v0.7.1) (2026-07-12)
 
 

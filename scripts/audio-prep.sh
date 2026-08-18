@@ -25,14 +25,13 @@ fi
 echo "NotebookLM pack: $PACK"
 echo ""
 
-# Copy pack path to clipboard (macOS pbcopy, Linux xclip/xdg-clipboard)
+# Copy pack path to clipboard (macOS pbcopy, Linux xclip). Optional: a missing
+# or inaccessible clipboard must not abort the rest of the helper.
 COPIED=false
-if command -v pbcopy >/dev/null 2>&1; then
-  printf '%s' "$PACK" | pbcopy
+if command -v pbcopy >/dev/null 2>&1 && printf '%s' "$PACK" | pbcopy 2>/dev/null; then
   echo "✓ Pack path copied to clipboard"
   COPIED=true
-elif command -v xclip >/dev/null 2>&1; then
-  printf '%s' "$PACK" | xclip -selection clipboard 2>/dev/null
+elif command -v xclip >/dev/null 2>&1 && printf '%s' "$PACK" | xclip -selection clipboard 2>/dev/null; then
   echo "✓ Pack path copied to clipboard"
   COPIED=true
 fi
