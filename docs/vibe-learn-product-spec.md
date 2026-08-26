@@ -2,7 +2,7 @@
 
 **A learning companion for the vibe coding era.**
 
-Watches Claude Code build your software. Helps you understand what was built, why, and how — at your own pace.
+Watches Claude Code, Codex, OpenCode, or Grok Build sessions. Helps you understand what was built, why, and how — at your own pace.
 
 ---
 
@@ -200,6 +200,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 - Configuration UI or config file for preferences
 - Support for multiple learning levels (beginner/intermediate/senior)
 - ~~Cross-session learning history~~ — shipped in v0.7.0 as the knowledge ledger + `/quiz` active recall (see `specs/0004-active-recall-knowledge-ledger.md`)
+- Grok Build — shipped in v0.8.0 as a first-class adapter (`adapters/grok/`)
 - npm/plugin registry publishing
 
 ---
