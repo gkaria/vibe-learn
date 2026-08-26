@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setu
 
 Installs to `~/.vibe-learn/` and registers hooks globally for every AI assistant detected on your machine. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
 
-To update: re-run the same command.
+To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
 
 ---
 
@@ -274,7 +274,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 179 tests
+bats tests/               # 220 tests
 ```
 
 ---
@@ -283,13 +283,14 @@ bats tests/               # 179 tests
 
 - **Bash** (POSIX-compatible)
 - **jq** (`brew install jq` / `apt-get install jq`)
-- **Claude Code**, **Codex App/CLI**, or **OpenCode**
+- **Claude Code**, **Codex App/CLI**, **OpenCode**, or **Grok Build**
 
 ---
 
 ## Releases
 
-- **v0.7.0 (this branch):** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
+- **[v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0) (this branch):** Grok Build as a first-class assistant — `/learn`, `/digest`, `/quiz`, `/vibe-learn` skill · `--assistant=grok` · auto-detect via `grok` / `~/.grok` / `GROK_HOME`
+- **v0.7.0:** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
 - **v0.6.0:** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`
 - **v0.5.5:** Multi-assistant support — Claude Code and Codex, assistant auto-detection, generic adapter layout
 - **v0.5.0:** Obsidian integration — save notes, recall past learnings with `obsidian:recall`
