@@ -14,13 +14,24 @@ vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during 
 
 ## Install
 
+### Claude Code — plugin (recommended)
+
+Inside Claude Code:
+
+```
+/plugin marketplace add gkaria/vibe-learn
+/plugin install vibe-learn@vibe-learn
+```
+
+That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, and `/vibe-learn:quiz`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
+
+### Codex, OpenCode, Grok Build — or Claude Code without the plugin system
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-Installs to `~/.vibe-learn/` and registers hooks globally for every AI assistant detected on your machine. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
-
-To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
+Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
 
 ---
 
@@ -30,10 +41,10 @@ After every AI response that touches files or runs commands, vibe-learn:
 
 - Appends every action to `.vibe-learn/session-log.jsonl`
 - Writes a pause summary to `.vibe-learn/pause-summary.txt`
-- Injects that summary into your assistant's next context window (Claude Code)
+- Injects that summary into your assistant's context at the start of the next session (Claude Code)
 - Regenerates the session briefing in the background
 
-You'll see something like this appear in Claude's context after each response:
+The summary looks like this (the last line switches to `/vibe-learn:…` under the plugin install):
 
 ```
 ⏸ vibe-learn — what just happened:
@@ -43,7 +54,7 @@ Goal: add JWT auth middleware
   ✦ Edited src/routes/user.ts
   ✦ Ran: npm install jsonwebtoken
 
- /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 ---
@@ -59,6 +70,8 @@ Goal: add JWT auth middleware
 /quiz                               — check your understanding of this session
 /quiz review                        — re-quiz concepts that are shaky or due again
 ```
+
+With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`.
 
 ### Codex
 
@@ -181,6 +194,8 @@ After each session a local HTML briefing is auto-generated. Open it any time:
 vibe-learn briefing          # regenerate and show path
 ```
 
+Plugin-only install? The `vibe-learn` CLI is on the Bash tool's PATH inside Claude Code, so just ask Claude to run `vibe-learn briefing`. To have it in your own shell too, run the `curl` installer above — it adds the CLI and skips the duplicate hooks.
+
 ![Session briefing index](docs/briefing-index.png)
 
 ![Session briefing page](docs/briefing-session.png)
@@ -214,7 +229,7 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
-| **Claude Code** | JSON hooks in `settings.json`, native `/learn`, `/digest`, and `/quiz` slash commands |
+| **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, and `/quiz` slash commands |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
 | **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, and `/quiz` commands |
 | **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, and a `/vibe-learn` skill |

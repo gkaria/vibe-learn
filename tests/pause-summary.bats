@@ -185,3 +185,18 @@ JSONL
   echo "$output" | grep -q "Created new.ts"
   ! echo "$output" | grep -q "Created old.ts"
 }
+
+@test "pause-summary footer uses namespaced commands under a Claude Code plugin install" {
+  seed_session_log
+  run env CLAUDE_PLUGIN_ROOT=/tmp/plugin-root bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  [ "$status" -eq 0 ]
+  grep -q "/vibe-learn:learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  grep -q "/vibe-learn:quiz" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+}
+
+@test "pause-summary footer uses plain commands without a plugin" {
+  seed_session_log
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  grep -q " /learn \[question\]" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  ! grep -q "/vibe-learn:learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+}

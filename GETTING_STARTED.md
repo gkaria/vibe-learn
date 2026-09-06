@@ -6,6 +6,17 @@ This walks you through your first session — from install to having an audio ov
 
 ## 1. Install
 
+**Claude Code (plugin):** inside Claude Code, run
+
+```
+/plugin marketplace add gkaria/vibe-learn
+/plugin install vibe-learn@vibe-learn
+```
+
+Done — hooks are registered and `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz` are available. Everywhere this guide says `/learn`, `/digest`, or `/quiz`, use the `/vibe-learn:` prefix. Skip to step 2.
+
+**Everything else (or Claude Code without plugins):**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
@@ -47,11 +58,9 @@ You don't need to do anything differently. vibe-learn runs silently in the backg
 
 ---
 
-## 3. See what appeared in context
+## 3. See the pause summary
 
-After Claude finishes its response, look at the **next message Claude sends** — it will have a pause summary injected at the top of its context. When Claude references what it just did, you're seeing vibe-learn's summary feeding through.
-
-If you ask Claude "what did you just do?", it knows — because vibe-learn told it. The summary looks like this:
+After Claude finishes a response that touched files or ran commands, vibe-learn writes a pause summary to `.vibe-learn/pause-summary.txt` and injects it into Claude's context when your next session starts. Open the file, or ask Claude "what did you just do?" — the log is right there. The summary looks like this:
 
 ```
 ⏸ vibe-learn — what just happened:
@@ -62,7 +71,7 @@ Goal: Build a simple Express API with a /health endpoint
   ✦ Ran: npm install express
   ✦ Ran: npx tsc --noEmit
 
- /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 That last line is your menu. You can type any of those commands right now.
@@ -166,6 +175,8 @@ The session briefing was already generated automatically in the background. Open
 vibe-learn briefing
 ```
 
+(Plugin-only install: the CLI is on Claude's Bash PATH, so ask Claude to run `vibe-learn briefing`, or run the `curl` installer from step 1 to get the CLI in your own shell.)
+
 This prints the path and regenerates if needed:
 
 ```
@@ -218,7 +229,7 @@ Once installed, this is your normal workflow:
 
 | Moment | What vibe-learn does |
 |--------|----------------------|
-| You open a project | Session starts, previous summary injected into context |
+| You open a project | Session starts, previous pause summary injected into context |
 | Claude writes or edits a file | Logged silently in <50ms |
 | Claude runs a command | Logged with exit code |
 | Claude finishes a response | Pause summary written, session briefing regenerated in background |

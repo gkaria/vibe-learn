@@ -94,9 +94,16 @@ if [ "$BASH_FAILURES" -gt 0 ]; then
 ⚠ $BASH_FAILURES command(s) failed — worth checking before continuing."
 fi
 
-SUMMARY+="
+# Claude Code plugin installs namespace the commands under the plugin name.
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  SUMMARY+="
 
- /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
+ /vibe-learn:learn [question]  ·  /vibe-learn:digest  ·  /vibe-learn:quiz  ·  vibe-learn briefing"
+else
+  SUMMARY+="
+
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
+fi
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"

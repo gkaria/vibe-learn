@@ -17,6 +17,13 @@ It requires no external API calls. Hooks are mechanical (bash + jq). The learnin
 The project is split into a **generic core** and **per-assistant adapters**:
 
 ```text
+.claude-plugin/   ← Claude Code plugin packaging (the repo root is the plugin root)
+  plugin.json     ← manifest; points commands/hooks at adapters/claude-code/
+  marketplace.json ← single-plugin marketplace so `/plugin marketplace add gkaria/vibe-learn` works
+bin/              ← on the Bash tool PATH while the plugin is enabled
+  vibe-learn      ← → scripts/cli.sh
+  vibe-learn-knowledge ← → scripts/knowledge.sh
+
 scripts/          ← assistant-agnostic core (accepts Claude and Grok hook envelopes)
   bootstrap.sh    ← SessionStart hook
   capture-prompt.sh ← UserPromptSubmit hook
@@ -68,7 +75,8 @@ The plugin registers four lifecycle hooks:
 
 Hook registration format differs per assistant:
 
-- **Claude Code**: JSON in `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project)
+- **Claude Code (plugin, preferred)**: `.claude-plugin/plugin.json` at the repo root declares `"commands": "./adapters/claude-code/commands/"` and `"hooks": "./adapters/claude-code/hooks.json"`. `hooks.json` uses `"${CLAUDE_PLUGIN_ROOT}/scripts/..."` (quoted, with per-hook timeouts) and the core scripts resolve `VIBE_LEARN_DIR` from their own location, so they run unchanged from the plugin cache. Commands are namespaced `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`. `bin/` puts `vibe-learn` and `vibe-learn-knowledge` on the Bash tool PATH; command files try `vibe-learn-knowledge` first, then the `~/.vibe-learn` lookup chain. `pause-summary.sh` switches its footer to the namespaced names when `CLAUDE_PLUGIN_ROOT` is set. Version lives only in `plugin.json` (never in `marketplace.json`) and is bumped by `release.sh` / release-please.
+- **Claude Code (settings hooks)**: JSON in `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project). `adapters/claude-code/install.sh` skips this when `enabledPlugins` already contains a `vibe-learn@*` entry, so the plugin and the settings hooks never double-log (`VIBE_LEARN_IGNORE_PLUGIN=1` overrides).
 - **Codex App/CLI**: inline TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project). Codex also supports `hooks.json`, but vibe-learn keeps inline TOML as its install format so the canonical `[features] hooks = true` flag and hook registrations live together. Hooks are enabled by default in current Codex; the flag keeps installs working if hooks were disabled. The older `codex_hooks` feature key is deprecated.
 - **Grok Build**: dedicated JSON file at `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json` (global, always trusted) or `.grok/hooks/vibe-learn.json` (project; requires `/hooks-trust`). Commands go in `${GROK_HOME:-~/.grok}/commands/` or `.grok/commands/`; the skill goes in `${GROK_HOME:-~/.grok}/skills/vibe-learn/` or `.grok/skills/vibe-learn/`. Do not edit `config.toml`. Global install and detection honor `GROK_HOME`. Hook `command` values are POSIX-quoted so paths with spaces execute.
 
@@ -150,7 +158,7 @@ Each adapter's `install.sh` handles:
 - Copying command, prompt, or skill files to the assistant's supported directory
 - Adding `.vibe-learn/` to `.gitignore` (project-level only)
 
-The `adapters/claude-code/hooks.json` uses `${CLAUDE_PLUGIN_ROOT}` as a path placeholder (documentation only) — actual hook registration always uses absolute paths.
+The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same four hooks with absolute paths. Keep the two in sync. CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
 
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
@@ -174,7 +182,7 @@ Do not call dashboard generation from hooks. It is intentionally on-demand via `
 bash scripts/release.sh 0.3.0
 ```
 
-This bumps the version in `VERSION` and `scripts/setup.sh`, commits the change, and creates an annotated git tag `v0.3.0`. Then push:
+This bumps the version in `VERSION`, `scripts/setup.sh`, `.release-please-manifest.json`, and `.claude-plugin/plugin.json`, commits the change, and creates an annotated git tag `v0.3.0`. Then push:
 
 ```bash
 git push && git push --tags

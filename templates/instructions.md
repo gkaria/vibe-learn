@@ -3,6 +3,9 @@
 This project has vibe-learn installed. Session activity (file writes, edits, bash commands) is logged to `.vibe-learn/session-log.jsonl` automatically via hooks.
 
 ### Slash Commands
+
+(Installed as a Claude Code plugin, these are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`.)
+
 - `/learn` — explain what just happened, or answer a specific question grounded in the session log
 - `/learn [question]` — e.g. `/learn why did you use middleware here?`
 - `/digest` — generate a structured learning report (what was built, key decisions, patterns, topics to study)
