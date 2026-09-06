@@ -41,6 +41,34 @@ else
   HOOK_BASE="$VIBE_LEARN_DIR"
 fi
 
+# The Claude Code plugin ships the same hooks and commands. Installing both would
+# log every tool event twice, so defer to the plugin when it is enabled.
+plugin_enabled() {
+  local settings_files=("$HOME/.claude/settings.json")
+  if [ "$MODE" = "project" ]; then
+    settings_files+=("$TARGET_DIR/.claude/settings.json" "$TARGET_DIR/.claude/settings.local.json")
+  fi
+  local f
+  for f in "${settings_files[@]}"; do
+    [ -f "$f" ] || continue
+    if jq -e '(.enabledPlugins // {}) | to_entries[] | select((.key | startswith("vibe-learn@")) and .value == true)' "$f" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ "${VIBE_LEARN_IGNORE_PLUGIN:-}" != "1" ] && plugin_enabled; then
+  echo "⚠ The vibe-learn Claude Code plugin is already enabled — skipping hook and command install."
+  echo "  The plugin provides the hooks and /vibe-learn:learn, /vibe-learn:digest, /vibe-learn:quiz."
+  echo "  To install settings.json hooks anyway (double-logging!): VIBE_LEARN_IGNORE_PLUGIN=1"
+  SKIP_CLAUDE_REGISTRATION=true
+else
+  SKIP_CLAUDE_REGISTRATION=false
+fi
+
+if [ "$SKIP_CLAUDE_REGISTRATION" = false ]; then
+
 mkdir -p "$COMMANDS_DIR"
 
 # Copy slash commands
@@ -100,6 +128,8 @@ else
     echo "✓ Merged hooks into existing .claude/settings.local.json"
   fi
 fi
+
+fi # SKIP_CLAUDE_REGISTRATION
 
 # Make scripts executable if writable
 if [ -w "$VIBE_LEARN_DIR/scripts" ]; then

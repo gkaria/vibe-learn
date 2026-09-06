@@ -8,6 +8,11 @@
         {
           "type": "generic",
           "path": "scripts/setup.sh"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
         }
       ]
     }

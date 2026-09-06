@@ -231,3 +231,59 @@ load test_helper
   [ "$status" -ne 0 ]
   echo "$output" | grep -q "Unknown assistant 'not-real'"
 }
+
+@test "claude-code install skips hooks and commands when the plugin is enabled in ~/.claude/settings.json" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "plugin is already enabled"
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/commands/learn.md" ]
+  # gitignore handling still runs
+  grep -q '\.vibe-learn/' "$TEST_PROJECT_DIR/.gitignore"
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code install skips when the plugin is enabled in the project settings" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@claude-community":true}}' > "$TEST_PROJECT_DIR/.claude/settings.json"
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "plugin is already enabled"
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code install proceeds when the plugin entry is disabled" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":false}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ -f "$TEST_PROJECT_DIR/.claude/commands/learn.md" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "VIBE_LEARN_IGNORE_PLUGIN=1 forces hook install alongside the plugin" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" VIBE_LEARN_IGNORE_PLUGIN=1 bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}

@@ -118,3 +118,16 @@ teardown() {
   [ -f "$grok_home/skills/vibe-learn/SKILL.md" ]
   [ ! -e "$FAKE_HOME/.grok/hooks/vibe-learn.json" ]
 }
+
+@test "setup skips Claude hook registration when the vibe-learn plugin is enabled" {
+  mkdir -p "$FAKE_HOME/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$FAKE_HOME/.claude/settings.json"
+
+  run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "plugin is already enabled"
+  ! jq -e '.hooks' "$FAKE_HOME/.claude/settings.json" >/dev/null 2>&1
+  [ ! -f "$FAKE_HOME/.claude/commands/learn.md" ]
+  # Scripts and CLI shim are still installed for vibe-learn briefing / recap
+  [ -f "$FAKE_INSTALL_DIR/scripts/briefing.sh" ]
+}

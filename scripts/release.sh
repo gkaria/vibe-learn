@@ -30,6 +30,7 @@ VERSION_FILES=(
   "VERSION"
   "scripts/setup.sh"
   ".release-please-manifest.json"
+  ".claude-plugin/plugin.json"
 )
 
 # --- Verify all files contain the current version before touching anything ---
