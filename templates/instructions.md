@@ -4,7 +4,7 @@ This project has vibe-learn installed. Session activity (file writes, edits, bas
 
 ### Slash Commands
 
-(Installed as a Claude Code plugin, these are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`.)
+(Installed as a Claude Code plugin, these are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.)
 
 - `/learn` — explain what just happened, or answer a specific question grounded in the session log
 - `/learn [question]` — e.g. `/learn why did you use middleware here?`
@@ -12,6 +12,7 @@ This project has vibe-learn installed. Session activity (file writes, edits, bas
 - `/quiz` — check your understanding with recall questions grounded in the session log
 - `/quiz [topic]` — quiz on a specific topic
 - `/quiz review` — quiz on knowledge-ledger concepts that are shaky or due for review
+- `/explain [file|topic]` — guided code tour: entry point, load-bearing pieces, edges, connections — grounded in `file:line` references
 
 **Obsidian integration** (requires vault config — prompted on first use):
 

@@ -60,7 +60,7 @@ plugin_enabled() {
 
 if [ "${VIBE_LEARN_IGNORE_PLUGIN:-}" != "1" ] && plugin_enabled; then
   echo "⚠ The vibe-learn Claude Code plugin is already enabled — skipping hook and command install."
-  echo "  The plugin provides the hooks and /vibe-learn:learn, /vibe-learn:digest, /vibe-learn:quiz."
+  echo "  The plugin provides the hooks and /vibe-learn:learn, /vibe-learn:digest, /vibe-learn:quiz, /vibe-learn:explain."
   echo "  To install settings.json hooks anyway (double-logging!): VIBE_LEARN_IGNORE_PLUGIN=1"
   SKIP_CLAUDE_REGISTRATION=true
 else
@@ -75,7 +75,8 @@ mkdir -p "$COMMANDS_DIR"
 cp "$COMMANDS_SOURCE/learn.md" "$COMMANDS_DIR/learn.md"
 cp "$COMMANDS_SOURCE/digest.md" "$COMMANDS_DIR/digest.md"
 cp "$COMMANDS_SOURCE/quiz.md" "$COMMANDS_DIR/quiz.md"
-echo "✓ Slash commands installed (/learn, /digest, /quiz)"
+cp "$COMMANDS_SOURCE/explain.md" "$COMMANDS_DIR/explain.md"
+echo "✓ Slash commands installed (/learn, /digest, /quiz, /explain)"
 
 HOOKS_JSON=$(cat <<EOF
 {

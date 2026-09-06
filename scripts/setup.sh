@@ -100,6 +100,7 @@ FILES=(
   "adapters/claude-code/commands/learn.md"
   "adapters/claude-code/commands/digest.md"
   "adapters/claude-code/commands/quiz.md"
+  "adapters/claude-code/commands/explain.md"
   "adapters/claude-code/install.sh"
   "adapters/codex/hooks.toml"
   "adapters/codex/prompts/learn.md"
@@ -237,6 +238,7 @@ if assistant_list_contains "claude-code" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
   echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /explain [file|topic]       — guided code tour of what was touched"
 fi
 
 if assistant_list_contains "codex" "${ASSISTANTS_TO_CONFIGURE[@]}"; then

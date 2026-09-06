@@ -37,6 +37,7 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   [ -f "$VIBE_LEARN_DIR/$commands/learn.md" ]
   [ -f "$VIBE_LEARN_DIR/$commands/digest.md" ]
   [ -f "$VIBE_LEARN_DIR/$commands/quiz.md" ]
+  [ -f "$VIBE_LEARN_DIR/$commands/explain.md" ]
 }
 
 @test "plugin hooks.json registers all four lifecycle hooks" {

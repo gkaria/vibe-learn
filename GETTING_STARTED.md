@@ -167,7 +167,21 @@ Results are saved to `.vibe-learn/knowledge.json`, a small cross-session knowled
 
 ---
 
-## 7. Open the session briefing
+## 7. Read the code with `/explain`
+
+When a digest or quiz points at a file you don't really know, get a guided tour instead of staring at it:
+
+```
+/explain src/routes/health.ts
+/explain the tsconfig setup
+/explain                       — tours the most significant file this session touched
+```
+
+Claude walks it top-down — entry point, the load-bearing pieces in order (with `file:line` references), the edges that would break if rearranged, and what connects to it — then marks the concepts as seen in the ledger and offers a quiz.
+
+---
+
+## 8. Open the session briefing
 
 The session briefing was already generated automatically in the background. Open it:
 
@@ -189,7 +203,7 @@ Open `index.html` directly in your browser — no server needed. You'll see the 
 
 ---
 
-## 8. Prepare an audio overview (optional)
+## 9. Prepare an audio overview (optional)
 
 If you want to listen to a walkthrough of the session on your commute:
 

@@ -80,6 +80,12 @@ components:
       source: .claude/commands/quiz.md
       destination: quiz.md
 
+  - id: cmd-explain
+    description: /explain — guided code tour of a file or subsystem the session touched
+    command:
+      source: .claude/commands/explain.md
+      destination: explain.md
+
   # ── Configuration ─────────────────────────────────────────
   # Reference templates are plain files, not merged settings, so they ship via
   # copyPackFile — there is no `config:` shorthand in the techpack schema.

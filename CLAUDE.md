@@ -174,6 +174,8 @@ The `adapters/grok/` adapter writes a dedicated `vibe-learn.json` hook file (nev
 - `sessions/<date>-<project>-<session>.html` — interactive session briefing
 - `exports/<date>-<project>-<session>-notebooklm-pack.md` — source pack for NotebookLM/audio overview workflows
 
+`briefing.sh` also reads `.vibe-learn/knowledge.json` when present (read-only): shaky concepts and never-quizzed concepts seen in 2+ sessions lead the study queue (cap 5), the session page gains a Knowledge State section, the pack gains a "Your knowledge state" table, and the audio framing gains an adaptive sentence when anything is shaky. Output is byte-identical to the no-ledger rendering when the file is missing or empty; a malformed ledger warns on stderr and is ignored.
+
 Do not call dashboard generation from hooks. It is intentionally on-demand via `vibe-learn briefing` so hooks remain fast.
 
 ## Releasing
@@ -197,6 +199,7 @@ Claude Code supports custom slash commands defined as markdown instruction files
 - `/learn [question]` — summarizes recent session activity, or answers a specific question grounded in the session log
 - `/digest` — generates a structured learning report (What Was Built, Key Decisions, Patterns Used, Things to Study)
 - `/quiz [topic|review]` — recall questions grounded in the session log, asked one at a time and graded conversationally; `review` re-quizzes ledger concepts that are shaky or stale
+- `/explain [file|topic]` — guided code tour (entry point, spine, edges, connections) of a file or subsystem the session touched, every claim tied to a `file:line`; `touch`es the concepts it covered and offers a quiz
 
 Use the global Codex `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; current Codex can expose those as `/prompts:learn` and `/prompts:digest`, but the skill remains the primary durable interface.
 

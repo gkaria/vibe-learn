@@ -71,9 +71,10 @@ Goal: add JWT auth middleware
 /digest                             — full structured session report
 /quiz                               — check your understanding of this session
 /quiz review                        — re-quiz concepts that are shaky or due again
+/explain [file|topic]               — guided code tour of what was touched
 ```
 
-With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`.
+With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.
 
 ### Codex
 
@@ -178,6 +179,30 @@ Revisit: express-middleware-ordering — you had the what, not the when
 
 That recording is the ledger at work — next session, `/learn` will nudge you if middleware ordering comes up again, and `/quiz review` will re-ask until it's solid.
 
+**`/explain src/middleware/auth.ts`** — a guided tour when you want to actually read the code:
+
+```
+Entry point — src/middleware/auth.ts:8 exports `requireAuth`, mounted in
+src/routes/user.ts:4 with app.use(requireAuth) before any route.
+
+The spine
+1. auth.ts:10  reads the Authorization header and strips "Bearer " — the
+   only place the raw token is touched
+2. auth.ts:14  jwt.verify(token, secret) — throws on bad signature *or*
+   expiry, which is why there's a single catch below
+3. auth.ts:19  req.user = payload — every handler after this can assume it
+4. auth.ts:22  next() — only reached on success; failure returns 401 first
+
+The edges — user.ts:4 must stay above the routes; a route mounted earlier
+skips the check entirely. auth.ts:14 has no clock-skew tolerance.
+
+Connections — user.ts (/profile, /settings) and, after this session,
+nothing else. Adding a new protected router means mounting it below line 4.
+
+You marked express-middleware-ordering shaky on July 11 — this is the code
+behind it. Want me to quiz you on this, or save it to Obsidian?
+```
+
 ---
 
 ## Check your understanding
@@ -204,7 +229,7 @@ Plugin-only install? The `vibe-learn` CLI is on the Bash tool's PATH inside Clau
 
 ![Session briefing page](docs/briefing-session.png)
 
-The briefing includes: maintainer brief (what changed / why it matters / inspect first / what could break), session timeline with filter buttons, file tour with colour-coded area badges, command log with failure highlighting, syntax-highlighted diff, heuristic study queue, and a NotebookLM-ready source pack.
+The briefing includes: maintainer brief (what changed / why it matters / inspect first / what could break), session timeline with filter buttons, file tour with colour-coded area badges, command log with failure highlighting, syntax-highlighted diff, a study queue, and a NotebookLM-ready source pack. When `.vibe-learn/knowledge.json` exists, the study queue leads with your shaky concepts, the page gains a Knowledge State section, the source pack gains a "Your knowledge state" table, and the audio prompt asks NotebookLM to dwell on what you've struggled with.
 
 No server, no build step, no external assets — just a static HTML file that opens directly from disk.
 

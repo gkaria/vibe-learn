@@ -136,6 +136,7 @@ if assistant_list_contains "claude-code" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "   /learn                      — explain what just happened, or ask a specific question"
   echo "   /digest                     — full session learning report"
   echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "   /explain [file|topic]       — guided code tour of what was touched"
   echo "   /learn obsidian             — save learn note to your Obsidian vault"
   echo "   /learn obsidian:recall      — search vault for past learnings on a topic"
   echo "   /digest obsidian            — save session digest to your Obsidian vault"
