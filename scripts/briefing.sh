@@ -275,6 +275,118 @@ render_study_queue() {
   fi
 }
 
+# --- Knowledge ledger (optional input) ---
+# A missing or malformed ledger never fails the briefing; every ledger-derived
+# fragment below stays empty so the output matches the no-ledger rendering.
+LEDGER_FILE="$LOG_DIR/knowledge.json"
+LEDGER_OK=false
+if [ -f "$LEDGER_FILE" ]; then
+  if jq -e '.concepts | type == "array"' "$LEDGER_FILE" >/dev/null 2>&1; then
+    LEDGER_OK=true
+  else
+    echo "WARN: $LEDGER_FILE is not a valid knowledge ledger — skipping knowledge state." >&2
+  fi
+fi
+
+SHAKY_COUNT=0
+LEDGER_STUDY_ITEMS=""
+KNOWLEDGE_ROWS_HTML=""
+KNOWLEDGE_PACK=""
+KNOWLEDGE_NAV=""
+KNOWLEDGE_SECTION=""
+AUDIO_EXTRA=""
+AUDIO_EXTRA_JS=""
+LEDGER_TOTAL=0
+
+if [ "$LEDGER_OK" = true ]; then
+  LEDGER_TOTAL="$(jq -r '.concepts | length' "$LEDGER_FILE")"
+  SHAKY_COUNT="$(jq -r '[.concepts[] | select(.status == "shaky")] | length' "$LEDGER_FILE")"
+
+  # Study queue: shaky concepts, plus never-quizzed concepts seen in 2+ sessions. Cap 5.
+  LEDGER_STUDY_ITEMS="$(jq -r '
+    [.concepts[] | select(.status == "shaky" or (.status == "new" and ((.sessions // 0) >= 2)))]
+    | sort_by((if .status == "shaky" then 0 else 1 end), (.last_quizzed // ""))
+    | .[:5][]
+    | [(.label // .name // "concept"), (.status // "new"), (.last_quizzed // "never")]
+    | @tsv' "$LEDGER_FILE" 2>/dev/null)"
+
+  # Knowledge state: up to 10 concepts, needs-attention first.
+  KNOWLEDGE_TSV="$(jq -r '
+    [.concepts[]]
+    | sort_by((if .status == "solid" then 1 else 0 end), (.last_seen // ""))
+    | .[:10][]
+    | [(.label // .name // "concept"), (.status // "new"), (.last_quizzed // "never"), ((.sessions // 0) | tostring)]
+    | @tsv' "$LEDGER_FILE" 2>/dev/null)"
+
+  if [ "$LEDGER_TOTAL" -gt 0 ]; then
+    KNOWLEDGE_ROWS_HTML="$(
+      while IFS="$(printf '\t')" read -r label status quizzed sessions; do
+        [ -z "${label:-}" ] && continue
+        case "$status" in
+          shaky) pill="action-deleted" ;;
+          solid) pill="action-created" ;;
+          *)     pill="action-edited" ;;
+        esac
+        printf '<li class="file-row" data-status="%s"><span class="pill %s">%s</span><code class="fpath">%s</code><span class="area area-docs">last quizzed %s · %s session(s)</span></li>\n' \
+          "$status" "$pill" "$status" "$(printf '%s' "$label" | html_escape)" "$(printf '%s' "$quizzed" | html_escape)" "$sessions"
+      done <<EOF
+$KNOWLEDGE_TSV
+EOF
+    )"
+
+    KNOWLEDGE_NAV="
+      <a href=\"#knowledge\">Knowledge state <span class=\"nbadge\">$LEDGER_TOTAL</span></a>"
+    KNOWLEDGE_SECTION="
+
+      <section id=\"knowledge\">
+        <h2>Knowledge State</h2>
+        <p class=\"export-intro\">From .vibe-learn/knowledge.json — what /quiz has confirmed and what still needs work. $SHAKY_COUNT shaky.</p>
+        <ul class=\"list\">$KNOWLEDGE_ROWS_HTML</ul>
+      </section>"
+
+    NEEDS_ATTENTION_ROWS="$(printf '%s\n' "$KNOWLEDGE_TSV" | awk -F '\t' 'NF && $2 != "solid" {printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4}')"
+    SOLID_ROWS="$(printf '%s\n' "$KNOWLEDGE_TSV" | awk -F '\t' 'NF && $2 == "solid" {printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4}')"
+    [ -z "$NEEDS_ATTENTION_ROWS" ] && NEEDS_ATTENTION_ROWS="| (nothing — every quizzed concept is solid) | | | |"
+    [ -z "$SOLID_ROWS" ] && SOLID_ROWS="| (none yet — run /quiz) | | | |"
+    KNOWLEDGE_PACK="
+
+## Your knowledge state
+
+Tracked in .vibe-learn/knowledge.json by /quiz, /learn, and /digest.
+
+### Needs attention
+
+| Concept | Status | Last quizzed | Sessions |
+|---------|--------|--------------|----------|
+$NEEDS_ATTENTION_ROWS
+
+### Solid
+
+| Concept | Status | Last quizzed | Sessions |
+|---------|--------|--------------|----------|
+$SOLID_ROWS"
+  fi
+
+  if [ "$SHAKY_COUNT" -gt 0 ]; then
+    AUDIO_EXTRA=' Spend extra time on the concepts listed under "Your knowledge state — needs attention"; the listener has struggled with these before.'
+    AUDIO_EXTRA_JS="$(printf '%s' "$AUDIO_EXTRA" | jq -Rr '@json | .[1:-1]')"
+  fi
+fi
+
+render_ledger_study_items() {
+  local label status quizzed cls when
+  while IFS="$(printf '\t')" read -r label status quizzed; do
+    [ -z "${label:-}" ] && continue
+    cls=""
+    [ "$status" = "shaky" ] && cls=" priority"
+    if [ "$quizzed" = "never" ]; then when="never quizzed"; else when="last quizzed $quizzed"; fi
+    printf '<label class="study-item%s"><input type="checkbox"><span>&ldquo;%s&rdquo; is marked %s (%s) &mdash; review it before extending this code.</span></label>\n' \
+      "$cls" "$(printf '%s' "$label" | html_escape)" "$status" "$(printf '%s' "$when" | html_escape)"
+  done <<EOF
+$LEDGER_STUDY_ITEMS
+EOF
+}
+
 DIFF_EXCERPT=""
 if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   DIFF_EXCERPT="$(git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null | head -c 12000 || true)"
@@ -353,13 +465,13 @@ $DIFF_EXCERPT
 - What changed in the main execution path?
 - Which touched files would I inspect first if the app broke?
 - Were tests or build checks run after the changes?
-- Did any command fail, and what follow-up does that imply?
+- Did any command fail, and what follow-up does that imply?$KNOWLEDGE_PACK
 
 ## Suggested audio framing
 
 Create a maintainer-focused audio overview. Explain what changed, why it
 matters, what to inspect first, and what could break. Assume the listener owns
-this codebase and needs enough technical depth to support it.
+this codebase and needs enough technical depth to support it.$AUDIO_EXTRA
 EOF
 
 PACK_TEXT_JSON="$(cat "$PACK_FILE" | json_string)"
@@ -371,7 +483,7 @@ FILE_ROWS="$(
 )"
 COMMAND_ROWS="$(render_command_rows)"
 TIMELINE_ROWS="$(render_timeline)"
-STUDY_QUEUE="$(render_study_queue)"
+STUDY_QUEUE="$(render_ledger_study_items; render_study_queue)"
 
 render_index_cards() {
   local skip_old="$LATEST"
@@ -587,7 +699,7 @@ cat >> "$SESSION_FILE" <<EOF
       <a href="#files">Files <span class="nbadge">$FILES_TOTAL</span></a>
       <a href="#commands">Commands <span class="nbadge">$COMMAND_COUNT</span></a>
       <a href="#code">Code excerpts</a>
-      <a href="#study">Study queue</a>
+      <a href="#study">Study queue</a>$KNOWLEDGE_NAV
       <a href="#audio">Audio export</a>
     </nav>
     <main>
@@ -651,7 +763,7 @@ cat >> "$SESSION_FILE" <<EOF
       <section id="study">
         <h2>Study Queue</h2>
         <div class="study-list">$STUDY_QUEUE</div>
-      </section>
+      </section>$KNOWLEDGE_SECTION
 
       <section id="audio">
         <h2>Audio Export</h2>
@@ -669,7 +781,7 @@ cat >> "$SESSION_FILE" <<EOF
   <script>
     const packText = $PACK_TEXT_JSON;
     const diffText = $DIFF_JSON;
-    const audioPrompt = "Create a maintainer-focused audio overview. Explain what changed, why it matters, what to inspect first, and what could break. Assume the listener owns this codebase and needs enough technical depth to support it.";
+    const audioPrompt = "Create a maintainer-focused audio overview. Explain what changed, why it matters, what to inspect first, and what could break. Assume the listener owns this codebase and needs enough technical depth to support it.$AUDIO_EXTRA_JS";
 
     function copyText(text, button) {
       if (!text) return;
