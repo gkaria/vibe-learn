@@ -3,7 +3,7 @@
 # Run from the root of the project you want to install vibe-learn into:
 #   bash /path/to/vibe-learn/scripts/install.sh [target-dir] [--assistant=<name>]
 #
-# Supported assistants: claude-code, codex, opencode, grok, all
+# Supported assistants: claude-code, codex, opencode, grok, cursor, all
 # Default: install all relevant assistants detected for the project or machine,
 #          falling back to claude-code if no assistant can be detected.
 
@@ -51,6 +51,9 @@ detect_assistants() {
   if [ -d "$TARGET_DIR/.grok" ]; then
     detected+=("grok")
   fi
+  if [ -d "$TARGET_DIR/.cursor" ]; then
+    detected+=("cursor")
+  fi
 
   if [ ${#detected[@]} -eq 0 ]; then
     if command -v claude &>/dev/null || [ -d "$HOME/.claude" ]; then
@@ -64,6 +67,9 @@ detect_assistants() {
     fi
     if command -v grok &>/dev/null || [ -d "${GROK_HOME:-$HOME/.grok}" ]; then
       detected+=("grok")
+    fi
+    if command -v cursor &>/dev/null || command -v cursor-agent &>/dev/null || [ -d "$HOME/.cursor" ]; then
+      detected+=("cursor")
     fi
   fi
 
@@ -103,11 +109,11 @@ if [ -z "$ASSISTANT" ] || [ "$ASSISTANT" = "all" ]; then
   read -ra ASSISTANTS_TO_INSTALL <<< "$(detect_assistants)"
 else
   case "$ASSISTANT" in
-    claude-code|codex|opencode|grok)
+    claude-code|codex|opencode|grok|cursor)
       ASSISTANTS_TO_INSTALL=("$ASSISTANT")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT'. Supported: claude-code, codex, opencode, grok, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT'. Supported: claude-code, codex, opencode, grok, cursor, all" >&2
       exit 1
       ;;
   esac
@@ -174,4 +180,16 @@ if assistant_list_contains "grok" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "   /vibe-learn                 — same workflows via the vibe-learn skill"
   echo "   vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
   echo "   Project hooks need /hooks-trust (or grok --trust) before they run."
+fi
+
+if assistant_list_contains "cursor" "${ASSISTANTS_TO_INSTALL[@]}"; then
+  echo ""
+  echo "Cursor:"
+  echo "   /learn                      — explain what just happened, or ask a specific question"
+  echo "   /digest                     — full session learning report"
+  echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "   /explain [file|topic]       — guided code tour of what was touched"
+  echo "   /vibe-learn                 — same workflows via the vibe-learn skill (natural language works too)"
+  echo "   vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
+  echo "   Project hooks in .cursor/hooks.json run once the workspace is trusted in Cursor."
 fi

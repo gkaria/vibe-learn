@@ -12,6 +12,7 @@ body:
         - Codex App/CLI
         - OpenCode
         - Grok Build
+        - Cursor
         - Other / not assistant-specific
     validations:
       required: true

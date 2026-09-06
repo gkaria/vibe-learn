@@ -45,7 +45,7 @@ Commands are markdown instruction files the assistant follows; there is no code 
 
 1. Write `adapters/claude-code/commands/<name>.md` (frontmatter `description:` plus the instructions). Ground every claim in `.vibe-learn/session-log.jsonl`; if it touches the ledger, tell the model to call `knowledge.sh` and to never hand-edit the JSON.
 2. `cp` it to `.claude/commands/<name>.md` — the dogfood copy must stay identical.
-3. Port it to `adapters/codex/prompts/`, `adapters/opencode/commands/`, and `adapters/grok/commands/` with each host's helper lookup and tool names (copy the preamble from the neighbouring `quiz.md`). Add a mode section to `adapters/codex/skills/vibe-learn/SKILL.md` and `adapters/grok/skills/vibe-learn/SKILL.md`.
+3. Port it to `adapters/codex/prompts/`, `adapters/opencode/commands/`, `adapters/grok/commands/`, and `adapters/cursor/skills/<name>/SKILL.md` with each host's helper lookup and tool names (copy the preamble from the neighbouring `quiz.md` / `quiz/SKILL.md`). Add a mode section to `adapters/codex/skills/vibe-learn/SKILL.md`, `adapters/grok/skills/vibe-learn/SKILL.md`, and `adapters/cursor/skills/vibe-learn/SKILL.md`.
 4. Wire it in: each adapter's `install.sh` copy lines, `scripts/setup.sh` `FILES`, `techpack.yaml`, and the printed command lists in `setup.sh` / `install.sh`.
 5. Tests: `tests/<name>.bats` covering file content, install copies, and setup.
 6. Docs: README command lists, `CLAUDE.md` Learning Interfaces, `GETTING_STARTED.md`, `templates/instructions.md`.

@@ -8,6 +8,7 @@
 - [ ] Codex App/CLI
 - [ ] OpenCode
 - [ ] Grok Build
+- [ ] Cursor
 - [ ] None (core / docs / tests only)
 
 ## Checklist

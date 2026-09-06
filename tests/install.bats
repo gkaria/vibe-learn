@@ -226,6 +226,42 @@ load test_helper
   rm -rf "$fake_home" "$(dirname "$grok_home")"
 }
 
+@test "install --assistant=cursor creates .cursor hooks shim and skills" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=cursor
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  jq -e '.hooks.sessionStart' "$TEST_PROJECT_DIR/.cursor/hooks.json" >/dev/null
+  jq -e '.hooks.afterFileEdit' "$TEST_PROJECT_DIR/.cursor/hooks.json" >/dev/null
+  [ -x "$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh" ]
+  grep -Fq "VIBE_LEARN_DIR=\"$VIBE_LEARN_DIR\"" "$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh"
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/learn/SKILL.md" ]
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+}
+
+@test "install with .cursor only installs Cursor" {
+  mkdir -p "$TEST_PROJECT_DIR/.cursor"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/quiz/SKILL.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+}
+
+@test "install detects cursor via ~/.cursor when no project assistant dirs exist" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.cursor"
+
+  PATH="/usr/bin:/bin" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
 @test "install unknown assistant errors" {
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=not-real
   [ "$status" -ne 0 ]

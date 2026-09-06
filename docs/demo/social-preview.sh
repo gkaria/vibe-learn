@@ -20,7 +20,7 @@ printf '                                   registered %safter%s app.use(auth) ar
 printf '\n'
 printf '  %s/learn · /digest · /quiz · knowledge ledger · offline, bash + jq, no API keys%s\n' "$dim" "$reset"
 printf '\n'
-printf '  %sClaude Code · Codex · OpenCode · Grok Build%s        %s/plugin install vibe-learn@vibe-learn%s\n' "$dim" "$reset" "$green" "$reset"
+printf '  %sClaude Code · Codex · OpenCode · Grok · Cursor%s     %s/plugin install vibe-learn@vibe-learn%s\n' "$dim" "$reset" "$green" "$reset"
 
 # Keep the shell prompt off-screen while the screenshot is taken.
 sleep 6

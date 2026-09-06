@@ -23,6 +23,7 @@ body:
         - Codex App/CLI
         - OpenCode
         - Grok Build
+        - Cursor
         - All of them
   - type: checkboxes
     id: constraints

@@ -4,7 +4,7 @@
 
 You can outsource your thinking, but you can't outsource your understanding.
 
-vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during a session and helps you understand what was built, why, and how — without changing how you work.
+vibe-learn watches what Claude Code, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
 
 ![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
 
@@ -27,7 +27,7 @@ Inside Claude Code:
 
 That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, and `/vibe-learn:quiz`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
 
-### Codex, OpenCode, Grok Build — or Claude Code without the plugin system
+### Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
@@ -107,6 +107,19 @@ Use vibe-learn to explain src/middleware/auth.ts.
 /vibe-learn
 Use vibe-learn to learn what happened.
 ```
+
+### Cursor
+
+```
+/learn
+/learn why did we add middleware?
+/digest
+/quiz
+/explain src/middleware/auth.ts
+/vibe-learn
+```
+
+Cursor ships these as skills (`.cursor/skills/`), so plain requests like "what did we just build?" also route to the `vibe-learn` skill.
 
 ---
 
@@ -295,10 +308,13 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
 | **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, `/quiz`, and `/explain` commands |
 | **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
+| **Cursor** | `hooks.json` entries pointing at one shim (`.cursor/hooks/vibe-learn.sh`), plus `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills in `.cursor/skills/` |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=grok`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
 
 Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
+
+Cursor project hooks (`.cursor/hooks.json`) run once the workspace is trusted. Cursor has no context injection on `stop`, so the pause summary is written to `.vibe-learn/pause-summary.txt` and relayed at the next `sessionStart`; the skills read the file directly. Cloud Agents skip `sessionStart`, so there the file is the only channel.
 
 ---
 
@@ -362,7 +378,7 @@ bats tests/               # 282 tests
 
 - **Bash** (POSIX-compatible)
 - **jq** (`brew install jq` / `apt-get install jq`)
-- **Claude Code**, **Codex App/CLI**, **OpenCode**, or **Grok Build**
+- **Claude Code**, **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
 
 ---
 

@@ -119,6 +119,30 @@ teardown() {
   [ ! -e "$FAKE_HOME/.grok/hooks/vibe-learn.json" ]
 }
 
+@test "setup installs Cursor hooks shim and skills when Cursor is selected" {
+  bash "$SCRIPTS_DIR/setup.sh" --local --assistant=cursor
+
+  [ -f "$FAKE_HOME/.cursor/hooks.json" ]
+  jq -e '.hooks.sessionStart' "$FAKE_HOME/.cursor/hooks.json" >/dev/null
+  jq -e '.hooks.postToolUseFailure' "$FAKE_HOME/.cursor/hooks.json" >/dev/null
+  [ "$(jq -r '.hooks.stop[0].command' "$FAKE_HOME/.cursor/hooks.json")" = "$FAKE_HOME/.cursor/hooks/vibe-learn.sh" ]
+  [ -x "$FAKE_HOME/.cursor/hooks/vibe-learn.sh" ]
+  grep -Fq "VIBE_LEARN_DIR=\"$FAKE_INSTALL_DIR\"" "$FAKE_HOME/.cursor/hooks/vibe-learn.sh"
+  [ -f "$FAKE_INSTALL_DIR/adapters/cursor/skills/explain/SKILL.md" ]
+  for skill in learn digest quiz explain vibe-learn; do
+    [ -f "$FAKE_HOME/.cursor/skills/$skill/SKILL.md" ]
+  done
+}
+
+@test "setup detects Cursor from ~/.cursor" {
+  mkdir -p "$FAKE_HOME/.cursor"
+
+  PATH="/usr/bin:/bin" bash "$SCRIPTS_DIR/setup.sh" --local
+
+  [ -f "$FAKE_HOME/.cursor/hooks.json" ]
+  [ ! -f "$FAKE_HOME/.claude/settings.json" ]
+}
+
 @test "setup skips Claude hook registration when the vibe-learn plugin is enabled" {
   mkdir -p "$FAKE_HOME/.claude"
   echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$FAKE_HOME/.claude/settings.json"
