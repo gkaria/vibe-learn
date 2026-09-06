@@ -62,10 +62,11 @@ mkdir -p "$PROMPTS_DIR"
 cp "$PROMPTS_SOURCE/learn.md" "$PROMPTS_DIR/learn.md"
 cp "$PROMPTS_SOURCE/digest.md" "$PROMPTS_DIR/digest.md"
 cp "$PROMPTS_SOURCE/quiz.md" "$PROMPTS_DIR/quiz.md"
+cp "$PROMPTS_SOURCE/explain.md" "$PROMPTS_DIR/explain.md"
 if [ "$MODE" = "global" ]; then
-  echo "✓ Prompt fallbacks installed (~/.codex/prompts/learn.md, digest.md, quiz.md)"
+  echo "✓ Prompt fallbacks installed (~/.codex/prompts/learn.md, digest.md, quiz.md, explain.md)"
 else
-  echo "✓ Prompt fallbacks installed (.codex/prompts/learn.md, digest.md, quiz.md)"
+  echo "✓ Prompt fallbacks installed (.codex/prompts/learn.md, digest.md, quiz.md, explain.md)"
 fi
 
 if [ "$MODE" = "global" ]; then

@@ -150,6 +150,7 @@ if assistant_list_contains "codex" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "   Prompt fallback: \"Read .codex/prompts/learn.md and follow it.\" or /prompts:learn"
   echo "   Digest fallback: \"Read .codex/prompts/digest.md and follow it.\" or /prompts:digest"
   echo "   Quiz fallback:   \"Read .codex/prompts/quiz.md and follow it.\" or /prompts:quiz"
+  echo "   Explain fallback: \"Read .codex/prompts/explain.md and follow it for src/auth.ts.\" or /prompts:explain"
   echo "   Obsidian: ask vibe-learn to save or recall learn/digest notes, or use the prompt fallback with obsidian / obsidian:recall."
 fi
 
@@ -159,6 +160,7 @@ if assistant_list_contains "opencode" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "   /learn                      — explain what just happened, or ask a specific question"
   echo "   /digest                     — full session learning report"
   echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "   /explain [file|topic]       — guided code tour of what was touched"
   echo "   vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi
 
@@ -168,6 +170,7 @@ if assistant_list_contains "grok" "${ASSISTANTS_TO_INSTALL[@]}"; then
   echo "   /learn                      — explain what just happened, or ask a specific question"
   echo "   /digest                     — full session learning report"
   echo "   /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "   /explain [file|topic]       — guided code tour of what was touched"
   echo "   /vibe-learn                 — same workflows via the vibe-learn skill"
   echo "   vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
   echo "   Project hooks need /hooks-trust (or grok --trust) before they run."

@@ -39,20 +39,20 @@ scripts/          ← assistant-agnostic core (accepts Claude and Grok hook enve
 adapters/
   claude-code/    ← Claude Code adapter
     hooks.json    ← hook registration template
-    commands/     ← /learn, /digest, and /quiz slash command files
+    commands/     ← /learn, /digest, /quiz, and /explain slash command files
     install.sh    ← hook registration into ~/.claude/settings.json
   codex/          ← Codex App/CLI adapter
     hooks.toml    ← hook registration template (TOML)
-    prompts/      ← learn, digest, and quiz prompt-file fallbacks
+    prompts/      ← learn, digest, quiz, and explain prompt-file fallbacks
     skills/       ← global Codex vibe-learn skill
     install.sh    ← hook registration into ~/.codex/config.toml
   opencode/       ← OpenCode adapter
     plugins/      ← local plugin for event capture
-    commands/     ← /learn, /digest, and /quiz markdown commands
+    commands/     ← /learn, /digest, /quiz, and /explain markdown commands
     install.sh    ← plugin/command install into .opencode or ~/.config/opencode
   grok/           ← Grok Build adapter
     hooks.json    ← hook registration template
-    commands/     ← /learn, /digest, and /quiz slash command files
+    commands/     ← /learn, /digest, /quiz, and /explain slash command files
     skills/       ← /vibe-learn skill
     install.sh    ← hook file + skill/command install into ~/.grok or .grok
 ```
@@ -204,7 +204,7 @@ Claude Code supports custom slash commands defined as markdown instruction files
 
 Use the global Codex `vibe-learn` skill in natural language, for example "Use vibe-learn to learn what happened" or "Use vibe-learn to create a digest." Project Codex installs keep `.codex/prompts/learn.md` and `.codex/prompts/digest.md` as prompt-file fallbacks; current Codex can expose those as `/prompts:learn` and `/prompts:digest`, but the skill remains the primary durable interface.
 
-Grok Build uses the same slash commands (`/learn`, `/digest`, `/quiz`) plus a `/vibe-learn` skill. Prefer the skill for natural-language requests ("Use vibe-learn to learn what happened"). Grok commands live in `~/.grok/commands/` or `.grok/commands/`.
+Grok Build uses the same slash commands (`/learn`, `/digest`, `/quiz`, `/explain`) plus a `/vibe-learn` skill. Prefer the skill for natural-language requests ("Use vibe-learn to learn what happened"). Grok commands live in `~/.grok/commands/` or `.grok/commands/`.
 
 Codex examples to keep docs and prompts aligned:
 
@@ -212,6 +212,7 @@ Codex examples to keep docs and prompts aligned:
 - `Use vibe-learn to answer: why did we install bcrypt?`
 - `Use vibe-learn to create a digest of this session.`
 - `Use vibe-learn to quiz me on this session.`
+- `Use vibe-learn to explain src/middleware/auth.ts.`
 - `Use vibe-learn to save this learn note to Obsidian.`
 - `Use vibe-learn to recall past Obsidian notes about authentication.`
 - `Read .codex/prompts/learn.md and follow it for obsidian:recall authentication.`

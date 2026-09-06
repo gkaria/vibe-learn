@@ -83,6 +83,7 @@ Use vibe-learn to learn what happened.
 Use vibe-learn to answer: why did we install bcrypt?
 Use vibe-learn to create a digest.
 Use vibe-learn to quiz me on this session.
+Use vibe-learn to explain src/middleware/auth.ts.
 ```
 
 ### OpenCode
@@ -92,6 +93,7 @@ Use vibe-learn to quiz me on this session.
 /learn why did we add middleware?
 /digest
 /quiz
+/explain src/middleware/auth.ts
 ```
 
 ### Grok Build
@@ -101,6 +103,7 @@ Use vibe-learn to quiz me on this session.
 /learn why did we add middleware?
 /digest
 /quiz
+/explain src/middleware/auth.ts
 /vibe-learn
 Use vibe-learn to learn what happened.
 ```
@@ -288,10 +291,10 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
-| **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, and `/quiz` slash commands |
+| **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, `/quiz`, and `/explain` slash commands |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
-| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, and `/quiz` commands |
-| **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, and a `/vibe-learn` skill |
+| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, `/quiz`, and `/explain` commands |
+| **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
 
 Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=grok`.
 
@@ -350,7 +353,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 273 tests
+bats tests/               # 282 tests
 ```
 
 ---

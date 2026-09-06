@@ -69,3 +69,87 @@ load test_helper
   echo "$output" | grep -q "/explain"
   rm -rf "$FAKE_HOME"
 }
+
+# ---------------------------------------------------------------------------
+# Adapter parity
+# ---------------------------------------------------------------------------
+
+@test "codex explain prompt exists with the Codex helper lookup and prompt fallback note" {
+  local f="$ADAPTERS_DIR/codex/prompts/explain.md"
+  [ -f "$f" ]
+  grep -q "session-log.jsonl" "$f"
+  grep -q "knowledge.sh" "$f"
+  grep -q "prompts:explain" "$f"
+  grep -q ".codex/config.toml" "$f"
+  grep -q "Entry point" "$f"
+  ! grep -q "vibe-learn-knowledge" "$f"
+}
+
+@test "opencode explain command exists with the OpenCode helper lookup" {
+  local f="$ADAPTERS_DIR/opencode/commands/explain.md"
+  [ -f "$f" ]
+  grep -q "session-log.jsonl" "$f"
+  grep -q "knowledge.sh" "$f"
+  grep -q "vibe-learn.js" "$f"
+  grep -q "The spine" "$f"
+}
+
+@test "grok explain command exists and uses run_terminal_command" {
+  local f="$ADAPTERS_DIR/grok/commands/explain.md"
+  [ -f "$f" ]
+  grep -q "session-log.jsonl" "$f"
+  grep -q "knowledge.sh" "$f"
+  grep -q "run_terminal_command" "$f"
+  grep -q ".grok/hooks/vibe-learn.json" "$f"
+}
+
+@test "all explain variants share the tour structure and ledger rules" {
+  local f
+  for f in "$ADAPTERS_DIR/claude-code/commands/explain.md" "$ADAPTERS_DIR/codex/prompts/explain.md" \
+           "$ADAPTERS_DIR/opencode/commands/explain.md" "$ADAPTERS_DIR/grok/commands/explain.md"; do
+    grep -q "Entry point" "$f"
+    grep -q "The spine" "$f"
+    grep -q "The edges" "$f"
+    grep -q "Connections" "$f"
+    grep -q "Never invent" "$f"
+    grep -q "never hand-edit" "$f"
+    grep -q 'file:line' "$f"
+  done
+}
+
+@test "codex and grok skills document Explain Mode and recap" {
+  local f
+  for f in "$ADAPTERS_DIR/codex/skills/vibe-learn/SKILL.md" "$ADAPTERS_DIR/grok/skills/vibe-learn/SKILL.md"; do
+    grep -q "## Explain Mode" "$f"
+    grep -q "knowledge.sh touch" "$f"
+    grep -q "vibe-learn recap" "$f"
+  done
+}
+
+@test "codex project install copies explain prompt" {
+  bash "$ADAPTERS_DIR/codex/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.codex/prompts/explain.md" ]
+}
+
+@test "opencode project install copies explain command" {
+  bash "$ADAPTERS_DIR/opencode/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.opencode/commands/explain.md" ]
+}
+
+@test "grok project install copies explain command" {
+  bash "$ADAPTERS_DIR/grok/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.grok/commands/explain.md" ]
+}
+
+@test "setup --local installs explain for codex, opencode, and grok" {
+  local FAKE_HOME
+  FAKE_HOME="$(mktemp -d)"
+  HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/setup.sh" --local --assistant=codex >/dev/null
+  HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/setup.sh" --local --assistant=opencode >/dev/null
+  HOME="$FAKE_HOME" bash "$SCRIPTS_DIR/setup.sh" --local --assistant=grok >/dev/null
+  [ -f "$FAKE_HOME/.codex/prompts/explain.md" ]
+  [ -f "$FAKE_HOME/.config/opencode/commands/explain.md" ]
+  [ -f "$FAKE_HOME/.grok/commands/explain.md" ]
+  [ -f "$FAKE_HOME/.vibe-learn/scripts/recap.sh" ]
+  rm -rf "$FAKE_HOME"
+}
