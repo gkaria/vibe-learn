@@ -41,6 +41,15 @@ EOF
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^# What I learned this week — $(basename "$TEST_PROJECT_DIR")"
   echo "$output" | grep -q "2 active day(s) · 2 prompt(s) · 2 file(s) touched · 1 command(s) run · quizzed on 2 day(s)"
+  echo "$output" | grep -q "Session activity is from the latest 2 sessions"
+}
+
+@test "recap documents that session activity covers only the latest two sessions" {
+  seed_project
+  run bash "$SCRIPTS_DIR/recap.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "latest 2 sessions"
+  echo "$output" | grep -q "bootstrap keeps only current + previous logs"
 }
 
 @test "recap splits ledger concepts into solid, shaky, carried-over, and newly met" {

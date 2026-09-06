@@ -11,6 +11,11 @@
 #   .vibe-learn/session-log.prev.jsonl    previous session activity
 #   .vibe-learn/digests/*.md              digests saved by /digest
 #
+# Session activity (active days / prompts / files / commands) only covers the
+# latest two sessions bootstrap retains. Ledger and digest sections use the
+# full --days window. The headline states this so a weekly/30-day recap does
+# not silently undercount activity.
+#
 # Prints markdown to stdout. With --save, also writes
 # .vibe-learn/recaps/<end-date>-recap.md and prints its path on stderr.
 # Read-only with respect to the ledger: recap never writes knowledge.json.
@@ -98,7 +103,10 @@ QUIZ_DAYS="$(printf '%s' "$LEDGER_JSON" | jq -r --arg cutoff "$CUTOFF" \
   '[.concepts[] | .last_quizzed // empty | select(. >= $cutoff)] | unique | length')"
 LEDGER_TOTAL="$(printf '%s' "$LEDGER_JSON" | jq -r '.concepts | length')"
 
-# --- Session activity in the window (current + previous log) ---
+# --- Session activity (latest two sessions, filtered to the window) ---
+# bootstrap.sh rotates session-log.jsonl → session-log.prev.jsonl on each new
+# session and keeps only that one backup, so activity figures cannot cover a
+# full --days window when more than two sessions occurred. Label them as such.
 ACTIVITY_JSON="$(
   for f in "$LOG_DIR/session-log.jsonl" "$LOG_DIR/session-log.prev.jsonl"; do
     [ -s "$f" ] && cat "$f" || true
@@ -141,7 +149,8 @@ OUT+="$CUTOFF → $TODAY"$'\n\n'
 if [ "$LEDGER_TOTAL" -eq 0 ] && [ "$ACTIVE_DAYS" -eq 0 ] && [ -z "$DIGEST_LINES" ]; then
   OUT+="Nothing recorded yet. Work a session with vibe-learn installed, then run /quiz — results land in .vibe-learn/knowledge.json and show up here."$'\n'
 else
-  OUT+="**$ACTIVE_DAYS active day(s) · $PROMPTS prompt(s) · $FILES file(s) touched · $COMMANDS command(s) run · quizzed on $QUIZ_DAYS day(s)**"$'\n\n'
+  OUT+="**$ACTIVE_DAYS active day(s) · $PROMPTS prompt(s) · $FILES file(s) touched · $COMMANDS command(s) run · quizzed on $QUIZ_DAYS day(s)**"$'\n'
+  OUT+="_Session activity is from the latest 2 sessions in this window (bootstrap keeps only current + previous logs). Ledger and digest sections use the full window._"$'\n\n'
 
   if [ "$SOLID_COUNT" -gt 0 ]; then
     OUT+="## Confirmed solid ($SOLID_COUNT)"$'\n\n'"$SOLID"$'\n\n'

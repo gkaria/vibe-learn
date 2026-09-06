@@ -312,6 +312,44 @@ load test_helper
   rm -rf "$fake_home"
 }
 
+
+@test "claude-code install strips legacy vibe-learn hooks when deferring to the plugin" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  cat > "$fake_home/.claude/settings.json" <<EOF
+{
+  "enabledPlugins": {"vibe-learn@vibe-learn": true},
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "$fake_home/.vibe-learn/scripts/bootstrap.sh"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "$fake_home/.vibe-learn/scripts/pause-summary.sh"}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "/other/tool.sh"}]}]
+  }
+}
+EOF
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "Removed legacy vibe-learn hooks"
+  # vibe-learn entries gone; unrelated hook preserved; plugin flag untouched
+  ! jq -e '.hooks.SessionStart' "$fake_home/.claude/settings.json" >/dev/null
+  ! jq -e '.hooks.Stop' "$fake_home/.claude/settings.json" >/dev/null
+  [ "$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$fake_home/.claude/settings.json")" = "/other/tool.sh" ]
+  [ "$(jq -r '.enabledPlugins["vibe-learn@vibe-learn"]' "$fake_home/.claude/settings.json")" = "true" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code settings install mirrors plugin hook timeouts" {
+  bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  [ "$(jq '.hooks.SessionStart[0].hooks[0].timeout' "$f")" = "5" ]
+  [ "$(jq '.hooks.UserPromptSubmit[0].hooks[0].timeout' "$f")" = "5" ]
+  [ "$(jq '.hooks.PostToolUse[0].hooks[0].timeout' "$f")" = "2" ]
+  [ "$(jq '.hooks.Stop[0].hooks[0].timeout' "$f")" = "10" ]
+}
+
 @test "VIBE_LEARN_IGNORE_PLUGIN=1 forces hook install alongside the plugin" {
   local fake_home
   fake_home="$(mktemp -d)"

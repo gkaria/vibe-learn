@@ -64,6 +64,13 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   done < <(jq -r '.hooks[][].hooks[].command' "$HOOKS_JSON")
 }
 
+@test "plugin hooks.json declares the same timeouts as the settings installer" {
+  [ "$(jq '.hooks.SessionStart[0].hooks[0].timeout' "$HOOKS_JSON")" = "5" ]
+  [ "$(jq '.hooks.UserPromptSubmit[0].hooks[0].timeout' "$HOOKS_JSON")" = "5" ]
+  [ "$(jq '.hooks.PostToolUse[0].hooks[0].timeout' "$HOOKS_JSON")" = "2" ]
+  [ "$(jq '.hooks.Stop[0].hooks[0].timeout' "$HOOKS_JSON")" = "10" ]
+}
+
 @test "plugin hooks.json PostToolUse matcher covers Write, Edit, MultiEdit, and Bash" {
   local matcher
   matcher=$(jq -r '.hooks.PostToolUse[0].matcher' "$HOOKS_JSON")
