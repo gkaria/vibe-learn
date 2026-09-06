@@ -1,0 +1,40 @@
+name: Host payload or hook change
+description: An assistant changed its hook events, payload shape, or config format and vibe-learn stopped logging
+labels: ["host-change"]
+body:
+  - type: dropdown
+    id: assistant
+    attributes:
+      label: Assistant
+      options:
+        - Claude Code
+        - Codex App/CLI
+        - OpenCode
+        - Grok Build
+        - Cursor
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: assistant-version
+    attributes:
+      label: Assistant version where the change appeared
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: e.g. Bash events no longer appear in session-log.jsonl; Stop hook now errors; commands not found.
+    validations:
+      required: true
+  - type: textarea
+    id: payload
+    attributes:
+      label: New payload or config sample
+      description: "Paste a hook input JSON (`echo \"$INPUT\" >&2` in the script, or the host's debug log) or the new config snippet. Scrub anything private."
+      render: json
+  - type: input
+    id: docs
+    attributes:
+      label: Link to the host's changelog or docs describing the change

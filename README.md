@@ -376,6 +376,10 @@ bats tests/               # 282 tests
 
 ---
 
+## Contributing
+
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the dev loop, the adapter layout, and how to add a learning command. Looking for a first task? [docs/community/good-first-issues.md](docs/community/good-first-issues.md) has five scoped ones.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright © 2026 Gaurang Karia.

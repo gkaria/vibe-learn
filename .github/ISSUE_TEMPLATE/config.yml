@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Getting started guide
+    url: https://github.com/gkaria/vibe-learn/blob/main/GETTING_STARTED.md
+    about: Step-by-step first session, including the plugin and curl installs.
+  - name: Contributing guide
+    url: https://github.com/gkaria/vibe-learn/blob/main/CONTRIBUTING.md
+    about: Dev setup, adapter layout, and how to add a command.

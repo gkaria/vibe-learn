@@ -246,6 +246,8 @@ A missing file means an empty ledger; writes merge by `name` and are atomic (tem
 
 `scripts/recap.sh` (`vibe-learn recap [dir] [--days=7] [--save]`) is the shareable read-only view of the ledger: it groups concepts into confirmed solid / still shaky / carried over / met-not-quizzed for the window, adds activity counts from `session-log.jsonl` + `.prev.jsonl`, lists digests saved in the window (first line of "What Was Built"), and suggests the next command. `--save` writes `.vibe-learn/recaps/<date>-recap.md`. It never writes `knowledge.json`.
 
+`/digest` closes with a one-line pointer to the repo only when `.vibe-learn/digests/` does not exist yet (first digest in a project); it is prompt text, not a hook.
+
 The feedback loop: `/quiz` records results; `/learn` opens with a one-line heads-up when a due concept resurfaces in the session; `/digest` merges unresolved ledger items into "Things to Study" and `touch`es newly introduced concepts. Obsidian notes gain an optional `recall_status` frontmatter field when quiz results exist for the day.
 
 ## Session Log Schema

@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a learning mode, adapter, or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to learn or understand that vibe-learn doesn't help with yet?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would the command, output, or behaviour look like? Sketch the terminal exchange if you can.
+  - type: dropdown
+    id: hosts
+    attributes:
+      label: Which assistants should this cover?
+      multiple: true
+      options:
+        - Claude Code
+        - Codex App/CLI
+        - OpenCode
+        - Grok Build
+        - All of them
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints check
+      options:
+        - label: This can work offline with bash + jq (no API calls from vibe-learn itself)
+        - label: This does not add work to the hook hot path (observe.sh must stay under 50 ms)
