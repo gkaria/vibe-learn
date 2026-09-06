@@ -6,7 +6,9 @@ You can outsource your thinking, but you can't outsource your understanding.
 
 vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during a session and helps you understand what was built, why, and how — without changing how you work.
 
----
+![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
+
+Every file write, edit, and command is logged locally. `/learn` explains it, `/digest` reports on it, `/quiz` checks you actually understood it — and a small knowledge ledger brings shaky concepts back until they stick. Offline, bash + jq, no API keys.
 
 **New here?** Follow the [Getting Started guide](GETTING_STARTED.md) for a step-by-step first session walkthrough.
 
@@ -109,6 +111,8 @@ Use vibe-learn to learn what happened.
 Continuing the JWT session from above:
 
 **`/learn`** — a plain-language recap, grounded in the actual log:
+
+![Pause summary followed by /learn](docs/demo/learn.gif)
 
 ```
 📘 What just happened:
@@ -289,7 +293,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 220 tests
+bats tests/               # 245 tests
 ```
 
 ---
