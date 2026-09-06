@@ -1,16 +1,17 @@
 {
+  "description": "vibe-learn: logs file writes, edits, and commands to .vibe-learn/session-log.jsonl and injects a pause summary after each response.",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
-          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh"}
+          {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh\"", "timeout": 5}
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/capture-prompt.sh"}
+          {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/capture-prompt.sh\"", "timeout": 5}
         ]
       }
     ],
@@ -18,14 +19,14 @@
       {
         "matcher": "Write|Edit|MultiEdit|Bash",
         "hooks": [
-          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/observe.sh"}
+          {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/observe.sh\"", "timeout": 2}
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pause-summary.sh"}
+          {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/pause-summary.sh\"", "timeout": 10}
         ]
       }
     ]
