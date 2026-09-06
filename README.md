@@ -25,7 +25,7 @@ Inside Claude Code:
 /plugin install vibe-learn@vibe-learn
 ```
 
-That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, and `/vibe-learn:quiz`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
+That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, and `/vibe-learn:explain`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
 
 ### Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
 
@@ -33,7 +33,7 @@ That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, and
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
+Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0).
 
 ---
 
@@ -384,7 +384,8 @@ bats tests/               # 282 tests
 
 ## Releases
 
-- **[v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0) (this branch):** Grok Build as a first-class assistant — `/learn`, `/digest`, `/quiz`, `/vibe-learn` skill · `--assistant=grok` · auto-detect via `grok` / `~/.grok` / `GROK_HOME`
+- **[v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0) (this branch):** Claude Code plugin + self-hosted marketplace · Cursor adapter · `/explain` guided tours · `vibe-learn recap` · ledger-aware briefing · demo GIFs and community scaffolding
+- **[v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0):** Grok Build as a first-class assistant — `/learn`, `/digest`, `/quiz`, `/vibe-learn` skill · `--assistant=grok` · auto-detect via `grok` / `~/.grok` / `GROK_HOME`
 - **v0.7.0:** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
 - **v0.6.0:** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`
 - **v0.5.5:** Multi-assistant support — Claude Code and Codex, assistant auto-detection, generic adapter layout
