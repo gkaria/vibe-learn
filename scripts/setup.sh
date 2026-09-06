@@ -91,6 +91,7 @@ FILES=(
   "scripts/dashboard.sh"
   "scripts/cli.sh"
   "scripts/knowledge.sh"
+  "scripts/recap.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
   "config/defaults.json"

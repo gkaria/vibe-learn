@@ -213,6 +213,36 @@ Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge le
 
 The ledger is updated only by the learning commands (via `scripts/knowledge.sh`) — never by hooks, never over the network.
 
+### Share what you learned
+
+```bash
+vibe-learn recap            # this week, to stdout
+vibe-learn recap --days=30  # wider window
+vibe-learn recap --save     # also writes .vibe-learn/recaps/<date>-recap.md
+```
+
+A markdown rollup built from the ledger, the session logs, and any saved digests — what you confirmed solid, what's still shaky, what you met but haven't been quizzed on, plus days active and files touched. Made to paste into a standup note, a learning journal, or a post:
+
+```
+# What I learned this week — my-api
+2026-07-05 → 2026-07-11
+
+**3 active day(s) · 7 prompt(s) · 14 file(s) touched · 22 command(s) run · quizzed on 2 day(s)**
+
+## Confirmed solid (2)
+- JWT verification — quizzed 2026-07-11
+- Fail-closed auth — quizzed 2026-07-11
+
+## Still shaky — revisit (1)
+- Express middleware ordering — quizzed 2026-07-11: you had the what, not the when
+
+## Met this week, not quizzed yet (1)
+- Repository pattern — seen in 2 session(s), not quizzed yet
+
+## Next
+/quiz review — re-ask the shaky ones until they stick.
+```
+
 ---
 
 ## Session briefing
@@ -308,6 +338,8 @@ Four lifecycle hooks, all fast and offline:
 | `PostToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
 | `Stop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
 
+On-demand (never from hooks): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, and the knowledge helper `scripts/knowledge.sh`.
+
 All data stays in `.vibe-learn/` inside your project. No network calls, no external services.
 
 ---
@@ -318,7 +350,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 245 tests
+bats tests/               # 273 tests
 ```
 
 ---

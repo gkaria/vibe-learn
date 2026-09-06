@@ -61,6 +61,16 @@ components:
       destination: knowledge.sh
       fileType: generic
 
+  - id: script-recap
+    description: Weekly "what I learned" markdown rollup built from the knowledge ledger and session logs
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/recap.sh
+      destination: recap.sh
+      fileType: generic
+
   # ── Commands ──────────────────────────────────────────────
   - id: cmd-learn
     description: /learn — explain what just happened or answer a session question

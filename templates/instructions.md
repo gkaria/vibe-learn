@@ -27,5 +27,6 @@ This project has vibe-learn installed. Session activity (file writes, edits, bas
 - `.vibe-learn/session-meta.json` — session counters and timestamps
 - `.vibe-learn/pause-summary.txt` — last pause summary (injected on next session start)
 - `.vibe-learn/knowledge.json` — cross-session knowledge ledger (updated only via `knowledge.sh`, never by hooks)
+- `.vibe-learn/recaps/` — weekly "what I learned" markdown written by `vibe-learn recap --save`
 
 After each response where changes were made, a pause summary is generated showing what just happened. Suggest `/learn` or `/digest` when the user might benefit from understanding recent changes.

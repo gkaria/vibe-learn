@@ -34,6 +34,7 @@ scripts/          ← assistant-agnostic core (accepts Claude and Grok hook enve
   cli.sh          ← command dispatcher for install/dashboard
   dashboard.sh    ← static session briefing generator
   knowledge.sh    ← knowledge ledger helper (record/touch/list/due)
+  recap.sh        ← `vibe-learn recap`: weekly "what I learned" markdown (read-only)
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -241,6 +242,8 @@ These files contain plain-language instructions that the assistant follows — n
 - `due [--days=14]` — concepts due for review (shaky, or unquizzed past the cutoff)
 
 A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
+
+`scripts/recap.sh` (`vibe-learn recap [dir] [--days=7] [--save]`) is the shareable read-only view of the ledger: it groups concepts into confirmed solid / still shaky / carried over / met-not-quizzed for the window, adds activity counts from `session-log.jsonl` + `.prev.jsonl`, lists digests saved in the window (first line of "What Was Built"), and suggests the next command. `--save` writes `.vibe-learn/recaps/<date>-recap.md`. It never writes `knowledge.json`.
 
 The feedback loop: `/quiz` records results; `/learn` opens with a one-line heads-up when a due concept resurfaces in the session; `/digest` merges unresolved ledger items into "Things to Study" and `touch`es newly introduced concepts. Obsidian notes gain an optional `recall_status` frontmatter field when quiz results exist for the day.
 

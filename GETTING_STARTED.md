@@ -250,6 +250,7 @@ Once installed, this is your normal workflow:
 | You type `/learn` | Claude explains the session grounded in the real log |
 | You type `/quiz` | Claude checks your understanding and tracks it across sessions |
 | You run `vibe-learn audio-prep` | Pack ready, NotebookLM opens |
+| You run `vibe-learn recap` | Markdown "what I learned this week" from the ledger, ready to share |
 
 You don't change how you work. You just have a trail to learn from afterward.
 
