@@ -1,14 +1,14 @@
 ---
 name: vibe-learn
-description: Explain, digest, and quiz the current vibe-learn coding session, with cross-session knowledge tracking and optional Obsidian save and recall workflows grounded in .vibe-learn/session-log.jsonl. Use when the user wants to learn what happened, asks /learn, /digest, /quiz, /vibe-learn, or mentions saving or recalling Obsidian notes.
-when-to-use: User asks what just happened, wants a session digest, wants to be quizzed, says "use vibe-learn", or asks to save/recall learnings in Obsidian.
+description: Explain, digest, and quiz the current vibe-learn coding session, with cross-session knowledge tracking and optional Obsidian save and recall workflows grounded in .vibe-learn/session-log.jsonl. Use when the user wants to learn what happened, asks /learn, /digest, /quiz, /explain, /vibe-learn, or mentions saving or recalling Obsidian notes.
+when-to-use: User asks what just happened, wants a session digest, wants to be quizzed, wants a guided tour of a file the session touched, says "use vibe-learn", or asks to save/recall learnings in Obsidian.
 user-invocable: true
-argument-hint: "[learn|digest|quiz|obsidian] [question]"
+argument-hint: "[learn|digest|quiz|explain|obsidian] [question|file|topic]"
 ---
 
 # vibe-learn
 
-Use this skill when the user asks to learn from the current coding session, understand what just happened, generate a session digest, quiz themselves on what was built, save learnings to Obsidian, or recall related Obsidian notes from past sessions.
+Use this skill when the user asks to learn from the current coding session, understand what just happened, generate a session digest, quiz themselves on what was built, get a guided tour of a file or subsystem the session touched, save learnings to Obsidian, or recall related Obsidian notes from past sessions.
 
 Grok Build does not inject pause summaries into context. Always read `.vibe-learn/pause-summary.txt` when it exists, then `.vibe-learn/session-log.jsonl`.
 
@@ -52,9 +52,19 @@ When the user asks to be quizzed (`/quiz`, "Use vibe-learn to quiz me", "check m
 4. Record results in the knowledge ledger via `run_terminal_command` — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. If that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` the vibe-learn hooks point at in `.grok/hooks/vibe-learn.json` or `~/.grok/hooks/vibe-learn.json`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
 5. Close with a recap: solid concepts, shaky concepts, and what to revisit.
 
+## Explain Mode
+
+When the user asks for a code tour ("Use vibe-learn to explain src/auth.ts", "walk me through the retry logic", "explain what we touched"):
+
+1. Follow `.grok/commands/explain.md` when the project has it; otherwise apply this flow.
+2. Pick the target: the named file; the files behind a named topic (session log first, then grep); or, with no target, the most significant file this session touched (a new file others import, the most-edited file, or the file behind the last prompt) — say which and why.
+3. Read the target and its immediate callers/callees, then tour it top-down: **Entry point** (what triggers it), **The spine** (3–5 load-bearing pieces in execution order, each with a real `path:line` and the *why*), **The edges** (error paths, ordering constraints, what breaks if rearranged), **Connections** (callers, callees, ripple). Never invent functions, branches, or files the code does not have. Tie pieces back to the session log when it shows why they were added.
+4. Mark covered concepts as seen via `run_terminal_command`: `bash ~/.vibe-learn/scripts/knowledge.sh touch <name> --label="..."` (same helper lookup as Quiz Mode). Never hand-edit the JSON; skip silently if the helper is missing.
+5. If a covered concept is already shaky in the ledger, say so in one line. Close by offering a quiz on the topic or an Obsidian save.
+
 ## Knowledge Ledger
 
-`.vibe-learn/knowledge.json` tracks concepts across sessions (first_seen, last_seen, sessions, last_quizzed, status new/shaky/solid). Learn responses may open with a one-line heads-up when a shaky concept resurfaces; digests merge unresolved ledger items into "Things To Study Next" and `touch` newly introduced concepts. All reads and writes go through `knowledge.sh` (`record`, `touch`, `list`, `due`).
+`.vibe-learn/knowledge.json` tracks concepts across sessions (first_seen, last_seen, sessions, last_quizzed, status new/shaky/solid). Learn responses may open with a one-line heads-up when a shaky concept resurfaces; digests merge unresolved ledger items into "Things To Study Next" and `touch` newly introduced concepts. All reads and writes go through `knowledge.sh` (`record`, `touch`, `list`, `due`). For a shareable weekly rollup, the user (or you, on request) can run `vibe-learn recap [--days=7] [--save]` — read-only markdown of solid/shaky/new concepts plus session activity.
 
 ## Obsidian Save
 

@@ -4,9 +4,11 @@
 
 You can outsource your thinking, but you can't outsource your understanding.
 
-vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during a session and helps you understand what was built, why, and how — without changing how you work.
+vibe-learn watches what Claude Code, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
 
----
+![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
+
+Every file write, edit, and command is logged locally. `/learn` explains it, `/digest` reports on it, `/quiz` checks you actually understood it — and a small knowledge ledger brings shaky concepts back until they stick. Offline, bash + jq, no API keys.
 
 **New here?** Follow the [Getting Started guide](GETTING_STARTED.md) for a step-by-step first session walkthrough.
 
@@ -14,13 +16,24 @@ vibe-learn watches what Claude Code, Codex, OpenCode, or Grok Build does during 
 
 ## Install
 
+### Claude Code — plugin (recommended)
+
+Inside Claude Code:
+
+```
+/plugin marketplace add gkaria/vibe-learn
+/plugin install vibe-learn@vibe-learn
+```
+
+That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, and `/vibe-learn:quiz`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
+
+### Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-Installs to `~/.vibe-learn/` and registers hooks globally for every AI assistant detected on your machine. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
-
-To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
+Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0).
 
 ---
 
@@ -30,10 +43,10 @@ After every AI response that touches files or runs commands, vibe-learn:
 
 - Appends every action to `.vibe-learn/session-log.jsonl`
 - Writes a pause summary to `.vibe-learn/pause-summary.txt`
-- Injects that summary into your assistant's next context window (Claude Code)
+- Injects that summary into your assistant's context at the start of the next session (Claude Code)
 - Regenerates the session briefing in the background
 
-You'll see something like this appear in Claude's context after each response:
+The summary looks like this (the last line switches to `/vibe-learn:…` under the plugin install):
 
 ```
 ⏸ vibe-learn — what just happened:
@@ -43,7 +56,7 @@ Goal: add JWT auth middleware
   ✦ Edited src/routes/user.ts
   ✦ Ran: npm install jsonwebtoken
 
- /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 ---
@@ -58,7 +71,10 @@ Goal: add JWT auth middleware
 /digest                             — full structured session report
 /quiz                               — check your understanding of this session
 /quiz review                        — re-quiz concepts that are shaky or due again
+/explain [file|topic]               — guided code tour of what was touched
 ```
+
+With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.
 
 ### Codex
 
@@ -67,6 +83,7 @@ Use vibe-learn to learn what happened.
 Use vibe-learn to answer: why did we install bcrypt?
 Use vibe-learn to create a digest.
 Use vibe-learn to quiz me on this session.
+Use vibe-learn to explain src/middleware/auth.ts.
 ```
 
 ### OpenCode
@@ -76,6 +93,7 @@ Use vibe-learn to quiz me on this session.
 /learn why did we add middleware?
 /digest
 /quiz
+/explain src/middleware/auth.ts
 ```
 
 ### Grok Build
@@ -85,9 +103,23 @@ Use vibe-learn to quiz me on this session.
 /learn why did we add middleware?
 /digest
 /quiz
+/explain src/middleware/auth.ts
 /vibe-learn
 Use vibe-learn to learn what happened.
 ```
+
+### Cursor
+
+```
+/learn
+/learn why did we add middleware?
+/digest
+/quiz
+/explain src/middleware/auth.ts
+/vibe-learn
+```
+
+Cursor ships these as skills (`.cursor/skills/`), so plain requests like "what did we just build?" also route to the `vibe-learn` skill.
 
 ---
 
@@ -96,6 +128,8 @@ Use vibe-learn to learn what happened.
 Continuing the JWT session from above:
 
 **`/learn`** — a plain-language recap, grounded in the actual log:
+
+![Pause summary followed by /learn](docs/demo/learn.gif)
 
 ```
 📘 What just happened:
@@ -161,6 +195,30 @@ Revisit: express-middleware-ordering — you had the what, not the when
 
 That recording is the ledger at work — next session, `/learn` will nudge you if middleware ordering comes up again, and `/quiz review` will re-ask until it's solid.
 
+**`/explain src/middleware/auth.ts`** — a guided tour when you want to actually read the code:
+
+```
+Entry point — src/middleware/auth.ts:8 exports `requireAuth`, mounted in
+src/routes/user.ts:4 with app.use(requireAuth) before any route.
+
+The spine
+1. auth.ts:10  reads the Authorization header and strips "Bearer " — the
+   only place the raw token is touched
+2. auth.ts:14  jwt.verify(token, secret) — throws on bad signature *or*
+   expiry, which is why there's a single catch below
+3. auth.ts:19  req.user = payload — every handler after this can assume it
+4. auth.ts:22  next() — only reached on success; failure returns 401 first
+
+The edges — user.ts:4 must stay above the routes; a route mounted earlier
+skips the check entirely. auth.ts:14 has no clock-skew tolerance.
+
+Connections — user.ts (/profile, /settings) and, after this session,
+nothing else. Adding a new protected router means mounting it below line 4.
+
+You marked express-middleware-ordering shaky on July 11 — this is the code
+behind it. Want me to quiz you on this, or save it to Obsidian?
+```
+
 ---
 
 ## Check your understanding
@@ -170,6 +228,36 @@ Reading a digest feels like learning; answering questions proves it. `/quiz` ask
 Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. Concepts you answered shakily come back: `/quiz review` re-quizzes anything shaky or unreviewed for two weeks, `/learn` gives you a one-line heads-up when a shaky concept resurfaces in a new session, and `/digest`'s "Things to Study" accumulates across sessions instead of resetting.
 
 The ledger is updated only by the learning commands (via `scripts/knowledge.sh`) — never by hooks, never over the network.
+
+### Share what you learned
+
+```bash
+vibe-learn recap            # this week, to stdout
+vibe-learn recap --days=30  # wider window
+vibe-learn recap --save     # also writes .vibe-learn/recaps/<date>-recap.md
+```
+
+A markdown rollup built from the ledger, the session logs, and any saved digests — what you confirmed solid, what's still shaky, what you met but haven't been quizzed on, plus days active and files touched. Made to paste into a standup note, a learning journal, or a post:
+
+```
+# What I learned this week — my-api
+2026-07-05 → 2026-07-11
+
+**3 active day(s) · 7 prompt(s) · 14 file(s) touched · 22 command(s) run · quizzed on 2 day(s)**
+
+## Confirmed solid (2)
+- JWT verification — quizzed 2026-07-11
+- Fail-closed auth — quizzed 2026-07-11
+
+## Still shaky — revisit (1)
+- Express middleware ordering — quizzed 2026-07-11: you had the what, not the when
+
+## Met this week, not quizzed yet (1)
+- Repository pattern — seen in 2 session(s), not quizzed yet
+
+## Next
+/quiz review — re-ask the shaky ones until they stick.
+```
 
 ---
 
@@ -181,11 +269,13 @@ After each session a local HTML briefing is auto-generated. Open it any time:
 vibe-learn briefing          # regenerate and show path
 ```
 
+Plugin-only install? The `vibe-learn` CLI is on the Bash tool's PATH inside Claude Code, so just ask Claude to run `vibe-learn briefing`. To have it in your own shell too, run the `curl` installer above — it adds the CLI and skips the duplicate hooks.
+
 ![Session briefing index](docs/briefing-index.png)
 
 ![Session briefing page](docs/briefing-session.png)
 
-The briefing includes: maintainer brief (what changed / why it matters / inspect first / what could break), session timeline with filter buttons, file tour with colour-coded area badges, command log with failure highlighting, syntax-highlighted diff, heuristic study queue, and a NotebookLM-ready source pack.
+The briefing includes: maintainer brief (what changed / why it matters / inspect first / what could break), session timeline with filter buttons, file tour with colour-coded area badges, command log with failure highlighting, syntax-highlighted diff, a study queue, and a NotebookLM-ready source pack. When `.vibe-learn/knowledge.json` exists, the study queue leads with your shaky concepts, the page gains a Knowledge State section, the source pack gains a "Your knowledge state" table, and the audio prompt asks NotebookLM to dwell on what you've struggled with.
 
 No server, no build step, no external assets — just a static HTML file that opens directly from disk.
 
@@ -214,14 +304,17 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
-| **Claude Code** | JSON hooks in `settings.json`, native `/learn`, `/digest`, and `/quiz` slash commands |
+| **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, `/quiz`, and `/explain` slash commands |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
-| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, and `/quiz` commands |
-| **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, and a `/vibe-learn` skill |
+| **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, `/quiz`, and `/explain` commands |
+| **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
+| **Cursor** | `hooks.json` entries pointing at one shim (`.cursor/hooks/vibe-learn.sh`), plus `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills in `.cursor/skills/` |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, or `--assistant=grok`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
 
 Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
+
+Cursor project hooks (`.cursor/hooks.json`) run once the workspace is trusted. Cursor has no context injection on `stop`, so the pause summary is written to `.vibe-learn/pause-summary.txt` and relayed at the next `sessionStart`; the skills read the file directly. Cloud Agents skip `sessionStart`, so there the file is the only channel.
 
 ---
 
@@ -264,6 +357,8 @@ Four lifecycle hooks, all fast and offline:
 | `PostToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
 | `Stop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
 
+On-demand (never from hooks): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, and the knowledge helper `scripts/knowledge.sh`.
+
 All data stays in `.vibe-learn/` inside your project. No network calls, no external services.
 
 ---
@@ -274,7 +369,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 220 tests
+bats tests/               # 282 tests
 ```
 
 ---
@@ -283,7 +378,7 @@ bats tests/               # 220 tests
 
 - **Bash** (POSIX-compatible)
 - **jq** (`brew install jq` / `apt-get install jq`)
-- **Claude Code**, **Codex App/CLI**, **OpenCode**, or **Grok Build**
+- **Claude Code**, **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
 
 ---
 
@@ -296,6 +391,10 @@ bats tests/               # 220 tests
 - **v0.5.0:** Obsidian integration — save notes, recall past learnings with `obsidian:recall`
 
 ---
+
+## Contributing
+
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the dev loop, the adapter layout, and how to add a learning command. Looking for a first task? [docs/community/good-first-issues.md](docs/community/good-first-issues.md) has five scoped ones.
 
 ## License
 

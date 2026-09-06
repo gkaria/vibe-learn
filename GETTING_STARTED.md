@@ -6,6 +6,17 @@ This walks you through your first session — from install to having an audio ov
 
 ## 1. Install
 
+**Claude Code (plugin):** inside Claude Code, run
+
+```
+/plugin marketplace add gkaria/vibe-learn
+/plugin install vibe-learn@vibe-learn
+```
+
+Done — hooks are registered and `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz` are available. Everywhere this guide says `/learn`, `/digest`, or `/quiz`, use the `/vibe-learn:` prefix. Skip to step 2.
+
+**Everything else (or Claude Code without plugins):**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
@@ -47,11 +58,9 @@ You don't need to do anything differently. vibe-learn runs silently in the backg
 
 ---
 
-## 3. See what appeared in context
+## 3. See the pause summary
 
-After Claude finishes its response, look at the **next message Claude sends** — it will have a pause summary injected at the top of its context. When Claude references what it just did, you're seeing vibe-learn's summary feeding through.
-
-If you ask Claude "what did you just do?", it knows — because vibe-learn told it. The summary looks like this:
+After Claude finishes a response that touched files or ran commands, vibe-learn writes a pause summary to `.vibe-learn/pause-summary.txt` and injects it into Claude's context when your next session starts. Open the file, or ask Claude "what did you just do?" — the log is right there. The summary looks like this:
 
 ```
 ⏸ vibe-learn — what just happened:
@@ -62,7 +71,7 @@ Goal: Build a simple Express API with a /health endpoint
   ✦ Ran: npm install express
   ✦ Ran: npx tsc --noEmit
 
- /learn [question]  ·  /digest  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 That last line is your menu. You can type any of those commands right now.
@@ -158,13 +167,29 @@ Results are saved to `.vibe-learn/knowledge.json`, a small cross-session knowled
 
 ---
 
-## 7. Open the session briefing
+## 7. Read the code with `/explain`
+
+When a digest or quiz points at a file you don't really know, get a guided tour instead of staring at it:
+
+```
+/explain src/routes/health.ts
+/explain the tsconfig setup
+/explain                       — tours the most significant file this session touched
+```
+
+Claude walks it top-down — entry point, the load-bearing pieces in order (with `file:line` references), the edges that would break if rearranged, and what connects to it — then marks the concepts as seen in the ledger and offers a quiz.
+
+---
+
+## 8. Open the session briefing
 
 The session briefing was already generated automatically in the background. Open it:
 
 ```bash
 vibe-learn briefing
 ```
+
+(Plugin-only install: the CLI is on Claude's Bash PATH, so ask Claude to run `vibe-learn briefing`, or run the `curl` installer from step 1 to get the CLI in your own shell.)
 
 This prints the path and regenerates if needed:
 
@@ -178,7 +203,7 @@ Open `index.html` directly in your browser — no server needed. You'll see the 
 
 ---
 
-## 8. Prepare an audio overview (optional)
+## 9. Prepare an audio overview (optional)
 
 If you want to listen to a walkthrough of the session on your commute:
 
@@ -218,13 +243,14 @@ Once installed, this is your normal workflow:
 
 | Moment | What vibe-learn does |
 |--------|----------------------|
-| You open a project | Session starts, previous summary injected into context |
+| You open a project | Session starts, previous pause summary injected into context |
 | Claude writes or edits a file | Logged silently in <50ms |
 | Claude runs a command | Logged with exit code |
 | Claude finishes a response | Pause summary written, session briefing regenerated in background |
 | You type `/learn` | Claude explains the session grounded in the real log |
 | You type `/quiz` | Claude checks your understanding and tracks it across sessions |
 | You run `vibe-learn audio-prep` | Pack ready, NotebookLM opens |
+| You run `vibe-learn recap` | Markdown "what I learned this week" from the ledger, ready to share |
 
 You don't change how you work. You just have a trail to learn from afterward.
 
@@ -232,7 +258,7 @@ You don't change how you work. You just have a trail to learn from afterward.
 
 ## Next steps
 
-- **Codex, OpenCode, or Grok Build?** See [README.md](README.md#supported-assistants) for setup.
+- **Codex, OpenCode, Grok Build, or Cursor?** See [README.md](README.md#supported-assistants) for setup.
 - **Save notes to Obsidian?** See [README.md](README.md#obsidian-integration).
 - **Per-project install** (to share with teammates): `vibe-learn install` in your project root.
 - **Something not working?** Check that `jq` is installed and that `~/.local/bin` is in your `PATH`.

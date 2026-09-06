@@ -69,15 +69,16 @@ jq \
 cp "$COMMANDS_SOURCE/learn.md" "$COMMANDS_DIR/learn.md"
 cp "$COMMANDS_SOURCE/digest.md" "$COMMANDS_DIR/digest.md"
 cp "$COMMANDS_SOURCE/quiz.md" "$COMMANDS_DIR/quiz.md"
+cp "$COMMANDS_SOURCE/explain.md" "$COMMANDS_DIR/explain.md"
 cp "$SKILL_SOURCE" "$SKILL_DIR/SKILL.md"
 
 if [ "$MODE" = "global" ]; then
   echo "✓ Grok Build hooks installed ($HOOKS_FILE)"
-  echo "✓ Slash commands installed ($COMMANDS_DIR/learn.md, digest.md, quiz.md)"
+  echo "✓ Slash commands installed ($COMMANDS_DIR/learn.md, digest.md, quiz.md, explain.md)"
   echo "✓ Skill installed ($SKILL_DIR/SKILL.md)"
 else
   echo "✓ Grok Build hooks installed (.grok/hooks/vibe-learn.json)"
-  echo "✓ Slash commands installed (.grok/commands/learn.md, digest.md, quiz.md)"
+  echo "✓ Slash commands installed (.grok/commands/learn.md, digest.md, quiz.md, explain.md)"
   echo "✓ Skill installed (.grok/skills/vibe-learn/SKILL.md)"
   echo "  Project hooks stay inert until you trust this folder: /hooks-trust"
 fi

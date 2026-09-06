@@ -1,0 +1,4 @@
+#!/bin/bash
+# vibe-learn — CLI entry point exposed on the Bash tool's PATH when installed as a
+# Claude Code plugin. Delegates to scripts/cli.sh in the same checkout.
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/cli.sh" "$@"

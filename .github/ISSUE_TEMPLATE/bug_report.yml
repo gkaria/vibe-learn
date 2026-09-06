@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in vibe-learn is broken or behaving unexpectedly
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: assistant
+    attributes:
+      label: Assistant
+      options:
+        - Claude Code (plugin install)
+        - Claude Code (curl / settings.json hooks)
+        - Codex App/CLI
+        - OpenCode
+        - Grok Build
+        - Cursor
+        - Other / not assistant-specific
+    validations:
+      required: true
+  - type: input
+    id: assistant-version
+    attributes:
+      label: Assistant version
+      placeholder: e.g. claude --version → 2.1.263
+  - type: input
+    id: vibe-learn-version
+    attributes:
+      label: vibe-learn version
+      description: "`cat ~/.vibe-learn/VERSION`, or the `version` in `.claude-plugin/plugin.json` for plugin installs"
+      placeholder: 0.8.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and shell
+      placeholder: macOS 15 / zsh, Ubuntu 24.04 / bash
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: session-meta
+    attributes:
+      label: .vibe-learn/session-meta.json
+      description: From the affected project. Contains only counts and timestamps.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines or hook output
+      description: "Lines from `.vibe-learn/session-log.jsonl`, hook stderr, or `claude --debug` output. Scrub prompts before pasting."
+      render: shell

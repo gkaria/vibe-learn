@@ -1,0 +1,22 @@
+{
+  "name": "vibe-learn",
+  "description": "Learn as your AI coding assistant builds.",
+  "owner": {
+    "name": "Gaurang Karia",
+    "url": "https://github.com/gkaria"
+  },
+  "plugins": [
+    {
+      "name": "vibe-learn",
+      "description": "Logs every file write, edit, and command your assistant makes, then explains, digests, and quizzes you on what was built. Offline, bash + jq, no API keys.",
+      "source": {
+        "source": "github",
+        "repo": "gkaria/vibe-learn"
+      },
+      "category": "learning",
+      "tags": ["learning", "quiz", "spaced-repetition", "session-log", "hooks"],
+      "homepage": "https://github.com/gkaria/vibe-learn",
+      "license": "MIT"
+    }
+  ]
+}

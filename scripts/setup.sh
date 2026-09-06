@@ -13,6 +13,7 @@
 #   --assistant=codex         Configure Codex CLI only
 #   --assistant=opencode      Configure OpenCode only
 #   --assistant=grok          Configure Grok Build only
+#   --assistant=cursor        Configure Cursor only
 #   --assistant=all           Configure all detected assistants
 #   (default: auto-detect based on installed binaries / config dirs)
 
@@ -91,6 +92,7 @@ FILES=(
   "scripts/dashboard.sh"
   "scripts/cli.sh"
   "scripts/knowledge.sh"
+  "scripts/recap.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
   "config/defaults.json"
@@ -100,24 +102,36 @@ FILES=(
   "adapters/claude-code/commands/learn.md"
   "adapters/claude-code/commands/digest.md"
   "adapters/claude-code/commands/quiz.md"
+  "adapters/claude-code/commands/explain.md"
   "adapters/claude-code/install.sh"
   "adapters/codex/hooks.toml"
   "adapters/codex/prompts/learn.md"
   "adapters/codex/prompts/digest.md"
   "adapters/codex/prompts/quiz.md"
+  "adapters/codex/prompts/explain.md"
   "adapters/codex/skills/vibe-learn/SKILL.md"
   "adapters/codex/install.sh"
   "adapters/opencode/commands/learn.md"
   "adapters/opencode/commands/digest.md"
   "adapters/opencode/commands/quiz.md"
+  "adapters/opencode/commands/explain.md"
   "adapters/opencode/plugins/vibe-learn.js"
   "adapters/opencode/install.sh"
   "adapters/grok/hooks.json"
   "adapters/grok/commands/learn.md"
   "adapters/grok/commands/digest.md"
   "adapters/grok/commands/quiz.md"
+  "adapters/grok/commands/explain.md"
   "adapters/grok/skills/vibe-learn/SKILL.md"
   "adapters/grok/install.sh"
+  "adapters/cursor/hooks.json"
+  "adapters/cursor/hooks/vibe-learn.sh"
+  "adapters/cursor/skills/learn/SKILL.md"
+  "adapters/cursor/skills/digest/SKILL.md"
+  "adapters/cursor/skills/quiz/SKILL.md"
+  "adapters/cursor/skills/explain/SKILL.md"
+  "adapters/cursor/skills/vibe-learn/SKILL.md"
+  "adapters/cursor/install.sh"
 )
 
 # --- Download or copy files ---
@@ -141,6 +155,8 @@ chmod +x "$INSTALL_DIR/adapters/claude-code/install.sh"
 chmod +x "$INSTALL_DIR/adapters/codex/install.sh"
 chmod +x "$INSTALL_DIR/adapters/opencode/install.sh"
 chmod +x "$INSTALL_DIR/adapters/grok/install.sh"
+chmod +x "$INSTALL_DIR/adapters/cursor/install.sh"
+chmod +x "$INSTALL_DIR/adapters/cursor/hooks/vibe-learn.sh"
 
 # --- Install CLI shim ---
 mkdir -p "$SHIM_DIR"
@@ -167,6 +183,9 @@ detect_assistants() {
   fi
   if command -v grok &>/dev/null || [ -d "${GROK_HOME:-$HOME/.grok}" ]; then
     detected+=("grok")
+  fi
+  if command -v cursor &>/dev/null || command -v cursor-agent &>/dev/null || [ -d "$HOME/.cursor" ]; then
+    detected+=("cursor")
   fi
   if [ ${#detected[@]} -eq 0 ]; then
     detected+=("claude-code")
@@ -204,11 +223,11 @@ if [ -n "$ASSISTANT_FLAG" ]; then
     all)
       read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
       ;;
-    claude-code|codex|opencode|grok)
+    claude-code|codex|opencode|grok|cursor)
       ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, grok, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, grok, cursor, all" >&2
       exit 1
       ;;
   esac
@@ -237,13 +256,14 @@ if assistant_list_contains "claude-code" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
   echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /explain [file|topic]       — guided code tour of what was touched"
 fi
 
 if assistant_list_contains "codex" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo ""
   echo "Codex:"
-  echo "  Use the global skill: \"Use vibe-learn to learn what happened.\" or \"Use vibe-learn to quiz me.\""
-  echo "  Prompt fallbacks are installed in ~/.codex/prompts/ and may be available as /prompts:learn, /prompts:digest, and /prompts:quiz."
+  echo "  Use the global skill: \"Use vibe-learn to learn what happened.\", \"Use vibe-learn to quiz me.\", or \"Use vibe-learn to explain src/auth.ts.\""
+  echo "  Prompt fallbacks are installed in ~/.codex/prompts/ and may be available as /prompts:learn, /prompts:digest, /prompts:quiz, and /prompts:explain."
 fi
 
 if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
@@ -252,6 +272,7 @@ if assistant_list_contains "opencode" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
   echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /explain [file|topic]       — guided code tour of what was touched"
   echo "  vibe-learn briefing  — interactive maintainer briefing and NotebookLM source pack"
 fi
 
@@ -261,9 +282,25 @@ if assistant_list_contains "grok" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /learn                      — explain what just happened, or ask a specific question"
   echo "  /digest                     — full session learning report"
   echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /explain [file|topic]       — guided code tour of what was touched"
   echo "  /vibe-learn                 — same workflows via the vibe-learn skill"
   echo "  vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
 fi
+
+if assistant_list_contains "cursor" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "Cursor:"
+  echo "  /learn                      — explain what just happened, or ask a specific question"
+  echo "  /digest                     — full session learning report"
+  echo "  /quiz                       — check your understanding; /quiz review for concepts due again"
+  echo "  /explain [file|topic]       — guided code tour of what was touched"
+  echo "  /vibe-learn                 — same workflows via the vibe-learn skill (natural language works too)"
+  echo "  vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
+fi
+
+echo ""
+echo "Any assistant:"
+echo "  vibe-learn recap            — shareable \"what I learned this week\" markdown from the knowledge ledger"
 
 # --- PATH advisory ---
 if [[ ":$PATH:" != *":$SHIM_DIR:"* ]]; then

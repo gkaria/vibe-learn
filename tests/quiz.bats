@@ -132,3 +132,15 @@ load test_helper
   bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
   [ -f "$TEST_PROJECT_DIR/.claude/commands/quiz.md" ]
 }
+
+@test "digest commands nudge once on the first digest of a project" {
+  local f
+  for f in "$ADAPTERS_DIR/claude-code/commands/digest.md" "$ADAPTERS_DIR/codex/prompts/digest.md" \
+           "$ADAPTERS_DIR/opencode/commands/digest.md" "$ADAPTERS_DIR/grok/commands/digest.md"; do
+    grep -q "First digest nudge" "$f"
+    grep -q 'does not exist yet' "$f"
+    grep -q "github.com/gkaria/vibe-learn" "$f"
+    grep -q "Never repeat it" "$f"
+  done
+  diff "$VIBE_LEARN_DIR/.claude/commands/digest.md" "$ADAPTERS_DIR/claude-code/commands/digest.md"
+}

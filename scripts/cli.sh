@@ -12,6 +12,7 @@ vibe-learn — learn from agent-built coding sessions
 Usage:
   vibe-learn install    [target-dir] [--assistant=claude-code|codex|opencode|grok|all]
   vibe-learn briefing   [target-dir] [--latest]
+  vibe-learn recap      [target-dir] [--days=7] [--save]
   vibe-learn audio-prep [target-dir]
   vibe-learn help
 EOF
@@ -27,6 +28,10 @@ case "$COMMAND" in
   briefing)
     shift
     exec "$VIBE_LEARN_DIR/scripts/briefing.sh" "$@"
+    ;;
+  recap)
+    shift
+    exec "$VIBE_LEARN_DIR/scripts/recap.sh" "$@"
     ;;
   audio-prep)
     shift

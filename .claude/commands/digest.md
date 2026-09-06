@@ -156,6 +156,8 @@ If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, mak
 
 Keep the tone warm and encouraging. Plain language. If the session was short, keep the digest short.
 
-**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` your vibe-learn hooks point at in `.claude/settings.local.json` or `~/.claude/settings.json`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
+**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `vibe-learn-knowledge touch <kebab-case-name> --label="<Human label>"` if that command is on PATH (plugin install), otherwise `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if neither exists, use the `scripts/knowledge.sh` next to the `bootstrap.sh` your vibe-learn hooks point at in `.claude/settings.local.json` or `~/.claude/settings.json`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
 
 After generating, offer to save it: ask the user if they want it written to .vibe-learn/digests/ as a markdown file.
+
+**First digest nudge:** if `.vibe-learn/digests/` does not exist yet, this is the first digest for this project. After the save offer, add exactly one closing line: "That's your first digest here. If vibe-learn is helping, a star at https://github.com/gkaria/vibe-learn helps others find it." Never repeat it once the folder exists.

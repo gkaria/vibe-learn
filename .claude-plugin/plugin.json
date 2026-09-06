@@ -1,0 +1,25 @@
+{
+  "name": "vibe-learn",
+  "displayName": "vibe-learn",
+  "version": "0.8.0",
+  "description": "Learn as your AI coding assistant builds. Logs every file write, edit, and command, then explains, digests, and quizzes you on what was built.",
+  "author": {
+    "name": "Gaurang Karia",
+    "url": "https://github.com/gkaria"
+  },
+  "homepage": "https://github.com/gkaria/vibe-learn",
+  "repository": "https://github.com/gkaria/vibe-learn",
+  "license": "MIT",
+  "keywords": [
+    "learning",
+    "education",
+    "quiz",
+    "spaced-repetition",
+    "session-log",
+    "digest",
+    "hooks",
+    "vibe-coding"
+  ],
+  "commands": "./adapters/claude-code/commands/",
+  "hooks": "./adapters/claude-code/hooks.json"
+}

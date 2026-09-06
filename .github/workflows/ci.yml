@@ -16,3 +16,34 @@ jobs:
 
       - name: Run tests
         run: bats tests/
+
+  plugin:
+    name: Validate Claude Code plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check plugin.json version matches VERSION
+        run: |
+          MANIFEST=$(jq -r '.version' .claude-plugin/plugin.json)
+          REPO=$(cat VERSION)
+          if [ "$MANIFEST" != "$REPO" ]; then
+            echo "::error::.claude-plugin/plugin.json version ($MANIFEST) != VERSION ($REPO)"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # The repo root doubles as the marketplace root (marketplace.json) and the
+      # plugin root (plugin.json); validate both. The plugin check is not --strict
+      # because the repo's CLAUDE.md (developer docs) triggers an expected warning.
+      - name: Validate marketplace manifest
+        run: claude plugin validate . --strict
+
+      - name: Validate plugin manifest
+        run: claude plugin validate .claude-plugin/plugin.json

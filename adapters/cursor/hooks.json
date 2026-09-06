@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "timeout": 5}
+    ],
+    "beforeSubmitPrompt": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "timeout": 5}
+    ],
+    "afterFileEdit": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "timeout": 2}
+    ],
+    "postToolUse": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "matcher": "Shell", "timeout": 2}
+    ],
+    "postToolUseFailure": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "matcher": "Shell", "timeout": 2}
+    ],
+    "stop": [
+      {"command": "HOOK_COMMAND_PLACEHOLDER", "timeout": 10}
+    ]
+  }
+}

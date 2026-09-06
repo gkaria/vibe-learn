@@ -41,35 +41,116 @@ else
   HOOK_BASE="$VIBE_LEARN_DIR"
 fi
 
+# The Claude Code plugin ships the same hooks and commands. Installing both would
+# log every tool event twice, so defer to the plugin when it is enabled — and strip
+# any leftover curl/settings hook entries so a migration from the old install path
+# does not double-fire.
+claude_settings_candidates() {
+  echo "$HOME/.claude/settings.json"
+  if [ "$MODE" = "project" ]; then
+    echo "$TARGET_DIR/.claude/settings.json"
+    echo "$TARGET_DIR/.claude/settings.local.json"
+  fi
+}
+
+plugin_enabled() {
+  local f
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    if jq -e '(.enabledPlugins // {}) | to_entries[] | select((.key | startswith("vibe-learn@")) and .value == true)' "$f" >/dev/null 2>&1; then
+      return 0
+    fi
+  done < <(claude_settings_candidates)
+  return 1
+}
+
+# Drop matcher groups whose command points at a vibe-learn core script. Leaves
+# unrelated hooks alone. Returns 0 if anything was removed.
+strip_legacy_vibe_learn_hooks() {
+  local settings_file="$1"
+  [ -f "$settings_file" ] || return 1
+  jq -e '.hooks | type == "object"' "$settings_file" >/dev/null 2>&1 || return 1
+
+  local tmp cleaned removed
+  tmp="$(mktemp)"
+  cleaned="$(jq '
+    def is_vibe:
+      (.command // "") | test("/(bootstrap|capture-prompt|observe|pause-summary)\\.sh$")
+        or test("vibe-learn/.*/scripts/(bootstrap|capture-prompt|observe|pause-summary)\\.sh");
+    def scrub:
+      map(select(((.hooks // []) | map(is_vibe) | any) | not));
+    . as $root
+    | ($root.hooks // {}) as $h
+    | ($h | to_entries
+        | map(.value = (.value | scrub))
+        | map(select(.value | length > 0))
+        | from_entries) as $new
+    | $root
+    | if ($new | length) == 0 then del(.hooks)
+      else .hooks = $new end
+  ' "$settings_file")"
+
+  if [ "$(jq -c '.hooks // null' "$settings_file")" = "$(printf '%s' "$cleaned" | jq -c '.hooks // null')" ]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  printf '%s\n' "$cleaned" > "$tmp"
+  mv "$tmp" "$settings_file"
+  return 0
+}
+
+if [ "${VIBE_LEARN_IGNORE_PLUGIN:-}" != "1" ] && plugin_enabled; then
+  echo "⚠ The vibe-learn Claude Code plugin is already enabled — skipping hook and command install."
+  echo "  The plugin provides the hooks and /vibe-learn:learn, /vibe-learn:digest, /vibe-learn:quiz, /vibe-learn:explain."
+  stripped=0
+  while IFS= read -r f; do
+    if strip_legacy_vibe_learn_hooks "$f"; then
+      echo "  Removed legacy vibe-learn hooks from $f (plugin owns them now)."
+      stripped=1
+    fi
+  done < <(claude_settings_candidates)
+  if [ "$stripped" -eq 0 ]; then
+    echo "  No leftover settings.json hooks found."
+  fi
+  echo "  To install settings.json hooks anyway (double-logging!): VIBE_LEARN_IGNORE_PLUGIN=1"
+  SKIP_CLAUDE_REGISTRATION=true
+else
+  SKIP_CLAUDE_REGISTRATION=false
+fi
+
+if [ "$SKIP_CLAUDE_REGISTRATION" = false ]; then
+
 mkdir -p "$COMMANDS_DIR"
 
 # Copy slash commands
 cp "$COMMANDS_SOURCE/learn.md" "$COMMANDS_DIR/learn.md"
 cp "$COMMANDS_SOURCE/digest.md" "$COMMANDS_DIR/digest.md"
 cp "$COMMANDS_SOURCE/quiz.md" "$COMMANDS_DIR/quiz.md"
-echo "✓ Slash commands installed (/learn, /digest, /quiz)"
+cp "$COMMANDS_SOURCE/explain.md" "$COMMANDS_DIR/explain.md"
+echo "✓ Slash commands installed (/learn, /digest, /quiz, /explain)"
 
+# Timeouts match adapters/claude-code/hooks.json (plugin manifest). Keep both in sync.
 HOOKS_JSON=$(cat <<EOF
 {
   "SessionStart": [
     {
-      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/bootstrap.sh"}]
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/bootstrap.sh", "timeout": 5}]
     }
   ],
   "UserPromptSubmit": [
     {
-      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/capture-prompt.sh"}]
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/capture-prompt.sh", "timeout": 5}]
     }
   ],
   "PostToolUse": [
     {
       "matcher": "Write|Edit|MultiEdit|Bash",
-      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh"}]
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
     }
   ],
   "Stop": [
     {
-      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/pause-summary.sh"}]
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/pause-summary.sh", "timeout": 10}]
     }
   ]
 }
@@ -100,6 +181,8 @@ else
     echo "✓ Merged hooks into existing .claude/settings.local.json"
   fi
 fi
+
+fi # SKIP_CLAUDE_REGISTRATION
 
 # Make scripts executable if writable
 if [ -w "$VIBE_LEARN_DIR/scripts" ]; then

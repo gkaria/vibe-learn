@@ -226,8 +226,138 @@ load test_helper
   rm -rf "$fake_home" "$(dirname "$grok_home")"
 }
 
+@test "install --assistant=cursor creates .cursor hooks shim and skills" {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=cursor
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  jq -e '.hooks.sessionStart' "$TEST_PROJECT_DIR/.cursor/hooks.json" >/dev/null
+  jq -e '.hooks.afterFileEdit' "$TEST_PROJECT_DIR/.cursor/hooks.json" >/dev/null
+  [ -x "$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh" ]
+  grep -Fq "VIBE_LEARN_DIR=\"$VIBE_LEARN_DIR\"" "$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh"
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/learn/SKILL.md" ]
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+}
+
+@test "install with .cursor only installs Cursor" {
+  mkdir -p "$TEST_PROJECT_DIR/.cursor"
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  [ -f "$TEST_PROJECT_DIR/.cursor/skills/quiz/SKILL.md" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.codex/config.toml" ]
+}
+
+@test "install detects cursor via ~/.cursor when no project assistant dirs exist" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.cursor"
+
+  PATH="/usr/bin:/bin" HOME="$fake_home" bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR"
+
+  [ -f "$TEST_PROJECT_DIR/.cursor/hooks.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
 @test "install unknown assistant errors" {
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=not-real
   [ "$status" -ne 0 ]
   echo "$output" | grep -q "Unknown assistant 'not-real'"
+}
+
+@test "claude-code install skips hooks and commands when the plugin is enabled in ~/.claude/settings.json" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "plugin is already enabled"
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/commands/learn.md" ]
+  # gitignore handling still runs
+  grep -q '\.vibe-learn/' "$TEST_PROJECT_DIR/.gitignore"
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code install skips when the plugin is enabled in the project settings" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@claude-community":true}}' > "$TEST_PROJECT_DIR/.claude/settings.json"
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "plugin is already enabled"
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code install proceeds when the plugin entry is disabled" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":false}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+  [ -f "$TEST_PROJECT_DIR/.claude/commands/learn.md" ]
+
+  rm -rf "$fake_home"
+}
+
+
+@test "claude-code install strips legacy vibe-learn hooks when deferring to the plugin" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  cat > "$fake_home/.claude/settings.json" <<EOF
+{
+  "enabledPlugins": {"vibe-learn@vibe-learn": true},
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "$fake_home/.vibe-learn/scripts/bootstrap.sh"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "$fake_home/.vibe-learn/scripts/pause-summary.sh"}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "/other/tool.sh"}]}]
+  }
+}
+EOF
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "Removed legacy vibe-learn hooks"
+  # vibe-learn entries gone; unrelated hook preserved; plugin flag untouched
+  ! jq -e '.hooks.SessionStart' "$fake_home/.claude/settings.json" >/dev/null
+  ! jq -e '.hooks.Stop' "$fake_home/.claude/settings.json" >/dev/null
+  [ "$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$fake_home/.claude/settings.json")" = "/other/tool.sh" ]
+  [ "$(jq -r '.enabledPlugins["vibe-learn@vibe-learn"]' "$fake_home/.claude/settings.json")" = "true" ]
+  [ ! -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "claude-code settings install mirrors plugin hook timeouts" {
+  bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  [ "$(jq '.hooks.SessionStart[0].hooks[0].timeout' "$f")" = "5" ]
+  [ "$(jq '.hooks.UserPromptSubmit[0].hooks[0].timeout' "$f")" = "5" ]
+  [ "$(jq '.hooks.PostToolUse[0].hooks[0].timeout' "$f")" = "2" ]
+  [ "$(jq '.hooks.Stop[0].hooks[0].timeout' "$f")" = "10" ]
+}
+
+@test "VIBE_LEARN_IGNORE_PLUGIN=1 forces hook install alongside the plugin" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$fake_home/.claude/settings.json"
+
+  HOME="$fake_home" VIBE_LEARN_IGNORE_PLUGIN=1 bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
+
+  rm -rf "$fake_home"
 }

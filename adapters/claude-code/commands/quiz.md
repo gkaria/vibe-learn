@@ -6,18 +6,19 @@ Read .vibe-learn/session-log.jsonl to understand what happened in this session. 
 
 **Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via Bash — never hand-edit the JSON. Locate it in this order:
 
-1. `~/.vibe-learn/scripts/knowledge.sh` (global install)
-2. The install directory this project's hooks point at: read the vibe-learn hook command from `.claude/settings.local.json` (or `~/.claude/settings.json`) — it ends in `<install-dir>/scripts/bootstrap.sh`, and `knowledge.sh` sits in the same directory
-3. `scripts/knowledge.sh` in the vibe-learn repo, if this project is the vibe-learn repo itself
+1. `vibe-learn-knowledge` on PATH (plugin install — check with `command -v vibe-learn-knowledge`)
+2. `~/.vibe-learn/scripts/knowledge.sh` (global install)
+3. The install directory this project's hooks point at: read the vibe-learn hook command from `.claude/settings.local.json` (or `~/.claude/settings.json`) — it ends in `<install-dir>/scripts/bootstrap.sh`, and `knowledge.sh` sits in the same directory
+4. `scripts/knowledge.sh` in the vibe-learn repo, if this project is the vibe-learn repo itself
 
 If none of these exist, skip ledger updates and say so briefly at the end — the quiz itself still works.
 
-Helper usage:
+Helper usage (`<helper>` is `vibe-learn-knowledge` or `bash <path>/knowledge.sh`):
 
 ```bash
-bash <helper> record <name> --label="<Human label>" --status=<solid|shaky> [--notes="<what was shaky>"]
-bash <helper> due --days=14    # concepts due for review, as a JSON array
-bash <helper> list             # full ledger
+<helper> record <name> --label="<Human label>" --status=<solid|shaky> [--notes="<what was shaky>"]
+<helper> due --days=14    # concepts due for review, as a JSON array
+<helper> list             # full ledger
 ```
 
 Read `review_after_days` and `quiz_question_count` from `~/.vibe-learn/config/knowledge-defaults.json` if present (defaults: 14 and 5).
