@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0](https://github.com/gkaria/vibe-learn/compare/v0.8.0...v0.9.0) (2026-09-06)
+
+
+### Features
+
+* add /explain guided code tours for Claude Code ([ab97bd8](https://github.com/gkaria/vibe-learn/commit/ab97bd8f85714e2f2d168f3a7b433719f8c3b9fe))
+* add a Cursor adapter with a hooks payload shim and skills ([370fea8](https://github.com/gkaria/vibe-learn/commit/370fea8df3e194d8a3c7f0257702b289303aadf9))
+* add vibe-learn recap, a shareable weekly learning rollup ([43f9e80](https://github.com/gkaria/vibe-learn/commit/43f9e802a4af8357abf2c7dbb1c57a0460d4241b))
+* bring /explain and recap to Codex, OpenCode, and Grok Build ([789265d](https://github.com/gkaria/vibe-learn/commit/789265df5ace7d18e4e3b0170c2d81a952723183))
+* make the session briefing ledger-aware ([592dc94](https://github.com/gkaria/vibe-learn/commit/592dc94462af4b0046ad84c965e0121ded44af6e))
+* package vibe-learn as a Claude Code plugin with a self-hosted marketplace ([0abd305](https://github.com/gkaria/vibe-learn/commit/0abd3054c8a0cf805da16875a1d1f44ee90ed243))
+* sync plugin version on release, validate the plugin in CI, and skip settings.json hooks when the plugin is enabled ([193d4ae](https://github.com/gkaria/vibe-learn/commit/193d4aeab91838bd60844753b7256be737962632))
+
+
+### Bug Fixes
+
+* address Codex review on plugin migration, timeouts, and recap scope ([277c986](https://github.com/gkaria/vibe-learn/commit/277c986a748e490d56ff7317989b74e4d73ec3bb))
+
 ## [0.8.0](https://github.com/gkaria/vibe-learn/compare/v0.7.1...v0.8.0) (2026-08-18)
 
 This release adds Grok Build as a first-class assistant.
