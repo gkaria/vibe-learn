@@ -36,6 +36,7 @@
       {
         "type": "command",
         "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch",
         "env": {
           "VIBE_LEARN_EVENT": "postToolUseFailure"
         },

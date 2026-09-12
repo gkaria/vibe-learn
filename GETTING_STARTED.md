@@ -60,7 +60,7 @@ You don't need to do anything differently. vibe-learn runs silently in the backg
 
 ## 3. See the pause summary
 
-After Claude finishes a response that touched files or ran commands, vibe-learn writes a pause summary to `.vibe-learn/pause-summary.txt` and injects it into Claude's context when your next session starts. Open the file, or ask Claude "what did you just do?" — the log is right there. The summary looks like this:
+After Claude or GitHub Copilot CLI finishes a response that touched files or ran commands, vibe-learn writes a pause summary to `.vibe-learn/pause-summary.txt` and injects it into the assistant's context when your next session starts. Open the file, or ask the assistant "what did you just do?" — the log is right there. The summary looks like this:
 
 ```
 ⏸ vibe-learn — what just happened:
@@ -71,7 +71,7 @@ Goal: Build a simple Express API with a /health endpoint
   ✦ Ran: npm install express
   ✦ Ran: npx tsc --noEmit
 
- /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 That last line is your menu. You can type any of those commands right now.

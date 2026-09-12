@@ -8,6 +8,14 @@ SCRIPTS="$VIBE_LEARN_DIR/scripts"
 INPUT=$(cat)
 EVENT="${VIBE_LEARN_EVENT:-}"
 
+# Copilot combines user and repository hooks. Let a project install own capture
+# when both are present so each event reaches the core exactly once.
+INPUT_CWD=$(jq -r 'select(type == "object") | .cwd // empty' <<<"$INPUT" 2>/dev/null || true)
+if [ "${VIBE_LEARN_SCOPE:-}" = "global" ] && [ -n "$INPUT_CWD" ] \
+  && grep -q 'vibe-learn.sh' "$INPUT_CWD/.github/hooks/vibe-learn.json" 2>/dev/null; then
+  exit 0
+fi
+
 session_is_current() {
   local cwd="$1" session_id="$2" meta="$1/.vibe-learn/session-meta.json"
   [ -f "$meta" ] && [ "$(jq -r '.session_id // empty' "$meta" 2>/dev/null)" = "$session_id" ]
@@ -19,10 +27,11 @@ case "$EVENT" in
     CWD=$(jq -r '.cwd' <<<"$PAYLOAD")
     SESSION_ID=$(jq -r '.session_id' <<<"$PAYLOAD")
     if ! session_is_current "$CWD" "$SESSION_ID"; then
-      OUT=$(printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/bootstrap.sh" 2>/dev/null || true)
-      if [ -n "$OUT" ]; then
-        jq -c '{additionalContext: .hookSpecificOutput.additionalContext} | select(.additionalContext != null)' <<<"$OUT" 2>/dev/null || true
-      fi
+      printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/bootstrap.sh" >/dev/null 2>&1 || true
+    fi
+    SUMMARY="$CWD/.vibe-learn/pause-summary.txt"
+    if [ -f "$SUMMARY" ]; then
+      { printf 'Prior session summary:\n'; tr '\n' ' ' < "$SUMMARY"; } | jq -Rsc '{additionalContext: .}'
     fi
     ;;
 
@@ -30,14 +39,10 @@ case "$EVENT" in
     PAYLOAD=$(jq -ce 'select(type == "object" and ((.cwd // "") | length > 0)) | {cwd, session_id: (.sessionId // "unknown"), timestamp, prompt: (.prompt // "")}' <<<"$INPUT" 2>/dev/null) || exit 0
     CWD=$(jq -r '.cwd' <<<"$PAYLOAD")
     SESSION_ID=$(jq -r '.session_id' <<<"$PAYLOAD")
-    OUT=""
     if ! session_is_current "$CWD" "$SESSION_ID"; then
-      OUT=$(printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/bootstrap.sh" 2>/dev/null || true)
+      printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/bootstrap.sh" >/dev/null 2>&1 || true
     fi
     printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/capture-prompt.sh" >/dev/null 2>&1 || true
-    if [ -n "$OUT" ]; then
-      jq -c '{additionalContext: .hookSpecificOutput.additionalContext} | select(.additionalContext != null)' <<<"$OUT" 2>/dev/null || true
-    fi
     ;;
 
   postToolUse|postToolUseFailure)
@@ -49,8 +54,11 @@ case "$EVENT" in
         if $event == "postToolUseFailure" then 1
         elif (result | type) == "object" and (result.exitCode // result.exit_code) != null then
           (result.exitCode // result.exit_code)
+        # Copilot has no structured process exit field in some successful envelopes.
+        # The host completion marker is the narrowest available fallback; identical
+        # marker text printed by the command remains inherently ambiguous.
         elif (result | type) == "object" and (result.textResultForLlm | type) == "string" then
-          ([result.textResultForLlm | capture("(?i)exit code (?<code>[0-9]+)").code | tonumber] | .[0] // 0)
+          ([result.textResultForLlm | capture("(?i)<shellId:[^>\\n]* completed with exit code (?<code>[0-9]+)>").code | tonumber] | .[0] // 0)
         else 0 end;
       select(type == "object" and ((.cwd // "") | length > 0)) |
       (.toolName // "") as $native |
@@ -83,7 +91,7 @@ case "$EVENT" in
     SUMMARY="$CWD/.vibe-learn/pause-summary.txt"
     if [ -f "$SUMMARY" ]; then
       TMP="$SUMMARY.tmp"
-      awk '/^ \/learn / { print " Use /learn [question]  ·  Use /digest  ·  Use /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep"; next } { print }' "$SUMMARY" > "$TMP" \
+      awk '/^ \/learn / { print " Use /learn [question]  ·  Use /digest  ·  Use /quiz  ·  Use /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep"; next } { print }' "$SUMMARY" > "$TMP" \
         && mv "$TMP" "$SUMMARY" || rm -f "$TMP"
     fi
     ;;

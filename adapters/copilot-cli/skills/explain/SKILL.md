@@ -9,7 +9,7 @@ description: Guided code tour of a file or subsystem this session touched — en
 
 Read `.vibe-learn/session-log.jsonl` to see what this session touched and why (the `user_prompt` events carry the intent). Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
-**Knowledge helper:** to mark concepts as seen, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; read `.github/hooks/vibe-learn.json` (then `~/.copilot/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If none of these exist, skip the ledger step silently — the tour itself still works.
+**Knowledge helper:** to mark concepts as seen, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; read `.github/hooks/vibe-learn.json` (then `${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If none of these exist, skip the ledger step silently — the tour itself still works.
 
 Treat the rest of the user's message after `/explain` as the target:
 

@@ -56,7 +56,8 @@ chmod +x "$SHIM_FILE"
 
 # POSIX-quote the command so install paths containing spaces or metacharacters remain literal.
 shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
-jq --arg cmd "$(shell_quote "$HOOK_COMMAND")" --arg dir "$VIBE_LEARN_DIR" '.hooks |= map_values(map(.bash = $cmd | .env.VIBE_LEARN_INSTALL_DIR = $dir))' \
+jq --arg cmd "$(shell_quote "$HOOK_COMMAND")" --arg dir "$VIBE_LEARN_DIR" --arg scope "$MODE" \
+  '.hooks |= map_values(map(.bash = $cmd | .env.VIBE_LEARN_INSTALL_DIR = $dir | .env.VIBE_LEARN_SCOPE = $scope))' \
   "$ADAPTER_DIR/hooks.json" > "$HOOKS_FILE"
 
 for skill in "${SKILLS[@]}"; do

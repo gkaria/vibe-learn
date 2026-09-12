@@ -43,7 +43,7 @@ After every AI response that touches files or runs commands, vibe-learn:
 
 - Appends every action to `.vibe-learn/session-log.jsonl`
 - Writes a pause summary to `.vibe-learn/pause-summary.txt`
-- Injects that summary into your assistant's context at the start of the next session (Claude Code)
+- Injects that summary into your assistant's context at the start of the next session (Claude Code and GitHub Copilot CLI)
 - Regenerates the session briefing in the background
 
 The summary looks like this (the last line switches to `/vibe-learn:…` under the plugin install):
@@ -56,7 +56,7 @@ Goal: add JWT auth middleware
   ✦ Edited src/routes/user.ts
   ✦ Ran: npm install jsonwebtoken
 
- /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 ---
@@ -328,7 +328,9 @@ Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `gr
 
 Cursor project hooks (`.cursor/hooks.json`) run once the workspace is trusted. Cursor has no context injection on `stop`, so the pause summary is written to `.vibe-learn/pause-summary.txt` and relayed at the next `sessionStart`; the skills read the file directly. Cloud Agents skip `sessionStart`, so there the file is the only channel.
 
-Copilot CLI project hooks also require folder trust. On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first and returns prior-session context from that event.
+Copilot CLI project hooks also require folder trust. On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first, keeps the prompt hook silent, and emits prior-session context from the later `sessionStart`. A global vibe-learn hook defers when a project vibe-learn hook is present.
+
+Copilot also reads repository `.claude/settings.json` and `.claude/settings.local.json` hooks. Avoid installing vibe-learn in both those files and `.github/hooks/` for one project. Copilot's documented `disableAllHooks` repository-settings option pauses every non-policy hook source—including vibe-learn—so use it only when you intend to pause all hooks; the installer never changes it automatically.
 
 ---
 

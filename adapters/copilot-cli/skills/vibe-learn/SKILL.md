@@ -25,7 +25,7 @@ Copilot CLI receives prior pause-summary context from the first startup lifecycl
 All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) go through `knowledge.sh` via your shell tool — never hand-edit the JSON. Locate it in this order:
 
 1. `~/.vibe-learn/scripts/knowledge.sh` (global install)
-2. Read `.github/hooks/vibe-learn.json` (then `~/.copilot/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`
+2. Read `.github/hooks/vibe-learn.json` (then `${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`
 3. `scripts/knowledge.sh` when working in the vibe-learn repo itself
 
 Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...]`, `touch <name> --label=...`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.

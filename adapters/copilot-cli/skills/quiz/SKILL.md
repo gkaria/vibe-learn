@@ -9,7 +9,7 @@ description: Check your understanding of the vibe-learn session — recall quest
 
 Read `.vibe-learn/session-log.jsonl` to understand what happened in this session. Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
-**Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; read `.github/hooks/vibe-learn.json` (then `~/.copilot/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If the helper is missing, skip ledger updates and say so briefly.
+**Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; read `.github/hooks/vibe-learn.json` (then `${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If the helper is missing, skip ledger updates and say so briefly.
 
 Treat the rest of the user's message after `/quiz` as the argument:
 

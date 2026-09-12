@@ -23,7 +23,9 @@ run_hook() {
     [ "$(jq -r --arg event "$event" '.hooks[$event] | length' "$hooks")" = "1" ]
   done
   [ "$(jq -r '.hooks.postToolUse[0].matcher' "$hooks")" = "bash|powershell|create|edit|str_replace_editor|apply_patch" ]
+  [ "$(jq -r '.hooks.postToolUseFailure[0].matcher' "$hooks")" = "bash|powershell|create|edit|str_replace_editor|apply_patch" ]
   [ "$(jq -r '.hooks.agentStop[0].env.VIBE_LEARN_EVENT' "$hooks")" = "agentStop" ]
+  [ "$(jq -r '.hooks.agentStop[0].env.VIBE_LEARN_SCOPE' "$hooks")" = "project" ]
   ! jq -e '.hooks.sessionEnd' "$hooks" >/dev/null
 }
 
@@ -35,6 +37,8 @@ run_hook() {
     grep -q "^name: $skill$" "$file"
     grep -q 'session-log.jsonl' "$file"
     grep -q 'knowledge.sh' "$file"
+    grep -Fq '${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json' "$file"
+    ! grep -Fq 'then `~/.copilot/hooks/vibe-learn.json`' "$file"
   done
 }
 
@@ -120,6 +124,7 @@ run_hook() {
   jq -e 'all(.timestamp; test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))' "$log" >/dev/null
   [ -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
   grep -q "Use /learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  grep -q "Use /explain" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   ! grep -qE 'secret-value|ghp_|sensitive stderr|old secret|new secret' "$log"
 }
 
@@ -134,21 +139,49 @@ run_hook() {
   [ "$(jq -r '.additionalContext' <<<"$output")" = $'Prior session summary:\nPrior Copilot summary ' ]
 }
 
-@test "copilot-cli preserves the prompt when userPromptSubmitted precedes sessionStart" {
+@test "copilot-cli preserves the prompt and defers context to sessionStart when the prompt arrives first" {
   run_copilot_install
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   echo 'Prior Copilot summary' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
 
   run run_hook userPromptSubmitted user-prompt-submitted.json
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.additionalContext' <<<"$output")" = $'Prior session summary:\nPrior Copilot summary ' ]
+  [ -z "$output" ]
   run run_hook sessionStart session-start.json
 
   [ "$status" -eq 0 ]
-  [ -z "$output" ]
+  [ "$(jq -r '.additionalContext' <<<"$output")" = $'Prior session summary:\nPrior Copilot summary ' ]
   [ "$(jq -r 'select(.event == "user_prompt") | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "add JWT auth" ]
   [ "$(grep -c 'add JWT auth' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "1" ]
   [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/session-log.prev.jsonl" ]
+}
+
+@test "copilot-cli initializes once when sessionStart precedes the prompt" {
+  run_copilot_install
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo 'Prior Copilot summary' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+
+  run run_hook sessionStart session-start.json
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.additionalContext' <<<"$output")" = $'Prior session summary:\nPrior Copilot summary ' ]
+  run run_hook userPromptSubmitted user-prompt-submitted.json
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ "$(grep -c 'add JWT auth' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "1" ]
+  [ "$(jq -r '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = "1" ]
+  [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/session-log.prev.jsonl" ]
+}
+
+@test "copilot-cli lifecycle hooks stay silent when no prior summary exists" {
+  run_copilot_install
+
+  run run_hook userPromptSubmitted user-prompt-submitted.json
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  run run_hook sessionStart session-start.json
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "copilot-cli shim ignores malformed input and unsupported tools silently" {
@@ -161,6 +194,60 @@ run_hook() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
   [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" ]
+}
+
+@test "copilot-cli reads only the host shell completion marker when structured exit status is absent" {
+  run_copilot_install
+  run run_hook sessionStart session-start.json
+
+  local payload
+  payload=$(jq -nc --arg cwd "$TEST_PROJECT_DIR" '{sessionId:"copilot-session-42",timestamp:1789221605000,cwd:$cwd,toolName:"bash",toolArgs:{command:"success-marker-test"},toolResult:{resultType:"success",textResultForLlm:"example: exit code 9\n<shellId: 1 completed with exit code 0>"}}')
+  run bash -c "printf '%s' '$payload' | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_INSTALL_DIR='$VIBE_LEARN_DIR' bash '$TEST_PROJECT_DIR/.github/hooks/vibe-learn.sh'"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  payload=$(jq -nc --arg cwd "$TEST_PROJECT_DIR" '{sessionId:"copilot-session-42",timestamp:1789221606000,cwd:$cwd,toolName:"bash",toolArgs:{command:"failure-marker-test"},toolResult:{resultType:"success",textResultForLlm:"example: exit code 0\n<shellId: 2 completed with exit code 9>"}}')
+  printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$TEST_PROJECT_DIR/.github/hooks/vibe-learn.sh"
+
+  payload=$(jq -nc --arg cwd "$TEST_PROJECT_DIR" '{sessionId:"copilot-session-42",timestamp:1789221607000,cwd:$cwd,toolName:"bash",toolArgs:{command:"structured-exit-test"},toolResult:{resultType:"success",exitCode:7,textResultForLlm:"<shellId: 3 completed with exit code 0>"}}')
+  printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$TEST_PROJECT_DIR/.github/hooks/vibe-learn.sh"
+
+  local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  [ "$(jq -r 'select(.command == "success-marker-test") | .context.exit_code' "$log")" = "0" ]
+  [ "$(jq -r 'select(.command == "failure-marker-test") | .context.exit_code' "$log")" = "9" ]
+  [ "$(jq -r 'select(.command == "structured-exit-test") | .context.exit_code' "$log")" = "7" ]
+}
+
+@test "copilot-cli global hook defers to a project install in either installation order" {
+  local order fake_home copilot_home project global_shim project_shim payload
+  for order in global-first project-first; do
+    fake_home="$(mktemp -d)"
+    copilot_home="$fake_home/copilot"
+    project="$fake_home/project"
+    mkdir -p "$project"
+
+    if [ "$order" = global-first ]; then
+      HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
+      bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
+    else
+      bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
+      HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
+    fi
+
+    global_shim="$copilot_home/hooks/vibe-learn.sh"
+    project_shim="$project/.github/hooks/vibe-learn.sh"
+    payload=$(jq --arg cwd "$project" '.cwd = $cwd' "$FIXTURES/user-prompt-submitted.json")
+    printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
+    printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
+    payload=$(jq --arg cwd "$project" '.cwd = $cwd' "$FIXTURES/create.json")
+    printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
+    printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
+
+    [ "$(jq -s 'map(select(.event == "user_prompt")) | length' "$project/.vibe-learn/session-log.jsonl")" = "1" ]
+    [ "$(jq -s 'map(select(.event == "tool_use" and .file == "src/auth.ts")) | length' "$project/.vibe-learn/session-log.jsonl")" = "1" ]
+    [ "$(jq -r '.current_turn' "$project/.vibe-learn/session-meta.json")" = "1" ]
+    rm -rf "$fake_home"
+  done
 }
 
 @test "install --assistant=copilot-cli creates project hooks and skills" {
