@@ -1,7 +1,7 @@
 {
   "name": "vibe-learn",
   "displayName": "vibe-learn",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Learn as your AI coding assistant builds. Logs every file write, edit, and command, then explains, digests, and quizzes you on what was built.",
   "author": {
     "name": "Gaurang Karia",
