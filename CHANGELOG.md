@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/gkaria/vibe-learn/compare/v0.9.0...v0.9.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* make knowledge briefings compatible with Bash 3.2 ([b95838b](https://github.com/gkaria/vibe-learn/commit/b95838b58874075a3869c372595160af11540040))
+
 ## [0.9.0](https://github.com/gkaria/vibe-learn/compare/v0.8.0...v0.9.0) (2026-09-06)
 
 
