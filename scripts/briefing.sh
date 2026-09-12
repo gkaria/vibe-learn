@@ -298,6 +298,22 @@ AUDIO_EXTRA=""
 AUDIO_EXTRA_JS=""
 LEDGER_TOTAL=0
 
+render_knowledge_rows() {
+  local label status quizzed sessions pill
+  while IFS="$(printf '\t')" read -r label status quizzed sessions; do
+    [ -z "${label:-}" ] && continue
+    case "$status" in
+      shaky) pill="action-deleted" ;;
+      solid) pill="action-created" ;;
+      *)     pill="action-edited" ;;
+    esac
+    printf '<li class="file-row" data-status="%s"><span class="pill %s">%s</span><code class="fpath">%s</code><span class="area area-docs">last quizzed %s · %s session(s)</span></li>\n' \
+      "$status" "$pill" "$status" "$(printf '%s' "$label" | html_escape)" "$(printf '%s' "$quizzed" | html_escape)" "$sessions"
+  done <<EOF
+$KNOWLEDGE_TSV
+EOF
+}
+
 if [ "$LEDGER_OK" = true ]; then
   LEDGER_TOTAL="$(jq -r '.concepts | length' "$LEDGER_FILE")"
   SHAKY_COUNT="$(jq -r '[.concepts[] | select(.status == "shaky")] | length' "$LEDGER_FILE")"
@@ -319,20 +335,7 @@ if [ "$LEDGER_OK" = true ]; then
     | @tsv' "$LEDGER_FILE" 2>/dev/null)"
 
   if [ "$LEDGER_TOTAL" -gt 0 ]; then
-    KNOWLEDGE_ROWS_HTML="$(
-      while IFS="$(printf '\t')" read -r label status quizzed sessions; do
-        [ -z "${label:-}" ] && continue
-        case "$status" in
-          shaky) pill="action-deleted" ;;
-          solid) pill="action-created" ;;
-          *)     pill="action-edited" ;;
-        esac
-        printf '<li class="file-row" data-status="%s"><span class="pill %s">%s</span><code class="fpath">%s</code><span class="area area-docs">last quizzed %s · %s session(s)</span></li>\n' \
-          "$status" "$pill" "$status" "$(printf '%s' "$label" | html_escape)" "$(printf '%s' "$quizzed" | html_escape)" "$sessions"
-      done <<EOF
-$KNOWLEDGE_TSV
-EOF
-    )"
+    KNOWLEDGE_ROWS_HTML="$(render_knowledge_rows)"
 
     KNOWLEDGE_NAV="
       <a href=\"#knowledge\">Knowledge state <span class=\"nbadge\">$LEDGER_TOTAL</span></a>"
