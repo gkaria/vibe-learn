@@ -15,7 +15,7 @@ This walks you through your first session — from install to having an audio ov
 
 Done — hooks are registered and `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz` are available. Everywhere this guide says `/learn`, `/digest`, or `/quiz`, use the `/vibe-learn:` prefix. Skip to step 2.
 
-**Everything else (or Claude Code without plugins):**
+**GitHub Copilot CLI and everything else (or Claude Code without plugins):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
@@ -40,7 +40,7 @@ Make sure ~/.local/bin is in your PATH:
   export PATH="$HOME/.local/bin:$PATH"
 ```
 
-That's it. vibe-learn is now active globally for every project you open in Claude Code.
+That's it. vibe-learn is now active globally for each detected assistant. For GitHub Copilot CLI, invoke the installed skills in a prompt as `Use /learn`, `Use /digest`, `Use /quiz`, or `Use /explain`; they are skill references, not new built-in interactive commands.
 
 **Requires `jq`** — if you don't have it: `brew install jq` (macOS) or `apt-get install jq` (Linux).
 
@@ -258,7 +258,7 @@ You don't change how you work. You just have a trail to learn from afterward.
 
 ## Next steps
 
-- **Codex, OpenCode, Grok Build, or Cursor?** See [README.md](README.md#supported-assistants) for setup.
+- **GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor?** See [README.md](README.md#supported-assistants) for setup.
 - **Save notes to Obsidian?** See [README.md](README.md#obsidian-integration).
 - **Per-project install** (to share with teammates): `vibe-learn install` in your project root.
 - **Something not working?** Check that `jq` is installed and that `~/.local/bin` is in your `PATH`.

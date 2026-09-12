@@ -4,7 +4,7 @@
 
 You can outsource your thinking, but you can't outsource your understanding.
 
-vibe-learn watches what Claude Code, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
+vibe-learn watches what Claude Code, GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
 
 ![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
 
@@ -27,7 +27,7 @@ Inside Claude Code:
 
 That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, and `/vibe-learn:explain`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
 
-### Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
+### GitHub Copilot CLI, Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
@@ -85,6 +85,17 @@ Use vibe-learn to create a digest.
 Use vibe-learn to quiz me on this session.
 Use vibe-learn to explain src/middleware/auth.ts.
 ```
+
+### GitHub Copilot CLI
+
+```
+Use /learn
+Use /digest
+Use /quiz review
+Use /explain src/middleware/auth.ts
+```
+
+Copilot CLI loads these as project skills from `.github/skills/` (or personal skills from `~/.copilot/skills/`). They are skill references inside a prompt, not new built-in interactive commands; typing a bare `/learn` is not guaranteed to dispatch like Claude Code's custom slash commands.
 
 ### OpenCode
 
@@ -305,16 +316,19 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
 | **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, `/quiz`, and `/explain` slash commands |
+| **GitHub Copilot CLI** | Native JSON hooks in `.github/hooks/` or `~/.copilot/hooks/`; `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` project/personal skills |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
 | **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, `/quiz`, and `/explain` commands |
 | **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
 | **Cursor** | `hooks.json` entries pointing at one shim (`.cursor/hooks/vibe-learn.sh`), plus `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills in `.cursor/skills/` |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=copilot-cli`.
 
 Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
 
 Cursor project hooks (`.cursor/hooks.json`) run once the workspace is trusted. Cursor has no context injection on `stop`, so the pause summary is written to `.vibe-learn/pause-summary.txt` and relayed at the next `sessionStart`; the skills read the file directly. Cloud Agents skip `sessionStart`, so there the file is the only channel.
+
+Copilot CLI project hooks also require folder trust. On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first and returns prior-session context from that event.
 
 ---
 
@@ -352,10 +366,10 @@ Four lifecycle hooks, all fast and offline:
 
 | Hook | Script | What it does |
 |------|--------|--------------|
-| `SessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log |
-| `UserPromptSubmit` | `capture-prompt.sh` | Logs your prompt with a turn counter |
-| `PostToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
-| `Stop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
+| `SessionStart` / `sessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log |
+| `UserPromptSubmit` / `userPromptSubmitted` | `capture-prompt.sh` | Logs your prompt with a turn counter |
+| `PostToolUse` / `postToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
+| `Stop` / `agentStop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
 
 On-demand (never from hooks): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, and the knowledge helper `scripts/knowledge.sh`.
 
@@ -378,7 +392,7 @@ bats tests/               # 282 tests
 
 - **Bash** (POSIX-compatible)
 - **jq** (`brew install jq` / `apt-get install jq`)
-- **Claude Code**, **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
+- **Claude Code**, **GitHub Copilot CLI** (verified with 1.0.84-4), **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
 
 ---
 

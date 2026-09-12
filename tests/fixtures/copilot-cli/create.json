@@ -1,0 +1,1 @@
+{"sessionId":"copilot-session-42","timestamp":1789221602000,"cwd":"/tmp/vibe-learn-project","toolName":"create","toolArgs":{"path":"src/auth.ts","file_text":"secret-value-must-not-be-logged"},"toolResult":{"resultType":"success","textResultForLlm":"created with token ghp_not_logged"}}

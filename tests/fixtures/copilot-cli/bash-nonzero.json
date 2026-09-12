@@ -1,0 +1,1 @@
+{"sessionId":"copilot-session-42","timestamp":1789221604500,"cwd":"/tmp/vibe-learn-project","toolName":"bash","toolArgs":{"command":"python3 -c \"raise SystemExit(9)\""},"toolResult":{"resultType":"success","textResultForLlm":"\n<shellId: 0 completed with exit code 9>"}}

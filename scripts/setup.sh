@@ -14,6 +14,7 @@
 #   --assistant=opencode      Configure OpenCode only
 #   --assistant=grok          Configure Grok Build only
 #   --assistant=cursor        Configure Cursor only
+#   --assistant=copilot-cli   Configure GitHub Copilot CLI only
 #   --assistant=all           Configure all detected assistants
 #   (default: auto-detect based on installed binaries / config dirs)
 
@@ -132,6 +133,14 @@ FILES=(
   "adapters/cursor/skills/explain/SKILL.md"
   "adapters/cursor/skills/vibe-learn/SKILL.md"
   "adapters/cursor/install.sh"
+  "adapters/copilot-cli/hooks.json"
+  "adapters/copilot-cli/hooks/vibe-learn.sh"
+  "adapters/copilot-cli/skills/learn/SKILL.md"
+  "adapters/copilot-cli/skills/digest/SKILL.md"
+  "adapters/copilot-cli/skills/quiz/SKILL.md"
+  "adapters/copilot-cli/skills/explain/SKILL.md"
+  "adapters/copilot-cli/skills/vibe-learn/SKILL.md"
+  "adapters/copilot-cli/install.sh"
 )
 
 # --- Download or copy files ---
@@ -157,6 +166,8 @@ chmod +x "$INSTALL_DIR/adapters/opencode/install.sh"
 chmod +x "$INSTALL_DIR/adapters/grok/install.sh"
 chmod +x "$INSTALL_DIR/adapters/cursor/install.sh"
 chmod +x "$INSTALL_DIR/adapters/cursor/hooks/vibe-learn.sh"
+chmod +x "$INSTALL_DIR/adapters/copilot-cli/install.sh"
+chmod +x "$INSTALL_DIR/adapters/copilot-cli/hooks/vibe-learn.sh"
 
 # --- Install CLI shim ---
 mkdir -p "$SHIM_DIR"
@@ -186,6 +197,9 @@ detect_assistants() {
   fi
   if command -v cursor &>/dev/null || command -v cursor-agent &>/dev/null || [ -d "$HOME/.cursor" ]; then
     detected+=("cursor")
+  fi
+  if command -v copilot &>/dev/null || [ -d "${COPILOT_HOME:-$HOME/.copilot}" ]; then
+    detected+=("copilot-cli")
   fi
   if [ ${#detected[@]} -eq 0 ]; then
     detected+=("claude-code")
@@ -223,11 +237,11 @@ if [ -n "$ASSISTANT_FLAG" ]; then
     all)
       read -ra ASSISTANTS_TO_CONFIGURE <<< "$(detect_assistants)"
       ;;
-    claude-code|codex|opencode|grok|cursor)
+    claude-code|codex|opencode|grok|cursor|copilot-cli)
       ASSISTANTS_TO_CONFIGURE=("$ASSISTANT_FLAG")
       ;;
     *)
-      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, grok, cursor, all" >&2
+      echo "ERROR: Unknown assistant '$ASSISTANT_FLAG'. Supported: claude-code, codex, opencode, grok, cursor, copilot-cli, all" >&2
       exit 1
       ;;
   esac
@@ -296,6 +310,15 @@ if assistant_list_contains "cursor" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
   echo "  /explain [file|topic]       — guided code tour of what was touched"
   echo "  /vibe-learn                 — same workflows via the vibe-learn skill (natural language works too)"
   echo "  vibe-learn briefing         — interactive maintainer briefing and NotebookLM source pack"
+fi
+
+if assistant_list_contains "copilot-cli" "${ASSISTANTS_TO_CONFIGURE[@]}"; then
+  echo ""
+  echo "GitHub Copilot CLI:"
+  echo "  Use /learn                     — explain what just happened, or ask a specific question"
+  echo "  Use /digest                    — full session learning report"
+  echo "  Use /quiz                      — check your understanding; Use /quiz review for concepts due again"
+  echo "  Use /explain [file|topic]      — guided code tour of what was touched"
 fi
 
 echo ""

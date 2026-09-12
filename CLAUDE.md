@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Product principle: users can outsource thinking to an assistant, but they cannot outsource understanding. The project should make AI-assisted work easier to learn from, not just easier to accept.
 
-It supports **Claude Code**, **Codex App/CLI**, **OpenCode**, **Grok Build**, and **Cursor**, with a generic adapter system for adding new assistants.
+It supports **Claude Code**, **GitHub Copilot CLI**, **Codex App/CLI**, **OpenCode**, **Grok Build**, and **Cursor**, with a generic adapter system for adding new assistants.
 
-It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands/prompts (`/learn`, `/digest`, `/quiz`, and the Codex/Grok/Cursor `vibe-learn` skill) leverage the AI's own context window to generate explanations and reports.
+It requires no external API calls. Hooks are mechanical (bash + jq). The learning commands/prompts (`/learn`, `/digest`, `/quiz`, and the Copilot/Codex/Grok/Cursor skills) leverage the AI's own context window to generate explanations and reports.
 
 ## Multi-Assistant Architecture
 
@@ -24,7 +24,7 @@ bin/              ← on the Bash tool PATH while the plugin is enabled
   vibe-learn      ← → scripts/cli.sh
   vibe-learn-knowledge ← → scripts/knowledge.sh
 
-scripts/          ← assistant-agnostic core (accepts Claude and Grok hook envelopes)
+scripts/          ← assistant-agnostic core (host payload translation stays in adapters)
   bootstrap.sh    ← SessionStart hook
   capture-prompt.sh ← UserPromptSubmit hook
   observe.sh      ← PostToolUse hook (<50ms, append-only)
@@ -60,9 +60,14 @@ adapters/
     hooks/        ← vibe-learn.sh payload shim (Cursor envelope → core scripts)
     skills/       ← learn, digest, quiz, explain (slash-style) and vibe-learn skills
     install.sh    ← shim + hooks.json merge + skill install into ~/.cursor or .cursor
+  copilot-cli/     ← GitHub Copilot CLI adapter
+    hooks.json    ← native camelCase hook template
+    hooks/        ← vibe-learn.sh payload shim (Copilot envelope → core scripts)
+    skills/       ← learn, digest, quiz, explain, and vibe-learn skills
+    install.sh    ← dedicated hook file + skill install into ~/.copilot or .github
 ```
 
-**Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. Prefer translating host payloads in the adapter (OpenCode and Cursor do this). Grok is the exception: it invokes the core scripts directly and also runs Claude hook files via `[compat.claude]`, so the core scripts accept both Claude snake_case and Grok camelCase envelopes and canonicalize Grok tool names (`write` → `Write`, `search_replace` → `Edit`, `run_terminal_command` → `Bash`).
+**Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. Prefer translating host payloads in the adapter (OpenCode, Cursor, and Copilot CLI do this). Grok is the exception: it invokes the core scripts directly and also runs Claude hook files via `[compat.claude]`, so the core scripts accept both Claude snake_case and Grok camelCase envelopes and canonicalize Grok tool names (`write` → `Write`, `search_replace` → `Edit`, `run_terminal_command` → `Bash`).
 
 ### Stop Hook / additionalContext
 
@@ -86,6 +91,7 @@ Hook registration format differs per assistant:
 - **Codex App/CLI**: inline TOML in `~/.codex/config.toml` (global) or `.codex/config.toml` (project). Codex also supports `hooks.json`, but vibe-learn keeps inline TOML as its install format so the canonical `[features] hooks = true` flag and hook registrations live together. Hooks are enabled by default in current Codex; the flag keeps installs working if hooks were disabled. The older `codex_hooks` feature key is deprecated.
 - **Grok Build**: dedicated JSON file at `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json` (global, always trusted) or `.grok/hooks/vibe-learn.json` (project; requires `/hooks-trust`). Commands go in `${GROK_HOME:-~/.grok}/commands/` or `.grok/commands/`; the skill goes in `${GROK_HOME:-~/.grok}/skills/vibe-learn/` or `.grok/skills/vibe-learn/`. Do not edit `config.toml`. Global install and detection honor `GROK_HOME`. Hook `command` values are POSIX-quoted so paths with spaces execute.
 - **Cursor**: `{"version":1,"hooks":{...}}` at `~/.cursor/hooks.json` (user) or `.cursor/hooks.json` (project; runs once the workspace is trusted). Every vibe-learn entry points at one shim, `hooks/vibe-learn.sh`, with `VIBE_LEARN_DIR` baked in at install. `install.sh` merges into an existing `hooks.json`: entries whose `command` ends in `/vibe-learn.sh` are replaced, everything else is preserved, and an unparseable file aborts the install rather than being overwritten. Project hook commands use the documented relative form `.cursor/hooks/vibe-learn.sh`; user hooks use the absolute path. No `.cursor/commands/` files — Cursor has folded slash commands into skills (`/migrate-to-skills`), so `/learn`, `/digest`, `/quiz`, `/explain` ship as `.cursor/skills/<name>/SKILL.md` with `disable-model-invocation: true`, alongside an auto-invocable `vibe-learn` skill.
+- **GitHub Copilot CLI**: dedicated native JSON hook file at `~/.copilot/hooks/vibe-learn.json` (or `$COPILOT_HOME/hooks/`) globally, and `.github/hooks/vibe-learn.json` per project. The adapter uses native camelCase events and translates their payloads in `hooks/vibe-learn.sh`: `sessionStart` → `bootstrap.sh`, `userPromptSubmitted` → `capture-prompt.sh`, successful and failed `postToolUse` → `observe.sh`, and the turn-level `agentStop` → `pause-summary.sh`. Copilot CLI 1.0.84-4 can fire `userPromptSubmitted` before `sessionStart`; the first event initializes the session exactly once, and `userPromptSubmitted` relays prior context when it wins that race so another `sessionStart` hook cannot overwrite it. It does not use `sessionEnd`, which fires only when the whole CLI session terminates. Skills install under `~/.copilot/skills/` or `.github/skills/`. Copilot documents slash-prefixed skill references inside prompts (for example, `Use /learn`), but these are not new built-in interactive slash commands.
 
 Codex merges matching hooks from multiple hook sources instead of replacing lower-precedence hooks. Project-local `.codex/` hook layers require the project to be trusted before they run.
 
@@ -94,6 +100,9 @@ Codex PostToolUse currently covers Bash, `apply_patch`, and MCP tool calls upstr
 Grok PostToolUse and PostToolUseFailure matchers list both Grok names (`write`, `search_replace`, `run_terminal_command`) and Claude aliases (`Write`, `Edit`, `MultiEdit`, `Bash`). Matcher regex is case-sensitive. Grok reports failures on `PostToolUseFailure`, not `PostToolUse`; both call `observe.sh`. Failed file ops are logged with `action: "failed"` so pause summaries and briefings do not count them as created/edited. Failed shell commands keep `action: "ran"` with a non-zero `exit_code`. Grok also scans Claude hook files by default; if both adapters are installed, the same tool event can be logged twice. Document `[compat.claude] hooks = false` as the opt-out — do not auto-edit `~/.claude/settings.json`. Grok fires an extra observe-only Stop at session end (`reason` is not `end_turn`); `pause-summary.sh` ignores those.
 
 Cursor event map (shim): `sessionStart` → `bootstrap.sh` (its `additionalContext` is relayed as Cursor's `additional_context`); `beforeSubmitPrompt` → `capture-prompt.sh` (always answers `{"continue":true}`); `afterFileEdit` → `observe.sh` as `Write` when the single edit has an empty `old_string`, else `Edit`; `postToolUse` / `postToolUseFailure` with matcher `Shell` → `observe.sh` as `Bash` (`tool_output` is a JSON string carrying `exitCode`; failures log `action: "ran"` with exit code 1); `stop` → `pause-summary.sh` with `hook_event_name: "stop"` so it writes the file and prints nothing. The shim must never emit `followup_message` — Cursor would auto-submit it as the next user prompt. The project root is `workspace_roots[0]`, falling back to `cwd`. Cloud Agents do not run `sessionStart`, so the prior summary is not injected there. Re-check https://cursor.com/docs/agent/hooks when touching the shim; event names and payloads have changed between releases.
+
+Copilot CLI event map (shim): whichever of `userPromptSubmitted` or `sessionStart` arrives first initializes the session once; `sessionStart` translates Claude's nested output to Copilot's top-level `additionalContext`, while an early `userPromptSubmitted` both captures the prompt and returns the same native context so the host consumes it before the model turn. Native `create` → `Write`, `edit` / `str_replace_editor` → `Edit`, raw-string or object `apply_patch` → `apply_patch`, and `bash` / `powershell` → `Bash` for `observe.sh`. `postToolUseFailure` supplies exit code 1; successful hook envelopes for completed shell tools are also checked for the numeric `exit code N` marker because the host can report a nonzero process as `postToolUse`. `agentStop` → `pause-summary.sh` with lowercase `stop` semantics so stdout stays empty and never forces another agent turn. Tool result text and errors are never forwarded; only a numeric exit code is extracted, preserving the existing log contract and avoiding secret leakage.
+
 
 All scripts write to `.vibe-learn/` in the target project (never in this repo itself).
 
@@ -157,9 +166,9 @@ Key Obsidian options (`config/obsidian-defaults.json`):
 
 ## Installation
 
-**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, Codex, OpenCode, Grok Build, Cursor), and registers hooks/plugins globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Global Grok setup installs `~/.grok/hooks/vibe-learn.json`, `~/.grok/skills/vibe-learn/SKILL.md`, and `~/.grok/commands/{learn,digest,quiz}.md`. Global Cursor setup installs `~/.cursor/hooks/vibe-learn.sh`, merges into `~/.cursor/hooks.json`, and installs `~/.cursor/skills/{learn,digest,quiz,explain,vibe-learn}/SKILL.md`. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=all` to override detection.
+**`scripts/setup.sh`** is the primary installer. It copies all files to `~/.vibe-learn/`, auto-detects installed assistants (Claude Code, GitHub Copilot CLI, Codex, OpenCode, Grok Build, Cursor), and registers hooks/plugins globally for each detected assistant. Global Codex setup also installs `~/.codex/skills/vibe-learn/SKILL.md`. Global Grok setup installs `~/.grok/hooks/vibe-learn.json`, `~/.grok/skills/vibe-learn/SKILL.md`, and `~/.grok/commands/{learn,digest,quiz}.md`. Global Cursor setup installs `~/.cursor/hooks/vibe-learn.sh`, merges into `~/.cursor/hooks.json`, and installs `~/.cursor/skills/{learn,digest,quiz,explain,vibe-learn}/SKILL.md`. Accepts `--assistant=claude-code`, `--assistant=copilot-cli`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=all` to override detection.
 
-**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/`, `.codex/`, `.opencode/`, `.grok/`, and `.cursor/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `codex` or `~/.codex`, `opencode` or `~/.config/opencode`, `grok` or `~/.grok`, `cursor`/`cursor-agent` or `~/.cursor`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=all` to override.
+**`scripts/install.sh`** wires vibe-learn into a specific project. By default it installs all relevant assistants: existing `.claude/`, `.github/hooks` / `.github/skills`, `.codex/`, `.opencode/`, `.grok/`, and `.cursor/` directories win first, then installed tools/configs (`claude` or `~/.claude`, `copilot` or `${COPILOT_HOME:-~/.copilot}`, `codex` or `~/.codex`, `opencode` or `~/.config/opencode`, `grok` or `~/.grok`, `cursor`/`cursor-agent` or `~/.cursor`) are detected, and if nothing is found it falls back to Claude Code for backward compatibility. Accepts `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=all` to override.
 
 Each adapter's `install.sh` handles:
 
@@ -176,6 +185,8 @@ The `adapters/opencode/` adapter installs `.opencode/plugins/vibe-learn.js` plus
 The `adapters/grok/` adapter writes a dedicated `vibe-learn.json` hook file (never merges into `config.toml` or other hook files) plus commands and a skill. `install.sh` renders command paths with `jq` and POSIX-quotes them. Timeouts: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` / `PostToolUseFailure` at 2 seconds, and `Stop` at 10 seconds.
 
 The `adapters/cursor/` adapter renders `hooks/vibe-learn.sh` with `awk` (so `&`, `|`, and `/` in the install path stay literal), merges `hooks.json` with `jq`, and copies the five skills. Timeouts: `sessionStart` and `beforeSubmitPrompt` at 5 seconds, `afterFileEdit` / `postToolUse` / `postToolUseFailure` at 2 seconds, and `stop` at 10 seconds.
+
+The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim without editing `settings.json`, preserving unrelated hooks and settings. It refuses collisions with non-vibe-learn files before writing, honors `COPILOT_HOME`, and copies the five official Agent Skills. Timeouts: `sessionStart` and `userPromptSubmitted` at 5 seconds, `postToolUse` / `postToolUseFailure` at 2 seconds, and `agentStop` at 10 seconds.
 
 ## Session Briefing
 
@@ -217,6 +228,8 @@ Use the global Codex `vibe-learn` skill in natural language, for example "Use vi
 Grok Build uses the same slash commands (`/learn`, `/digest`, `/quiz`, `/explain`) plus a `/vibe-learn` skill. Prefer the skill for natural-language requests ("Use vibe-learn to learn what happened"). Grok commands live in `~/.grok/commands/` or `.grok/commands/`.
 
 Cursor exposes the same four as skills (`/learn`, `/digest`, `/quiz`, `/explain` in `.cursor/skills/<name>/SKILL.md`, explicit invocation only) plus an auto-invocable `vibe-learn` skill for natural-language requests. Skill text refers to "the rest of the user's message" instead of `$ARGUMENTS`, and the helper lookup falls back to the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh`.
+
+GitHub Copilot CLI exposes the four workflows plus a natural-language `vibe-learn` Agent Skill in `.github/skills/` or `~/.copilot/skills/`. Invoke them in a prompt as `Use /learn`, `Use /digest`, `Use /quiz`, or `Use /explain`; do not document them as built-in interactive commands. The adapter intentionally avoids plugin installation and Copilot's managed `config.json` so per-project installs stay isolated and unrelated configuration is untouched.
 
 Codex examples to keep docs and prompts aligned:
 
