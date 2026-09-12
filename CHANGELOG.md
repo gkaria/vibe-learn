@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/gkaria/vibe-learn/compare/v0.9.1...v0.10.0) (2026-09-12)
+
+
+### Features
+
+* add GitHub Copilot CLI assistant adapter ([455dae1](https://github.com/gkaria/vibe-learn/commit/455dae17b2db7501aa6fd84cc06be2a3e3a07d33))
+
+
+### Bug Fixes
+
+* relay Copilot context through sessionStart ([81d40ed](https://github.com/gkaria/vibe-learn/commit/81d40ed75e8353806672a0592a1caff93bbaeda9))
+
 ## [0.9.1](https://github.com/gkaria/vibe-learn/compare/v0.9.0...v0.9.1) (2026-09-12)
 
 
