@@ -33,7 +33,7 @@ That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, `/v
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0).
+Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. GitHub Copilot CLI is detected via the `copilot` binary, `~/.copilot`, or `COPILOT_HOME`. To update: re-run the same command. Latest release: [v0.10.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.10.0).
 
 ---
 
@@ -76,6 +76,20 @@ Goal: add JWT auth middleware
 
 With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.
 
+### GitHub Copilot CLI
+
+```
+Use /learn
+Use /learn why did we add middleware?
+Use /digest
+Use /quiz
+Use /quiz review
+Use /explain src/middleware/auth.ts
+Use vibe-learn to learn what happened.
+```
+
+Copilot CLI loads these as Agent Skills from `.github/skills/` (project) or `${COPILOT_HOME:-~/.copilot}/skills/` (personal). They are skill references inside a prompt, not new built-in interactive commands; typing a bare `/learn` is not guaranteed to dispatch like Claude Code's custom slash commands. Project hooks live in `.github/hooks/` and need the folder trusted before they run.
+
 ### Codex
 
 ```
@@ -85,17 +99,6 @@ Use vibe-learn to create a digest.
 Use vibe-learn to quiz me on this session.
 Use vibe-learn to explain src/middleware/auth.ts.
 ```
-
-### GitHub Copilot CLI
-
-```
-Use /learn
-Use /digest
-Use /quiz review
-Use /explain src/middleware/auth.ts
-```
-
-Copilot CLI loads these as project skills from `.github/skills/` (or personal skills from `~/.copilot/skills/`). They are skill references inside a prompt, not new built-in interactive commands; typing a bare `/learn` is not guaranteed to dispatch like Claude Code's custom slash commands.
 
 ### OpenCode
 
@@ -234,7 +237,7 @@ behind it. Want me to quiz you on this, or save it to Obsidian?
 
 ## Check your understanding
 
-Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add a fourth adapter?" — one at a time, then tells you what you got right and what you missed.
+Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add another adapter?" — one at a time, then tells you what you got right and what you missed.
 
 Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. Concepts you answered shakily come back: `/quiz review` re-quizzes anything shaky or unreviewed for two weeks, `/learn` gives you a one-line heads-up when a shaky concept resurfaces in a new session, and `/digest`'s "Things to Study" accumulates across sessions instead of resetting.
 
@@ -322,7 +325,7 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 | **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
 | **Cursor** | `hooks.json` entries pointing at one shim (`.cursor/hooks/vibe-learn.sh`), plus `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills in `.cursor/skills/` |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, `--assistant=cursor`, or `--assistant=copilot-cli`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=copilot-cli`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
 
 Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
 
@@ -343,7 +346,7 @@ cd your-project
 vibe-learn install
 ```
 
-Detects which assistants the project already uses and installs only those. Adds `.vibe-learn/` to `.gitignore`.
+Detects which assistants the project already uses (including `.github/` for Copilot CLI) and installs only those. Adds `.vibe-learn/` to `.gitignore`.
 
 ---
 
@@ -358,7 +361,7 @@ Save learnings to an [Obsidian](https://obsidian.md) vault and recall them acros
 /digest obsidian:recall                  — digest enriched with connections to previous work
 ```
 
-On first use, Claude asks for your vault path and offers to save it to `.vibe-learn/obsidian.json`. Equivalent Codex requests work the same way via the skill.
+On first use, Claude asks for your vault path and offers to save it to `.vibe-learn/obsidian.json`. Equivalent Codex and Copilot CLI requests work the same way via the skill.
 
 ---
 
@@ -385,7 +388,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 282 tests
+bats tests/               # 329 tests
 ```
 
 ---
@@ -400,7 +403,8 @@ bats tests/               # 282 tests
 
 ## Releases
 
-- **[v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0) (this branch):** Claude Code plugin + self-hosted marketplace · Cursor adapter · `/explain` guided tours · `vibe-learn recap` · ledger-aware briefing · demo GIFs and community scaffolding
+- **[v0.10.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.10.0) (this branch):** GitHub Copilot CLI as a first-class assistant — native JSON hooks · `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills · `--assistant=copilot-cli` · auto-detect via `copilot` / `~/.copilot` / `COPILOT_HOME` · sessionStart context relay
+- **[v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0):** Claude Code plugin + self-hosted marketplace · Cursor adapter · `/explain` guided tours · `vibe-learn recap` · ledger-aware briefing · demo GIFs and community scaffolding
 - **[v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0):** Grok Build as a first-class assistant — `/learn`, `/digest`, `/quiz`, `/vibe-learn` skill · `--assistant=grok` · auto-detect via `grok` / `~/.grok` / `GROK_HOME`
 - **v0.7.0:** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
 - **v0.6.0:** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`
