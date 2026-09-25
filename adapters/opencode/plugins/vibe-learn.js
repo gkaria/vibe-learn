@@ -77,9 +77,9 @@ function recentlyLoggedFile(file) {
 export const server = async (ctx) => {
   // ctx.directory is the project working directory (from PluginInput type).
   const cwd = ctx.directory || process.cwd();
-  // Model and reasoning effort of the latest user message, from chat.message.
-  let lastModel = null;
-  let lastEffort = null;
+  // chat.message and session.idle can interleave across sessions in one plugin
+  // instance. Keep the latest identity for each session separately.
+  const identityBySession = new Map();
 
   return {
     // event receives every SDK event; we filter by .type.
@@ -107,12 +107,15 @@ export const server = async (ctx) => {
           tool_response: {},
         });
       } else if (event.type === "session.idle") {
+        const sessionID = event.properties?.sessionID;
+        const identity = identityBySession.get(sessionID);
         runScript("pause-summary.sh", {
           cwd,
+          session_id: sessionID,
           hook_event_name: "Stop",
           harness: "opencode",
-          model: lastModel,
-          effort: lastEffort,
+          model: identity?.model ?? null,
+          effort: identity?.effort ?? null,
         });
       }
     },
@@ -121,12 +124,16 @@ export const server = async (ctx) => {
     // input: { sessionID, agent?, model?: { providerID, modelID }, messageID?, variant? }
     // variant is OpenCode's provider-specific reasoning effort (e.g. high, max, minimal).
     "chat.message": async (input) => {
+      const sessionID = input?.sessionID;
+      if (!sessionID) return;
+      const identity = identityBySession.get(sessionID) || { model: null, effort: null };
       if (input?.model?.modelID) {
-        lastModel = input.model.providerID
+        identity.model = input.model.providerID
           ? `${input.model.providerID}/${input.model.modelID}`
           : input.model.modelID;
       }
-      lastEffort = input?.variant || null;
+      identity.effort = input?.variant || null;
+      identityBySession.set(sessionID, identity);
     },
 
     // tool.execute.after fires after every tool call.

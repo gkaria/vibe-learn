@@ -164,7 +164,8 @@ Sources:
 - **Cursor** — the shim forwards `model_id`/`model` and `model_params` on
   `stop`.
 - **OpenCode** — the plugin remembers the last `chat.message` model and
-  `variant` and passes them to `pause-summary.sh` on `session.idle`.
+  `variant` by `sessionID` and passes the matching values to `pause-summary.sh`
+  on `session.idle`, so interleaved sessions do not exchange identity.
 - **Grok Build** — `current_model_id` and `reasoning_effort` from the
   session's `summary.json`, read at Stop. Grok's extra end-of-session Stop
   (already ignored by `pause-summary.sh`) writes nothing.
@@ -576,7 +577,7 @@ migration:
 | `scripts/bootstrap.sh` | Identity fields in meta; health row append before rotation |
 | `scripts/pause-summary.sh` | Append one `turn_end` line (model, effort) per turn |
 | `adapters/cursor/hooks/vibe-learn.sh` | Forward `harness`, `model_id`/`model`, `model_params`, `cursor_version`, `transcript_path` on `sessionStart` and `stop` |
-| `adapters/opencode/plugins/vibe-learn.js` | Forward `harness: "opencode"` and `info.version` on `session.created`; add a `chat.message` hook that remembers `providerID/modelID` and `variant`, passed to `pause-summary.sh` on `session.idle` |
+| `adapters/opencode/plugins/vibe-learn.js` | Forward `harness: "opencode"` and `info.version` on `session.created`; remember `providerID/modelID` and `variant` by session ID in `chat.message`, then pass the matching identity to `pause-summary.sh` on `session.idle` |
 | `scripts/cli.sh` | `health` and `bench` subcommands; usage text |
 | `scripts/briefing.sh` | Health page, session card, index row, bench page (all optional) |
 | `config/defaults.json` | `health` and `bench` blocks |
