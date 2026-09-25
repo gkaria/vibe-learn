@@ -114,6 +114,8 @@ run_hook() {
   local meta="$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
   local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   [ "$(jq -r '.session_id' "$meta")" = "copilot-session-42" ]
+  [ "$(jq -r '.harness' "$meta")" = "copilot-cli" ]
+  [ "$(bash "$SCRIPTS_DIR/health.sh" "$TEST_PROJECT_DIR/.vibe-learn" | jq -r '.harness')" = "copilot-cli" ]
   [ "$(jq -r 'select(.event == "user_prompt") | .prompt' "$log")" = "add JWT auth" ]
   [ "$(jq -r 'select(.file == "src/auth.ts") | [.tool,.action] | join(":")' "$log")" = "Write:created" ]
   [ "$(jq -r 'select(.tool == "Edit" and .file == "src/routes.ts") | [.tool,.action] | join(":")' "$log")" = "Edit:edited" ]

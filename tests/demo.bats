@@ -36,3 +36,42 @@ DEMO_DIR="$VIBE_LEARN_DIR/docs/demo"
 @test "README embeds the quiz demo" {
   grep -q "docs/demo/quiz.gif" "$VIBE_LEARN_DIR/README.md"
 }
+
+@test "briefing demo renders the index, session, and health pages without touching HOME" {
+  [ -x "$DEMO_DIR/briefing-demo.sh" ]
+  local real_home="$HOME"
+  run bash "$DEMO_DIR/briefing-demo.sh" "$TEST_PROJECT_DIR/demo/my-api"
+  [ "$status" -eq 0 ]
+  local b="$TEST_PROJECT_DIR/demo/my-api/.vibe-learn/briefing"
+  [ "$output" = "$b" ]
+  [ -s "$b/index.html" ] && [ -s "$b/health.html" ]
+  grep -q 'Tools: read 9' "$b"/sessions/*.html
+  [ ! -e "$real_home/.vibe-learn/health.jsonl" ]
+
+  run bash "$DEMO_DIR/briefing-demo.sh" "$TEST_PROJECT_DIR/demo/my-api"
+  [ "$status" -eq 0 ]
+
+  local screenshot_before screenshot_after
+  screenshot_before="$(shasum "$VIBE_LEARN_DIR/docs/briefing-index.png")"
+  run env CHROME=/usr/bin/false bash "$DEMO_DIR/briefing-demo.sh" --screenshots "$TEST_PROJECT_DIR/demo/my-api"
+  [ "$status" -ne 0 ]
+  screenshot_after="$(shasum "$VIBE_LEARN_DIR/docs/briefing-index.png")"
+  [ "$screenshot_before" = "$screenshot_after" ]
+
+  local other="$TEST_PROJECT_DIR/other/my-api"
+  mkdir -p "$other"
+  echo 'keep me' > "$other/sentinel.txt"
+  run bash "$DEMO_DIR/briefing-demo.sh" "$other"
+  [ "$status" -ne 0 ]
+  [ "$(cat "$other/sentinel.txt")" = 'keep me' ]
+
+  run bash "$DEMO_DIR/briefing-demo.sh" "$TEST_PROJECT_DIR/demo/not-my-api"
+  [ "$status" -ne 0 ]
+}
+
+@test "README embeds the briefing and health screenshots" {
+  for f in briefing-index briefing-session briefing-health; do
+    grep -q "docs/$f.png" "$VIBE_LEARN_DIR/README.md"
+    [ -s "$VIBE_LEARN_DIR/docs/$f.png" ]
+  done
+}

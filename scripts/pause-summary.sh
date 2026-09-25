@@ -5,6 +5,14 @@
 # Injects into Claude's context so it surfaces naturally in the next response.
 
 VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=identity.sh
+if ! . "$VIBE_LEARN_DIR/scripts/identity.sh" 2>/dev/null; then
+  # Installs that copy hook scripts one by one may lack the helper.
+  VL_SEP=$'\x1f'
+  vl_resolve_harness() { printf '%s' "${VIBE_LEARN_HARNESS:-${1:-unknown}}"; }
+  vl_host_config() { :; }
+  vl_harness_version() { :; }
+fi
 
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // .workspaceRoot // empty')
@@ -30,6 +38,37 @@ SUMMARY_FILE="$LOG_DIR/pause-summary.txt"
 if [ ! -f "$SESSION_LOG" ] || [ ! -s "$SESSION_LOG" ]; then
   exit 0
 fi
+
+# --- Record the model and effort that answered this turn ---
+# health.sh splits a session wherever these change mid-session.
+META_FILE="$LOG_DIR/session-meta.json"
+META=""
+[ -f "$META_FILE" ] && META=$(jq -c 'objects' "$META_FILE" 2>/dev/null)
+[ -n "$META" ] || META='{}'
+IFS="$VL_SEP" read -r TURN P_HARNESS P_MODEL P_EFFORT P_TRANSCRIPT P_ROOT P_SESSION <<EOF
+$(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" --argjson meta "$META" '
+  def str: if type == "string" then . else "" end;
+  [ ($meta.current_turn // 0 | tostring),
+    ((.harness // $meta.harness) | str),
+    ((.model_id // .model) | str),
+    ((.effort | if type == "object" then .level else . end) | str),
+    ((.transcript_path // .transcriptPath // $meta.transcript_path) | str),
+    ((.workspaceRoot // .cwd) | str),
+    ((.session_id // .sessionId // $meta.session_id) | str)
+  ] | join($sep)' 2>/dev/null)
+EOF
+TURN_HARNESS=$(vl_resolve_harness "${P_HARNESS:-}" "${P_TRANSCRIPT:-}")
+IFS="$VL_SEP" read -r H_MODEL H_EFFORT <<EOF
+$(vl_host_config "$TURN_HARNESS" "${P_TRANSCRIPT:-}" "${P_ROOT:-$CWD}" "${P_SESSION:-}")
+EOF
+jq -cn \
+  --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg turn "${TURN:-0}" \
+  --arg model "${H_MODEL:-${P_MODEL:-}}" \
+  --arg effort "${H_EFFORT:-${P_EFFORT:-}}" '
+  def nonempty: if . == "" then null else . end;
+  {timestamp: $ts, event: "turn_end", turn: ($turn | tonumber? // 0),
+   model: ($model | nonempty), effort: ($effort | nonempty)}' >> "$SESSION_LOG" 2>/dev/null || true
 
 # --- Get the last user prompt (the intent behind this response) ---
 LAST_PROMPT=$(jq -r 'select(.event=="user_prompt") | .prompt' "$SESSION_LOG" | tail -1 | head -c 200)

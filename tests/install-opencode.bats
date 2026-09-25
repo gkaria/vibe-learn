@@ -58,7 +58,13 @@ const { server } = await import(pathToFileURL(pluginPath).href);
 const hooks = await server({ directory: targetDir, worktree: targetDir });
 
 // session.created — dispatched via the event hook
-await hooks.event({ event: { type: "session.created", properties: { info: { id: "open-session" } } } });
+await hooks.event({ event: { type: "session.created", properties: { info: { id: "open-session", version: "1.18.5" } } } });
+
+// chat.message — remembers the model and reasoning variant for the idle event
+await hooks["chat.message"](
+  { sessionID: "open-session", model: { providerID: "anthropic", modelID: "claude-opus-5.5" }, variant: "high" },
+  { message: {}, parts: [] }
+);
 
 // tool.execute.after — bash (args in input, exit code in output.metadata)
 await hooks["tool.execute.after"](
@@ -78,8 +84,16 @@ await hooks.event({ event: { type: "file.edited", properties: { file: "src/creat
 // file.edited — via event hook; new file, should not be deduplicated
 await hooks.event({ event: { type: "file.edited", properties: { file: "src/edited.js" } } });
 
-// session.idle — via event hook
+// Session B chooses a different identity before session A becomes idle.
+await hooks["chat.message"](
+  { sessionID: "other-session", model: { providerID: "openai", modelID: "gpt-5.6" }, variant: "low" },
+  { message: {}, parts: [] }
+);
+
+// session.idle — each event must use its own session's identity.
 await hooks.event({ event: { type: "session.idle", properties: { sessionID: "open-session" } } });
+await hooks.event({ event: { type: "session.idle", properties: { sessionID: "other-session" } } });
+await hooks.event({ event: { type: "session.idle", properties: { sessionID: "no-message-session" } } });
 JS
 
   VIBE_LEARN_TEST_CALLS="$calls_file" node "$runner" "$target_dir" "$plugin_module"
@@ -98,6 +112,22 @@ JS
   local created_count
   created_count="$(grep -c '"file_path":"src/created.js"' "$calls_file")"
   [ "$created_count" -eq 1 ]
+
+  local boot idle other_idle empty_idle
+  boot="$(grep '^bootstrap.sh' "$calls_file" | cut -f2)"
+  idle="$(grep '^pause-summary.sh' "$calls_file" | cut -f2 | sed -n '1p')"
+  other_idle="$(grep '^pause-summary.sh' "$calls_file" | cut -f2 | sed -n '2p')"
+  empty_idle="$(grep '^pause-summary.sh' "$calls_file" | cut -f2 | sed -n '3p')"
+  [ "$(printf '%s' "$boot" | jq -r '.harness')" = "opencode" ]
+  [ "$(printf '%s' "$boot" | jq -r '.harness_version')" = "1.18.5" ]
+  [ "$(printf '%s' "$idle" | jq -r '.harness')" = "opencode" ]
+  [ "$(printf '%s' "$idle" | jq -r '.session_id')" = "open-session" ]
+  [ "$(printf '%s' "$idle" | jq -r '.model')" = "anthropic/claude-opus-5.5" ]
+  [ "$(printf '%s' "$idle" | jq -r '.effort')" = "high" ]
+  [ "$(printf '%s' "$other_idle" | jq -r '.model')" = "openai/gpt-5.6" ]
+  [ "$(printf '%s' "$other_idle" | jq -r '.effort')" = "low" ]
+  [ "$(printf '%s' "$empty_idle" | jq -r '.model')" = "null" ]
+  [ "$(printf '%s' "$empty_idle" | jq -r '.effort')" = "null" ]
 }
 
 @test "opencode install renders paths containing sed replacement characters" {

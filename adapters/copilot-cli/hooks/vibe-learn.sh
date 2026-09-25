@@ -23,7 +23,7 @@ session_is_current() {
 
 case "$EVENT" in
   sessionStart)
-    PAYLOAD=$(jq -ce 'select(type == "object" and ((.cwd // "") | length > 0)) | {cwd, session_id: (.sessionId // "unknown"), timestamp, source, initial_prompt: (.initialPrompt // null)}' <<<"$INPUT" 2>/dev/null) || exit 0
+    PAYLOAD=$(jq -ce 'select(type == "object" and ((.cwd // "") | length > 0)) | {cwd, session_id: (.sessionId // "unknown"), harness: "copilot-cli", timestamp, source, initial_prompt: (.initialPrompt // null)}' <<<"$INPUT" 2>/dev/null) || exit 0
     CWD=$(jq -r '.cwd' <<<"$PAYLOAD")
     SESSION_ID=$(jq -r '.session_id' <<<"$PAYLOAD")
     if ! session_is_current "$CWD" "$SESSION_ID"; then
@@ -36,7 +36,7 @@ case "$EVENT" in
     ;;
 
   userPromptSubmitted)
-    PAYLOAD=$(jq -ce 'select(type == "object" and ((.cwd // "") | length > 0)) | {cwd, session_id: (.sessionId // "unknown"), timestamp, prompt: (.prompt // "")}' <<<"$INPUT" 2>/dev/null) || exit 0
+    PAYLOAD=$(jq -ce 'select(type == "object" and ((.cwd // "") | length > 0)) | {cwd, session_id: (.sessionId // "unknown"), harness: "copilot-cli", timestamp, prompt: (.prompt // "")}' <<<"$INPUT" 2>/dev/null) || exit 0
     CWD=$(jq -r '.cwd' <<<"$PAYLOAD")
     SESSION_ID=$(jq -r '.session_id' <<<"$PAYLOAD")
     if ! session_is_current "$CWD" "$SESSION_ID"; then
@@ -86,7 +86,7 @@ case "$EVENT" in
 
   agentStop)
     CWD=$(jq -er 'select(type == "object") | .cwd // empty' <<<"$INPUT" 2>/dev/null) || exit 0
-    jq -c 'select(type == "object") | {cwd, session_id: (.sessionId // "unknown"), timestamp, hook_event_name: "stop", reason: (.stopReason // "end_turn")}' <<<"$INPUT" 2>/dev/null \
+    jq -c 'select(type == "object") | {cwd, session_id: (.sessionId // "unknown"), harness: "copilot-cli", timestamp, hook_event_name: "stop", reason: (.stopReason // "end_turn")}' <<<"$INPUT" 2>/dev/null \
       | bash "$SCRIPTS/pause-summary.sh" >/dev/null 2>&1 || true
     SUMMARY="$CWD/.vibe-learn/pause-summary.txt"
     if [ -f "$SUMMARY" ]; then

@@ -61,6 +61,46 @@ components:
       destination: knowledge.sh
       fileType: generic
 
+  - id: script-identity
+    description: Resolves the assistant, model, effort, and version for session-meta.json and turn_end lines
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/identity.sh
+      destination: identity.sh
+      fileType: generic
+
+  - id: script-health
+    description: Assistant health rows (one per session segment) appended to health.jsonl at log rotation
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/health.sh
+      destination: health.sh
+      fileType: generic
+
+  - id: script-usage
+    description: Counts tool calls and skills per session from the host's own session record, for health rows
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/usage.sh
+      destination: usage.sh
+      fileType: generic
+
+  - id: script-health-report
+    description: vibe-learn health — compares session signals before and after a model or harness change
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/health-report.sh
+      destination: health-report.sh
+      fileType: generic
+
   - id: script-recap
     description: Weekly "what I learned" markdown rollup built from the knowledge ledger and session logs
     dependencies: [jq]

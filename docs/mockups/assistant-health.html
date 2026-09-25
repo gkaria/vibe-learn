@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vibe-learn — assistant health (mockup)</title>
+  <!--
+    Design mockup for specs/0006 (assistant health + bench). Static, sample data only.
+    Styles are copied from the session page in scripts/briefing.sh so this reads as
+    part of the existing briefing. Not generated, linked, or tested.
+  -->
+  <style>
+    :root{
+      --bg:#faf9f5; --surface:#f1efe7; --surface-2:#e8e6dc;
+      --text:#141413; --muted:#706f68; --line:#d8d4c8;
+      --accent:#d97757; --accent-blue:#6a9bcc; --accent-green:#788c5d;
+      --danger:#9f3d32; --warning:#b5792a; --success:#617a4b;
+      --radius:8px; --shadow:0 1px 3px rgba(20,20,19,.1);
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Lora,Georgia,serif;overflow-x:hidden;}
+    a{color:var(--accent-blue);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;}
+    h1,h2,h3,h4{font-family:Poppins,Arial,sans-serif;font-weight:700;line-height:1.15;margin:0 0 12px;}
+    h1{font-size:clamp(22px,3vw,36px);}
+    h2{font-size:20px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:20px;}
+    h3{font-size:15px;}
+    p{margin:0 0 10px;}
+
+    .site-header{background:var(--surface);border-bottom:1px solid var(--line);padding:20px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+    .header-left .eyebrow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.03em;}
+    .header-left .goal{color:var(--muted);font-size:14px;margin:4px 0 0;}
+
+    .layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px;}
+    .layout>*{min-width:0;}
+    nav{position:sticky;top:24px;align-self:start;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;display:grid;gap:2px;}
+    nav a{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;color:var(--muted);}
+    nav a:hover,nav a.active{background:var(--surface-2);color:var(--text);text-decoration:none;}
+    nav .nbadge{background:var(--surface-2);border-radius:999px;padding:1px 6px;font-size:10px;min-width:18px;text-align:center;}
+    nav a.active .nbadge{background:var(--accent);color:#fff;}
+    nav .nav-sep{height:1px;background:var(--line);margin:10px 4px;}
+    nav .nav-note{color:var(--muted);font-size:11px;padding:0 10px;line-height:1.5;}
+
+    section{margin-bottom:40px;}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;}
+    button,.button{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:var(--radius);padding:8px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;text-decoration:none;cursor:pointer;box-shadow:var(--shadow);}
+    button:hover,.button:hover{background:var(--surface-2);}
+    button.primary,.button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+    .brief-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+    .brief-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+    .brief-card h3{font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;}
+    .brief-card .bvalue{font-size:28px;font-weight:700;font-family:Poppins,Arial,sans-serif;line-height:1;margin-bottom:6px;}
+    .brief-card .bvalue.danger{color:var(--danger);}
+    .brief-card .bvalue.ok{color:var(--success);}
+    .brief-card .bdetail{font-size:13px;color:var(--muted);line-height:1.4;}
+
+    .filters{display:flex;gap:6px;flex-wrap:wrap;}
+    .filters button{padding:5px 11px;font-size:11px;}
+    .filters button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+    .command-row{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:9px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+    .command-row.fail{border-color:rgba(159,61,50,.4);background:#f8ece9;}
+    .status{flex-shrink:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:999px;padding:2px 7px;border:1px solid var(--line);background:var(--surface-2);}
+    .fail .status{color:var(--danger);border-color:rgba(159,61,50,.35);background:#fde8e4;}
+    .ok .status{color:var(--success);border-color:#c8d8b8;background:#e8f0e1;}
+    ul.list{list-style:none;padding:0;margin:0;display:grid;gap:6px;}
+
+    pre{white-space:pre;overflow-x:auto;background:#1e1c18;color:#e8e4d8;border-radius:var(--radius);padding:18px;margin:0;font-size:12px;line-height:1.55;tab-size:2;}
+
+    /* Mockup-only additions */
+    .mock-banner{background:#f6ecdc;border-bottom:1px solid #e6d3b3;color:#8a6830;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;padding:8px 32px;}
+    .lede{color:var(--muted);font-size:14px;margin:-8px 0 20px;}
+
+    .callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--warning);border-radius:var(--radius);padding:16px 20px;margin-bottom:28px;}
+    .callout h3{font-size:16px;margin-bottom:6px;}
+    .callout .cause{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);margin-bottom:10px;}
+    .callout .deltas{display:grid;grid-template-columns:max-content max-content 1fr;gap:3px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;margin-bottom:10px;}
+    .callout .deltas .to{color:var(--danger);font-weight:600;}
+    .callout .control{font-size:14px;margin-bottom:12px;}
+    .callout .confirm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted);}
+    .callout .confirm code{background:var(--surface-2);padding:3px 8px;border-radius:4px;color:var(--text);}
+
+    .controls{display:flex;flex-wrap:wrap;gap:10px 22px;margin-bottom:12px;align-items:center;}
+    .controls .label{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;}
+    .control-group{display:flex;align-items:center;gap:6px;}
+
+    .chart-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px 12px;}
+    .chart-title{font-family:Poppins,Arial,sans-serif;font-weight:700;font-size:14px;margin-bottom:4px;}
+    .chart-card svg{display:block;width:100%;height:auto;}
+    .chart-card .grid{stroke:var(--line);stroke-width:1;}
+    .chart-card .tick,.chart-card .axis-label{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;fill:var(--muted);}
+    .chart-card .band{fill:var(--surface-2);}
+    .chart-card .marker{stroke:var(--warning);stroke-width:1.5;stroke-dasharray:4 4;}
+    .chart-card .marker-label{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;fill:var(--warning);}
+    .chart-card .pt{stroke:var(--surface);stroke-width:1.5;}
+    .legend{display:flex;gap:18px;flex-wrap:wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:6px;}
+    .swatch{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:6px;vertical-align:-1px;}
+    .swatch.sq{border-radius:2px;}
+    .caption{font-size:11.5px;color:var(--muted);margin-top:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+
+    table.metrics{width:100%;border-collapse:separate;border-spacing:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+    table.metrics th,table.metrics td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;}
+    table.metrics tr:last-child td{border-bottom:0;}
+    table.metrics th:first-child,table.metrics td:first-child{text-align:left;}
+    table.metrics th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;background:var(--surface-2);}
+    table.metrics .sel{background:rgba(217,119,87,.08);}
+    table.metrics th.sel{background:rgba(217,119,87,.16);color:var(--text);}
+    table.metrics td.flag{color:var(--danger);font-weight:700;}
+    table.metrics .sub{color:var(--muted);font-size:11px;margin-left:6px;}
+
+    .delta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;border-radius:999px;padding:1px 7px;border:1px solid var(--line);margin-left:6px;white-space:nowrap;background:var(--surface-2);color:var(--muted);vertical-align:3px;}
+    .delta.bad{color:var(--danger);background:#fde8e4;border-color:#f0c8c0;}
+
+    .notes{margin-top:32px;border-top:1px dashed var(--line);padding-top:14px;font-size:13.5px;color:var(--muted);}
+    .notes h3{font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;}
+    .notes ul{margin:0;padding-left:18px;display:grid;gap:4px;}
+
+    .context-dim{opacity:.5;}
+    .card-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;}
+    .card-footer .muted{color:var(--muted);}
+    .health-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:16px;}
+    .health-head h2{border:0;padding:0;margin:0;}
+    .health-head .who{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);}
+    .state-toggle{margin-bottom:18px;}
+
+    table.bench{width:100%;border-collapse:separate;border-spacing:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+    table.bench th,table.bench td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;}
+    table.bench tr:last-child td{border-bottom:0;}
+    table.bench th{background:var(--surface-2);font-weight:600;font-size:11.5px;line-height:1.4;}
+    table.bench th .sub{display:block;color:var(--muted);font-weight:400;font-size:10.5px;}
+    table.bench td.total{font-weight:700;}
+    .cell-btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;border:1px solid transparent;}
+    .cell-btn:hover{background:var(--surface-2);}
+    .cell-btn.active{border-color:var(--accent);background:rgba(217,119,87,.08);}
+    .runs{display:inline-flex;gap:3px;}
+    .run{width:12px;height:12px;border-radius:3px;background:var(--success);}
+    .run.fail{background:#fde8e4;border:1.5px solid var(--danger);}
+    .flag-chip{color:var(--danger);font-weight:700;}
+    .bench-legend{display:flex;gap:18px;flex-wrap:wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin:10px 0 24px;}
+    .bench-legend .run{display:inline-block;vertical-align:-2px;margin-right:6px;}
+
+    .detail{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;}
+    .detail h3{margin-bottom:4px;}
+    .detail .meta{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:13px;margin:10px 0 14px;}
+    .detail .meta dt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding-top:2px;}
+    .detail .meta dd{margin:0;}
+    .run-row.fail{cursor:pointer;}
+    .run-row .rtext{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;}
+    .run-row .usual{color:var(--muted);}
+    .run-expand{margin:6px 0 4px;}
+    .run-expand pre{font-size:11.5px;}
+    .run-expand .after{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px;}
+    .run-expand .after code{background:var(--surface-2);padding:3px 8px;border-radius:4px;color:var(--text);}
+
+    pre .tp{color:#d97757;}
+    pre .td{color:#8a877c;}
+    pre .tb{color:#e08a7e;font-weight:600;}
+    pre .tg{color:#9cc27f;}
+    pre .tw{color:#e0b56a;}
+    pre .th{color:#f2efe6;font-weight:600;}
+
+    @media(max-width:840px){
+      .site-header{padding:16px 20px;}
+      .mock-banner{padding:8px 20px;}
+      .layout{display:block;padding:20px;}
+      nav{position:static;display:flex;flex-wrap:wrap;gap:4px;margin-bottom:24px;}
+      nav .nav-sep,nav .nav-note{display:none;}
+      .brief-grid{grid-template-columns:1fr 1fr;}
+      table.metrics,table.bench{display:block;overflow-x:auto;}
+    }
+  </style>
+</head>
+<body>
+  <div class="mock-banner">Mockup — sample data. Nothing on this page is generated by vibe-learn yet (spec 0006).</div>
+  <header class="site-header">
+    <div class="header-left">
+      <div class="eyebrow">vibe-learn / shop-api / assistant health</div>
+      <h1>Assistant health</h1>
+      <p class="goal">Signals from your real sessions and replayed benchmark tasks. Session signals are hints, not proof.</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="#trend">← Index</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="Views">
+      <a href="#trend" data-nav="trend">Health trend <span class="nbadge">3</span></a>
+      <a href="#card" data-nav="card">Session card</a>
+      <a href="#bench" data-nav="bench">Bench report <span class="nbadge">1</span></a>
+      <a href="#terminal" data-nav="terminal">Terminal</a>
+      <div class="nav-sep"></div>
+      <div class="nav-note">Badges count flagged signals. In the real briefing these are separate pages; tabs here keep the mockup in one file.</div>
+    </nav>
+
+    <main>
+      <!-- Tab 1: Health trend -->
+      <section data-tab="trend">
+        <h2>Health trend</h2>
+        <div class="callout" id="callout"></div>
+
+        <div class="controls">
+          <div class="control-group">
+            <span class="label">Metric</span>
+            <div class="filters" data-control="metric">
+              <button type="button" class="active" data-value="bash">Bash failure rate</button>
+              <button type="button" data-value="rework">Rework</button>
+              <button type="button" data-value="epp">Events / prompt</button>
+              <button type="button" data-value="ttg">Turns to green</button>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="control-group">
+            <span class="label">Group by</span>
+            <div class="filters" data-control="group">
+              <button type="button" class="active" data-value="harness">Harness</button>
+              <button type="button" data-value="model">Model</button>
+            </div>
+          </div>
+          <div class="control-group">
+            <span class="label">Window</span>
+            <div class="filters" data-control="window">
+              <button type="button" class="active" data-value="14">14d</button>
+              <button type="button" data-value="all">All</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title" id="chart-title"></div>
+          <div id="chart"></div>
+          <div class="legend" id="legend"></div>
+          <div class="caption" id="chart-caption"></div>
+        </div>
+
+        <table class="metrics" id="metrics-table"></table>
+
+        <div class="notes">
+          <h3>Design notes</h3>
+          <ul>
+            <li>The dashed marker is drawn wherever <code>harness_version</code> or <code>model</code> changes. It lets you separate "the harness updated" from "the model changed."</li>
+            <li>The baseline is the same model and harness before the latest marker. It is not a rolling average, because a rolling average would absorb a regression and stop flagging it.</li>
+            <li>Flag rule (proposed default, configurable): the "since" row moves by 10 points or more for rates, or by 2 or more for counts, and both sides have at least 5 sessions.</li>
+            <li>The control sentence ("Codex stayed flat") only appears when another harness has 3 or more sessions in the same window.</li>
+            <li>Try <em>Group by: Model</em>. The change is still visible through the marker even though every Claude point is one color, which is why the default groups by harness.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Tab 2: Session briefing card -->
+      <section data-tab="card" hidden>
+        <p class="lede">The new section on the existing session briefing page. The existing "Session brief" tiles are shown dimmed for context.</p>
+
+        <div class="context-dim">
+          <h2>Session brief</h2>
+          <div class="brief-grid">
+            <div class="brief-card"><h3>What changed</h3><div class="bvalue">11</div><div class="bdetail">2 created · 9 edited · 0 deleted</div></div>
+            <div class="brief-card"><h3>Why it matters</h3><div class="bdetail" style="margin-top:4px;">These files shape the parts of the system you may need to debug, extend, or support.</div></div>
+            <div class="brief-card"><h3>Inspect first</h3><div class="bdetail" style="margin-top:4px;">Adapter, script, config, auth, db, and test files — in that order.</div></div>
+            <div class="brief-card"><h3>What could break</h3><div class="bvalue danger">4</div><div class="bdetail">failed command(s) — inspect first</div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:36px;">
+          <div class="state-toggle controls">
+            <div class="control-group">
+              <span class="label">Mockup state</span>
+              <div class="filters" data-control="cardstate">
+                <button type="button" class="active" data-value="baseline">Has baseline</button>
+                <button type="button" data-value="building">Building baseline</button>
+              </div>
+            </div>
+          </div>
+          <div class="health-head">
+            <h2>Assistant health</h2>
+            <span class="who">claude-opus-5.5 via claude-code 2.5.0</span>
+          </div>
+          <div id="card-body"></div>
+        </div>
+
+        <div class="notes">
+          <h3>Design notes</h3>
+          <ul>
+            <li>"Usual" means the mean for this model on this harness before the latest version change, the same baseline as the trend page, so the card and the trend never disagree about what is flagged.</li>
+            <li>Delta chips only appear on flagged tiles. Unflagged tiles still show the usual value so you can compare them yourself.</li>
+            <li>With fewer than 5 earlier sessions for the model, the tiles show raw numbers and a progress line, never a comparison.</li>
+            <li>The whole section is left out when <code>health.jsonl</code> does not exist, so the page is byte-identical to today's briefing.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Tab 3: Bench report -->
+      <section data-tab="bench" hidden>
+        <h2>Bench report</h2>
+        <p class="lede">shop-api · last 30 days · 4 tasks · 36 runs. Tasks were captured from your own sessions; each one is graded by a check command that went green at the time.</p>
+        <table class="bench" id="bench-table"></table>
+        <div class="bench-legend">
+          <span><span class="run"></span>check passed</span>
+          <span><span class="run fail"></span>check failed</span>
+          <span><span class="flag-chip">!</span> 2 or more fewer passes than the previous run of the same harness</span>
+          <span>Click any cell for run details</span>
+        </div>
+        <div class="detail" id="bench-detail"></div>
+
+        <div class="notes">
+          <h3>Design notes</h3>
+          <ul>
+            <li>Counts are shown as <code>2/3</code>, not percentages. With 3 runs per task, percentages would suggest more precision than the data has.</li>
+            <li>Each column compares only with the previous run of the same harness and model. Codex has no earlier bench, so it is never flagged.</li>
+            <li>Each run keeps its own vibe-learn log under <code>.vibe-learn/bench/runs/&lt;id&gt;/</code>, so <code>/learn</code> can explain what the assistant did differently.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Tab 4: Terminal flows -->
+      <section data-tab="terminal" hidden>
+        <h2>Terminal</h2>
+        <div class="controls">
+          <div class="filters" data-control="term">
+            <button type="button" class="active" data-value="health">vibe-learn health</button>
+            <button type="button" data-value="capture">bench capture</button>
+            <button type="button" data-value="run">bench run</button>
+            <button type="button" data-value="first">bench run (first time)</button>
+          </div>
+        </div>
+
+<pre data-term="health"><span class="tp">$</span> vibe-learn health
+<span class="th">Assistant health - shop-api - last 14 days (18 sessions)</span>
+
+<span class="tw">Flagged</span>
+  claude-code 2.5.0 (claude-opus-5.5), since Sep 22 (was 2.4.1):
+    bash failure rate   8% -&gt; <span class="tb">21%</span>
+    rework rate        12% -&gt; <span class="tb">22%</span>
+    events per prompt  6.1 -&gt; <span class="tb">8.9</span>
+  codex 0.61.0 (gpt-5.6) stayed flat over the same days (bash failures 9%).
+
+                      sessions  bash fail  rework  events/prompt  turns to green
+  claude-code 2.4.1       9        8%       12%        6.1            1.3
+  claude-code 2.5.0       6       <span class="tb">21% !</span>     <span class="tb">22% !</span>      <span class="tb">8.9 !</span>          2.7
+  codex 0.61.0            3        9%       10%        5.4            1.3
+
+<span class="td">These come from your real work, not a controlled test: harder tasks look like a
+worse assistant. To confirm:</span>  vibe-learn bench run --harness=claude-code</pre>
+
+<pre data-term="capture" hidden><span class="tp">$</span> vibe-learn bench capture
+Looking for turns where a check command went green...
+
+  1. turn 4  "fix rounding in cart totals"   check: npm test -- cart    <span class="td">(failed 2x, then passed)</span>
+  2. turn 9  "add pagination to /orders"     check: npm test -- orders  <span class="td">(passed)</span>
+  Base commit: 3f2c1ab <span class="tg">(clean tree)</span>
+
+Capture which? [1-2, a=all, q=quit] <span class="th">1</span>
+Task id [fix-cart-rounding]:
+Check command [npm test -- cart]:
+Timeout seconds [600]:
+<span class="tg">Saved</span> .vibe-learn/bench/tasks/fix-cart-rounding.json
+
+<span class="td"># If the session started on a dirty tree:</span>
+<span class="tb">Cannot capture:</span> this session started with uncommitted changes, so the
+starting point can't be reproduced. Commit or stash first, or use
+vibe-learn bench add to write a task by hand.</pre>
+
+<pre data-term="run" hidden><span class="tp">$</span> vibe-learn bench run --harness=claude-code --runs=3
+<span class="th">Plan:</span> 4 tasks x 3 runs = 12 runs on claude-code 2.5.0 (claude-opus-5.5)
+Each run: fresh git worktree at the task's base commit, then the task's check.
+Your working tree is not touched.
+<span class="tw">This spends tokens on your claude-code account.</span>
+Estimate from your last bench (Sep 20): ~$0.33 per run, ~$4.00 total.
+Proceed? [y/N] <span class="th">y</span>
+
+  add-jwt-auth          1/3  <span class="tg">pass</span>  2m52s  26 tool calls
+  add-jwt-auth          2/3  <span class="tg">pass</span>  3m10s  29 tool calls
+  add-jwt-auth          3/3  <span class="tb">FAIL</span>  4m04s  41 tool calls  <span class="td">(check exit 1)</span>
+  fix-cart-rounding     1/3  <span class="tg">pass</span>  2m46s  24 tool calls
+  fix-cart-rounding     2/3  <span class="tb">FAIL</span>  4m12s  38 tool calls  <span class="td">(check exit 1)</span>
+  fix-cart-rounding     3/3  <span class="tb">FAIL</span>  3m58s  35 tool calls  <span class="td">(check exit 1)</span>
+  paginate-orders       1/3  <span class="tg">pass</span>  3m25s  30 tool calls
+  paginate-orders       2/3  <span class="tg">pass</span>  3m34s  31 tool calls
+  paginate-orders       3/3  <span class="tb">FAIL</span>  4m30s  43 tool calls  <span class="td">(check exit 1)</span>
+  migrate-users-table   1/3  <span class="tg">pass</span>  2m14s  19 tool calls
+  migrate-users-table   2/3  <span class="tg">pass</span>  2m20s  20 tool calls
+  migrate-users-table   3/3  <span class="tg">pass</span>  2m09s  18 tool calls
+
+<span class="th">Done:</span> 8/12 passed. Previous: 11/12 on claude-code 2.4.1 (Sep 20). <span class="tb">Regression flagged.</span>
+Spent ~$5.14, 1.51M tokens <span class="td">(estimate was ~$4.00)</span>
+Results: .vibe-learn/bench/results.jsonl    Report: vibe-learn bench report</pre>
+
+<pre data-term="first" hidden><span class="tp">$</span> vibe-learn bench run --harness=codex
+<span class="th">Plan:</span> 4 tasks x 3 runs = 12 runs on codex 0.61.0 (gpt-5.6)
+Each run: fresh git worktree at the task's base commit, then the task's check.
+Your working tree is not touched.
+<span class="tw">This spends tokens on your codex account.</span>
+No cost history yet. Try --runs=1 first to see what one pass costs.
+Proceed? [y/N] <span class="th">n</span>
+Nothing run.
+
+<span class="tp">$</span> vibe-learn bench run --harness=codex --runs=1 --dry-run
+Would run 4 tasks x 1 run on codex 0.61.0 (gpt-5.6):
+  add-jwt-auth          base 9e1a07c  check: npm test -- auth
+  fix-cart-rounding     base 3f2c1ab  check: npm test -- cart
+  paginate-orders       base 3f2c1ab  check: npm test -- orders
+  migrate-users-table   base c04d2e9  check: npm run migrate:test
+<span class="td">Dry run: no worktrees created, no tokens spent.</span></pre>
+
+        <div class="notes">
+          <h3>Design notes</h3>
+          <ul>
+            <li>Nothing that spends tokens runs without a <code>[y/N]</code> prompt. <code>--yes</code> skips it for scheduled runs, and <code>--dry-run</code> prints the plan only.</li>
+            <li>The estimate comes from the tokens and cost your last bench reported. The final line shows the actual spend next to the estimate.</li>
+            <li><code>vibe-learn health</code> is free: it only reads <code>.vibe-learn/health.jsonl</code>.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ---------- Sample data ----------
+    // [day in Sep 2026, harness, harness_version, model, bash fail %, rework %, events/prompt, turns to green]
+    const SESSIONS = [
+      [10, "claude-code", "2.4.1", "claude-opus-5.5",  6, 11, 5.8, 1],
+      [11, "claude-code", "2.4.1", "claude-opus-5.5",  9, 13, 6.4, 2],
+      [12, "claude-code", "2.4.1", "claude-opus-5.5",  7, 12, 6.0, 1],
+      [12, "codex",       "0.61.0", "gpt-5.6",         9, 10, 5.3, 1],
+      [13, "claude-code", "2.4.1", "claude-opus-5.5", 10, 10, 6.2, 1],
+      [14, "claude-code", "2.4.1", "claude-opus-5.5",  8, 14, 5.9, 2],
+      [16, "claude-code", "2.4.1", "claude-opus-5.5",  7, 12, 6.3, 1],
+      [17, "claude-code", "2.4.1", "claude-opus-5.5",  9, 11, 6.1, 2],
+      [17, "codex",       "0.61.0", "gpt-5.6",         8, 11, 5.6, 2],
+      [18, "claude-code", "2.4.1", "claude-opus-5.5",  8, 13, 6.0, 1],
+      [19, "claude-code", "2.4.1", "claude-opus-5.5",  6, 12, 6.2, 1],
+      [20, "claude-code", "2.4.1", "claude-opus-5.5", 10, 12, 6.0, 2],
+      [21, "claude-code", "2.4.1", "claude-opus-5.5",  8, 12, 6.2, 1],
+      [22, "claude-code", "2.5.0", "claude-opus-5.5", 18, 20, 8.6, 2],
+      [22, "claude-code", "2.5.0", "claude-opus-5.5", 22, 22, 9.0, 3],
+      [23, "claude-code", "2.5.0", "claude-opus-5.5", 19, 21, 8.4, 2],
+      [23, "codex",       "0.61.0", "gpt-5.6",        10,  9, 5.3, 1],
+      [24, "claude-code", "2.5.0", "claude-opus-5.5", 20, 23, 9.1, 3],
+      [24, "claude-code", "2.5.0", "claude-opus-5.5", 23, 21, 9.1, 3],
+      [25, "claude-code", "2.5.0", "claude-opus-5.5", 24, 27, 9.2, 3],
+    ];
+    const MARKER_DAY = 22;
+    const MARKER_LABEL = "claude-code 2.5.0";
+
+    const METRICS = {
+      bash:   { name: "Bash failure rate", title: "Bash failure rate per session", axis: "Failed commands (%)", rate: true, thr: 10 },
+      rework: { name: "Rework rate", title: "Rework rate per session", axis: "Files re-edited in 3+ turns (%)", rate: true, thr: 10 },
+      epp:    { name: "Events per prompt", title: "Tool events per user prompt", axis: "Tool events per prompt", rate: false, thr: 2 },
+      ttg:    { name: "Turns to green", title: "Turns from first failing check to passing", axis: "Turns", rate: false, thr: 2 },
+    };
+    const METRIC_KEYS = ["bash", "rework", "epp", "ttg"];
+
+    const SERIES = {
+      "claude-code 2.4.1": { color: "var(--accent-blue)",  square: false, legend: "claude-code 2.4.1 (claude-opus-5.5)" },
+      "claude-code 2.5.0": { color: "var(--accent)",       square: false, legend: "claude-code 2.5.0 (claude-opus-5.5)" },
+      "codex 0.61.0":      { color: "var(--accent-green)", square: true,  legend: "codex 0.61.0 (gpt-5.6)" },
+      "claude-opus-5.5":   { color: "var(--accent)",       square: false, legend: "claude-opus-5.5 (claude-code)" },
+      "gpt-5.6":           { color: "var(--accent-green)", square: true,  legend: "gpt-5.6 (codex)" },
+    };
+
+    const state = { metric: "bash", group: "harness", window: "14", cardstate: "baseline", term: "health" };
+
+    // ---------- Helpers ----------
+    const avg = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+    const sd = a => { const m = avg(a); return Math.sqrt(avg(a.map(v => (v - m) ** 2))); };
+    const fmt = (key, v) => METRICS[key].rate ? Math.round(v) + "%" : v.toFixed(1);
+    const fmtDelta = (key, d) => (d >= 0 ? "+" : "") + (METRICS[key].rate ? Math.round(d) + " pts" : d.toFixed(1));
+    const dayLabel = d => "Sep " + d;
+    const fmtDur = s => Math.floor(s / 60) + "m" + String(s % 60).padStart(2, "0") + "s";
+    const median = a => { const b = [...a].sort((x, y) => x - y); const m = Math.floor(b.length / 2); return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    function sessionsInWindow() {
+      const from = state.window === "14" ? 12 : 0;
+      return SESSIONS.filter(s => s[0] >= from).map(s => ({
+        day: s[0], harness: s[1], version: s[2], model: s[3],
+        v: { bash: s[4], rework: s[5], epp: s[6], ttg: s[7] },
+      }));
+    }
+    const seriesKey = r => state.group === "harness" ? r.harness + " " + r.version : r.model;
+
+    function groups(rows) {
+      const claude = rows.filter(r => r.harness === "claude-code");
+      const codex = rows.filter(r => r.harness === "codex");
+      const before = claude.filter(r => r.day < MARKER_DAY);
+      const since = claude.filter(r => r.day >= MARKER_DAY);
+      return state.group === "harness"
+        ? [
+            { label: "claude-code 2.4.1", sub: "claude-opus-5.5", rows: before, role: "before" },
+            { label: "claude-code 2.5.0", sub: "claude-opus-5.5", rows: since, role: "since" },
+            { label: "codex 0.61.0", sub: "gpt-5.6", rows: codex, role: "control" },
+          ]
+        : [
+            { label: "claude-opus-5.5", sub: "before Sep 22", rows: before, role: "before" },
+            { label: "claude-opus-5.5", sub: "since Sep 22", rows: since, role: "since" },
+            { label: "gpt-5.6", sub: "codex", rows: codex, role: "control" },
+          ];
+    }
+    const mean = (rows, key) => avg(rows.map(r => r.v[key]));
+    function isFlagged(before, since, key) {
+      return before.length >= 5 && since.length >= 5 && mean(since, key) - mean(before, key) >= METRICS[key].thr;
+    }
+
+    // ---------- Tab 1: callout ----------
+    function renderCallout() {
+      const rows = sessionsInWindow();
+      const [b, s, c] = groups(rows);
+      const flagged = METRIC_KEYS.filter(k => isFlagged(b.rows, s.rows, k));
+      const el = document.getElementById("callout");
+      if (!flagged.length) { el.hidden = true; return; }
+      el.hidden = false;
+      const lines = flagged.map(k =>
+        `<span>${METRICS[k].name}</span><span>${fmt(k, mean(b.rows, k))} → <span class="to">${fmt(k, mean(s.rows, k))}</span></span><span></span>`
+      ).join("");
+      const lead = flagged[0];
+      const controlFlat = c.rows.length >= 3 && Math.abs(mean(c.rows, lead) - mean(b.rows, lead)) < METRICS[lead].thr;
+      const control = controlFlat
+        ? `<p class="control">Codex sessions over the same days stayed flat (${METRICS[lead].name.toLowerCase()} ${fmt(lead, mean(c.rows, lead))}), so the harness update is a likelier cause than your tasks getting harder.</p>`
+        : "";
+      el.innerHTML = `
+        <h3>Something changed around ${dayLabel(MARKER_DAY)}</h3>
+        <div class="cause">claude-code 2.4.1 → 2.5.0 · model unchanged: claude-opus-5.5 · ${s.rows.length} sessions since, ${b.rows.length} before</div>
+        <div class="deltas">${lines}</div>
+        ${control}
+        <div class="confirm">Confirm with a controlled replay: <code>vibe-learn bench run --harness=claude-code</code><button type="button" data-copy="vibe-learn bench run --harness=claude-code">Copy command</button></div>`;
+    }
+
+    // ---------- Tab 1: chart ----------
+    function renderChart() {
+      const key = state.metric, m = METRICS[key];
+      const rows = sessionsInWindow();
+      const W = 760, H = 280, L = 56, R = 18, T = 26, B = 46;
+      const d0 = state.window === "14" ? 12 : 10, d1 = 25;
+      const x = d => L + (d - d0) / (d1 - d0) * (W - L - R);
+      const maxV = Math.max(...rows.map(r => r.v[key]));
+      const tickStep = [0.5, 1, 2, 2.5, 5, 10, 20].find(st => Math.ceil(maxV * 1.1 / st) <= 5);
+      const ticks = Math.ceil(maxV * 1.1 / tickStep);
+      const ymax = ticks * tickStep;
+      const y = v => T + (1 - v / ymax) * (H - T - B);
+
+      const base = rows.filter(r => r.harness === "claude-code" && r.day < MARKER_DAY).map(r => r.v[key]);
+      const bm = avg(base), bs = sd(base);
+      const lo = Math.max(0, bm - bs), hi = bm + bs;
+
+      let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${m.title}">`;
+      for (let i = 0; i <= ticks; i++) {
+        const v = tickStep * i;
+        s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/>`;
+        s += `<text class="tick" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${m.rate ? v + "%" : v.toFixed(v % 1 ? 1 : 0)}</text>`;
+      }
+      s += `<rect class="band" x="${L}" width="${W - L - R}" y="${y(hi)}" height="${y(lo) - y(hi)}"/>`;
+      for (let d = d0; d <= d1; d++) {
+        if ((d - d0) % 3 !== 0) continue;
+        s += `<text class="tick" x="${x(d)}" y="${H - B + 18}" text-anchor="middle">${dayLabel(d)}</text>`;
+      }
+      s += `<line class="marker" x1="${x(MARKER_DAY)}" x2="${x(MARKER_DAY)}" y1="${T - 8}" y2="${H - B}"/>`;
+      s += `<text class="marker-label" x="${x(MARKER_DAY) - 6}" y="${T - 12}" text-anchor="end">${MARKER_LABEL}</text>`;
+
+      const byDay = {};
+      rows.forEach(r => (byDay[r.day] = byDay[r.day] || []).push(r));
+      rows.forEach(r => {
+        const same = byDay[r.day], i = same.indexOf(r);
+        const cx = x(r.day) + (i - (same.length - 1) / 2) * 11, cy = y(r.v[key]);
+        const st = SERIES[seriesKey(r)];
+        const tip = `<title>${dayLabel(r.day)} · ${r.harness} ${r.version} · ${r.model} · ${fmt(key, r.v[key])}</title>`;
+        s += st.square
+          ? `<rect class="pt" x="${cx - 5}" y="${cy - 5}" width="10" height="10" rx="1.5" style="fill:${st.color}">${tip}</rect>`
+          : `<circle class="pt" cx="${cx}" cy="${cy}" r="5.5" style="fill:${st.color}">${tip}</circle>`;
+      });
+      s += `<text class="axis-label" transform="rotate(-90)" x="${-(T + (H - T - B) / 2)}" y="14" text-anchor="middle">${m.axis}</text>`;
+      s += `<text class="axis-label" x="${L + (W - L - R) / 2}" y="${H - 6}" text-anchor="middle">Session date</text>`;
+      s += `</svg>`;
+
+      document.getElementById("chart-title").textContent = m.title;
+      document.getElementById("chart").innerHTML = s;
+      const keys = [...new Set(rows.map(seriesKey))];
+      document.getElementById("legend").innerHTML = keys.map(k =>
+        `<span><span class="swatch${SERIES[k].square ? " sq" : ""}" style="background:${SERIES[k].color}"></span>${SERIES[k].legend}</span>`
+      ).join("") + `<span><span class="swatch sq" style="background:var(--surface-2);border:1px solid var(--line)"></span>usual range: claude-code before ${dayLabel(MARKER_DAY)}, mean ± 1 sd</span>`;
+      const first = Math.min(...rows.map(r => r.day)), last = Math.max(...rows.map(r => r.day));
+      document.getElementById("chart-caption").textContent =
+        `Source: .vibe-learn/health.jsonl · ${rows.length} sessions · ${dayLabel(first)}–${last} 2026 · one point per session, hover for details`;
+    }
+
+    // ---------- Tab 1: table ----------
+    function renderTable() {
+      const g = groups(sessionsInWindow());
+      const before = g[0].rows, since = g[1].rows;
+      const head = `<tr><th>${state.group === "harness" ? "Harness" : "Model"}</th><th>Sessions</th>` +
+        METRIC_KEYS.map(k => `<th class="${k === state.metric ? "sel" : ""}">${METRICS[k].name}</th>`).join("") + `</tr>`;
+      const body = g.map(grp => {
+        const cells = METRIC_KEYS.map(k => {
+          const flag = grp.role === "since" && isFlagged(before, since, k);
+          const cls = [k === state.metric ? "sel" : "", flag ? "flag" : ""].join(" ").trim();
+          return `<td class="${cls}">${fmt(k, mean(grp.rows, k))}${flag ? " !" : ""}</td>`;
+        }).join("");
+        return `<tr><td>${grp.label}<span class="sub">${grp.sub}</span></td><td>${grp.rows.length}</td>${cells}</tr>`;
+      }).join("");
+      document.getElementById("metrics-table").innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+    }
+
+    // ---------- Tab 2: session card ----------
+    const CURRENT = {
+      bash: { v: 24, detail: "4 of 17 commands" },
+      rework: { v: 27, detail: "3 of 11 files" },
+      epp: { v: 9.2, detail: "147 events, 16 prompts" },
+      ttg: { v: 3, detail: "npm test -- cart" },
+    };
+    const TILE_NAMES = { bash: "Bash failures", rework: "Rework", epp: "Events / prompt", ttg: "Turns to green" };
+
+    function renderCard() {
+      const baseRows = SESSIONS.filter(s => s[0] >= 12 && s[1] === "claude-code" && s[0] < MARKER_DAY)
+        .map(s => ({ v: { bash: s[4], rework: s[5], epp: s[6], ttg: s[7] } }));
+      const building = state.cardstate === "building";
+      let flaggedCount = 0;
+      const tiles = METRIC_KEYS.map(k => {
+        const cur = CURRENT[k].v;
+        const usual = mean(baseRows, k);
+        const d = cur - usual;
+        const flag = !building && d >= METRICS[k].thr;
+        if (flag) flaggedCount++;
+        const chip = flag ? `<span class="delta bad">${fmtDelta(k, d)}</span>` : "";
+        const detail = building ? CURRENT[k].detail : `${CURRENT[k].detail}<br>usual ${fmt(k, usual)}`;
+        return `<div class="brief-card"><h3>${TILE_NAMES[k]}</h3>
+          <div class="bvalue${flag ? " danger" : ""}">${fmt(k, cur)}${chip}</div>
+          <div class="bdetail">${detail}</div></div>`;
+      }).join("");
+      const footer = building
+        ? `<div class="card-footer"><span class="muted">Building your baseline: 2 of 5 sessions for claude-opus-5.5 on claude-code. Comparisons start after 5.</span></div>`
+        : `<div class="card-footer"><span>Above your usual on <strong>${flaggedCount} of 4</strong> signals for this model.</span><a href="#trend">See the trend →</a></div>`;
+      document.getElementById("card-body").innerHTML = `<div class="brief-grid">${tiles}</div>${footer}`;
+    }
+
+    // ---------- Tab 3: bench ----------
+    const BENCH_COLS = [
+      { id: "cc241", harness: "claude-code 2.4.1", model: "claude-opus-5.5", date: "Sep 20", prev: null },
+      { id: "cc250", harness: "claude-code 2.5.0", model: "claude-opus-5.5", date: "Sep 25", prev: "cc241" },
+      { id: "codex", harness: "codex 0.61.0", model: "gpt-5.6", date: "Sep 25", prev: null },
+    ];
+    const BENCH_TASKS = [
+      { id: "add-jwt-auth", prompt: "Add JWT auth to the /account routes", check: "npm test -- auth", from: "Sep 14 session, turn 3",
+        tail: "  ✕ auth › rejects an expired token\n\n    Expected status: 401\n    Received status: 200\n\nTests:       1 failed, 18 passed, 19 total" },
+      { id: "fix-cart-rounding", prompt: "fix rounding in cart totals", check: "npm test -- cart", from: "Sep 19 session, turn 4",
+        tail: "  ✕ cart totals › rounds 0.1 + 0.2 to 0.30\n\n    Expected: \"0.30\"\n    Received: \"0.3\"\n\nTests:       1 failed, 23 passed, 24 total" },
+      { id: "paginate-orders", prompt: "add pagination to /orders", check: "npm test -- orders", from: "Sep 19 session, turn 9",
+        tail: "  ✕ orders › returns next_cursor null on the last page\n\n    Expected: null\n    Received: \"b3JkZXI6MTAw\"\n\nTests:       1 failed, 11 passed, 12 total" },
+      { id: "migrate-users-table", prompt: "add a migration that splits users.name into first and last", check: "npm run migrate:test", from: "Sep 21 session, turn 2",
+        tail: "Error: column \"first_name\" of relation \"users\" already exists\n    at down migration 0007_split_user_name\nmigrate:test failed: down migration is not reversible" },
+    ];
+    // [passed, seconds, tool calls, thousand tokens]
+    const RUNS = {
+      "add-jwt-auth":        { cc241: [[1,161,22,96],[1,178,25,104],[1,170,23,99]],   cc250: [[1,172,26,110],[1,190,29,121],[0,244,41,168]], codex: [[1,150,19,88],[1,162,21,91],[1,158,20,90]] },
+      "fix-cart-rounding":   { cc241: [[1,148,20,84],[1,152,21,86],[1,140,19,80]],    cc250: [[1,166,24,97],[0,252,38,182],[0,238,35,171]],  codex: [[1,139,18,79],[1,151,20,83],[0,210,31,140]] },
+      "paginate-orders":     { cc241: [[1,190,27,112],[1,201,28,118],[0,260,40,170]], cc250: [[1,205,30,121],[1,214,31,126],[0,270,43,178]], codex: [[1,180,24,101],[1,188,25,106],[1,176,23,99]] },
+      "migrate-users-table": { cc241: [[1,120,16,70],[1,131,18,74],[1,125,17,72]],    cc250: [[1,134,19,79],[1,140,20,82],[1,129,18,76]],    codex: [[1,118,15,66],[1,122,16,69],[0,190,28,120]] },
+    };
+    const COST_PER_KTOK = 0.0034;
+    const benchSel = { task: "fix-cart-rounding", col: "cc250", open: 1 };
+
+    const colById = id => BENCH_COLS.find(c => c.id === id);
+    const passes = (task, col) => RUNS[task][col].filter(r => r[0]).length;
+    const totalPasses = col => BENCH_TASKS.reduce((s, t) => s + passes(t.id, col), 0);
+    const cellFlag = (task, col) => { const c = colById(col); return !!c.prev && passes(task, c.prev) - passes(task, col) >= 2; };
+    const totalFlag = col => { const c = colById(col); return !!c.prev && totalPasses(c.prev) - totalPasses(col) >= 2; };
+
+    function renderBench() {
+      const head = `<tr><th>Task</th>` + BENCH_COLS.map(c =>
+        `<th>${c.harness}<span class="sub">${c.model} · ${c.date}</span></th>`).join("") + `</tr>`;
+      const body = BENCH_TASKS.map(t => `<tr><td>${t.id}</td>` + BENCH_COLS.map(c => {
+        const runs = RUNS[t.id][c.id];
+        const dots = runs.map(r => `<span class="run${r[0] ? "" : " fail"}"></span>`).join("");
+        const active = benchSel.task === t.id && benchSel.col === c.id ? " active" : "";
+        const flag = cellFlag(t.id, c.id) ? ` <span class="flag-chip">!</span>` : "";
+        return `<td><button type="button" class="cell-btn${active}" data-task="${t.id}" data-col="${c.id}"><span class="runs">${dots}</span>${passes(t.id, c.id)}/${runs.length}${flag}</button></td>`;
+      }).join("") + `</tr>`).join("");
+      const total = `<tr><td class="total">total</td>` + BENCH_COLS.map(c =>
+        `<td class="total">&nbsp;&nbsp;${totalPasses(c.id)}/12${totalFlag(c.id) ? ` <span class="flag-chip">!</span>` : ""}</td>`).join("") + `</tr>`;
+      document.getElementById("bench-table").innerHTML = `<thead>${head}</thead><tbody>${body}${total}</tbody>`;
+      document.querySelectorAll(".cell-btn").forEach(b => b.addEventListener("click", () => {
+        benchSel.task = b.dataset.task;
+        benchSel.col = b.dataset.col;
+        benchSel.open = RUNS[benchSel.task][benchSel.col].findIndex(r => !r[0]);
+        renderBench();
+      }));
+      renderBenchDetail();
+    }
+
+    function renderBenchDetail() {
+      const t = BENCH_TASKS.find(t => t.id === benchSel.task);
+      const c = colById(benchSel.col);
+      const runs = RUNS[t.id][c.id];
+      const prev = c.prev ? RUNS[t.id][c.prev] : null;
+      const usualDur = prev ? median(prev.map(r => r[1])) : null;
+      const usualTools = prev ? median(prev.map(r => r[2])) : null;
+      const rowsHtml = runs.map((r, i) => {
+        const runId = `2026-09-25-${t.id}-${c.id}-${i + 1}`;
+        const cost = (r[3] * COST_PER_KTOK).toFixed(2);
+        const usual = usualDur !== null && !r[0] ? ` <span class="usual">(usual ${fmtDur(usualDur)}, ${usualTools} tool calls)</span>` : "";
+        const row = `<li class="command-row run-row ${r[0] ? "ok" : "fail"}" data-run="${i}">
+          <span class="rtext">run ${i + 1} of ${runs.length} · ${fmtDur(r[1])} · ${r[2]} tool calls · ${r[3]}k tokens · ~$${cost}${usual}</span>
+          <span class="status">${r[0] ? "check passed" : "check exit 1"}</span></li>`;
+        if (r[0] || benchSel.open !== i) return row;
+        const ask = `/learn why did bench run ${t.id}-${i + 1} fail?`;
+        return row + `<li class="run-expand"><pre>${esc(t.tail)}</pre>
+          <div class="after">Run log kept: <code>.vibe-learn/bench/runs/${runId}/</code></div>
+          <div class="after">Ask about it: <code>${esc(ask)}</code><button type="button" data-copy="${esc(ask)}">Copy</button></div></li>`;
+      }).join("");
+      const flagNote = cellFlag(t.id, c.id)
+        ? `<p style="color:var(--danger);font-size:14px;margin:0 0 12px;">${passes(t.id, c.id)}/3 passed, down from ${passes(t.id, c.prev)}/3 on ${colById(c.prev).harness}.</p>`
+        : "";
+      document.getElementById("bench-detail").innerHTML = `
+        <h3>${t.id} × ${c.harness}</h3>
+        <div class="mono" style="color:var(--muted);font-size:12px;">${c.model} · ${c.date}</div>
+        <dl class="meta">
+          <dt>Prompt</dt><dd>"${esc(t.prompt)}"</dd>
+          <dt>Check</dt><dd><code>${esc(t.check)}</code></dd>
+          <dt>Captured</dt><dd>${t.from}</dd>
+        </dl>
+        ${flagNote}
+        <ul class="list">${rowsHtml}</ul>`;
+      document.querySelectorAll(".run-row.fail").forEach(li => li.addEventListener("click", () => {
+        const i = Number(li.dataset.run);
+        benchSel.open = benchSel.open === i ? -1 : i;
+        renderBenchDetail();
+      }));
+      bindCopy();
+    }
+
+    // ---------- Wiring ----------
+    function bindCopy() {
+      document.querySelectorAll("[data-copy]").forEach(b => {
+        if (b.dataset.bound) return;
+        b.dataset.bound = "1";
+        b.addEventListener("click", e => {
+          e.stopPropagation();
+          navigator.clipboard?.writeText(b.dataset.copy).then(() => {
+            const old = b.textContent;
+            b.textContent = "Copied!";
+            setTimeout(() => { b.textContent = old; }, 1400);
+          });
+        });
+      });
+    }
+
+    function renderTrend() { renderCallout(); renderChart(); renderTable(); bindCopy(); }
+
+    document.querySelectorAll("[data-control]").forEach(group => {
+      group.querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => {
+        group.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const ctl = group.dataset.control;
+        state[ctl] = btn.dataset.value;
+        if (ctl === "cardstate") renderCard();
+        else if (ctl === "term") document.querySelectorAll("[data-term]").forEach(p => { p.hidden = p.dataset.term !== state.term; });
+        else renderTrend();
+      }));
+    });
+
+    function showTab() {
+      const tab = (location.hash || "#trend").slice(1);
+      const valid = ["trend", "card", "bench", "terminal"].includes(tab) ? tab : "trend";
+      document.querySelectorAll("[data-tab]").forEach(s => { s.hidden = s.dataset.tab !== valid; });
+      document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("active", a.dataset.nav === valid));
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener("hashchange", showTab);
+
+    renderTrend();
+    renderCard();
+    renderBench();
+    showTab();
+  </script>
+</body>
+</html>
