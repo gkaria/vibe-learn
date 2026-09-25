@@ -292,3 +292,38 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   local page="$TEST_PROJECT_DIR/.vibe-learn/briefing/health.html"
   [ "$(grep -c '</script>' "$page")" = "1" ]
 }
+
+# ---------------------------------------------------------------------------
+# Tool and skill use
+# ---------------------------------------------------------------------------
+
+@test "tool use per session is averaged per period, with skills and commands summed" {
+  seed_history
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
+  [[ "$output" == *"Tool use per session"* ]]
+  [[ "$output" == *"claude-code 2.4.1 · claude-opus-5.5  read 20 · shell 12 · edit 10 · search 6  (skills: explain ×3)"* ]]
+  [[ "$output" == *"claude-code 2.5.0 · claude-opus-5.5  read 22 · shell 18 · search 16 · edit 14  (skills: explain ×6; commands: /learn ×4)"* ]]
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
+  [ "$(echo "$output" | jq -c '.series[] | select(.key == "codex") | .periods[0].usage.tools')" = '{"shell":26,"edit":8,"plan":3}' ]
+}
+
+@test "rows without usage leave the tool section out" {
+  seed_history
+  filter_history 'del(.usage)'
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
+  [[ "$output" != *"Tool use per session"* ]]
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --save
+  ! grep -q "Tool use per session" "$TEST_PROJECT_DIR/.vibe-learn/health-reports/"*.md
+}
+
+@test "briefing card and page show tool use" {
+  seed_history
+  seed_session
+  local t="$TEST_PROJECT_DIR/claude.jsonl"
+  echo '{"type":"assistant","timestamp":"2099-01-01T00:00:00.000Z","message":{"content":[{"type":"tool_use","name":"Read","input":{}},{"type":"tool_use","name":"Read","input":{}},{"type":"tool_use","name":"Skill","input":{"skill":"quiz"}}]}}' > "$t"
+  jq --arg t "$t" '. + {transcript_path: $t}' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" > "$t.meta" \
+    && mv "$t.meta" "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  grep -q '<p class="usage">Tools: read 2 · skill 1 &nbsp;·&nbsp; Skills: quiz</p>' "$(session_file)"
+  grep -q 'id="usage-table"' "$TEST_PROJECT_DIR/.vibe-learn/briefing/health.html"
+}

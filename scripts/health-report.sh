@@ -148,6 +148,18 @@ render() {
       | "\(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][$m - 1]) \($d)";
     def lpad($n): tostring | if length >= $n then . else (" " * ($n - length)) + . end;
     def rpad($n): tostring | if length >= $n then . else . + (" " * ($n - length)) end;
+    def sum_maps: [.[] | to_entries[]] | group_by(.key) | map({key: .[0].key, value: (map(.value) | add)});
+    # Tool families averaged per session (over rows that could read the host
+    # record), skills and typed commands summed. null when no row has usage.
+    def usage_summary: map(select(.usage != null)) as $u
+      | ($u | map(.usage.tools | objects)) as $t
+      | if ($u | length) == 0 then null else {
+          sessions: ($t | length),
+          tools: ($t | sum_maps | map(.value = (.value / ($t | length) * 10 | round / 10))
+                  | sort_by(-.value, .key) | from_entries),
+          skills: ($u | map(.usage.skills | objects) | sum_maps | sort_by(-.value, .key) | from_entries),
+          commands: ($u | map(.usage.commands | objects) | sum_maps | sort_by(-.value, .key) | from_entries)
+        } end;
 
     def cfg_fields($by): if $by == "harness" then ["harness_version", "model", "effort"]
                          else ["harness", "harness_version", "effort"] end;
@@ -188,6 +200,7 @@ render() {
             sessions: length,
             eligible: (map(select(.eligible)) | length),
             means: (map(select(.eligible)) | means),
+            usage: usage_summary,
             latest: false
           }] | (if length > 0 and $m != null then .[-1].latest = true else . end),
           marker: (if $m == null then null else {
@@ -234,7 +247,7 @@ render() {
           current: [$rows[] | select(.current) | . as $cur
             | ($series | map(select(.key == ($cur | series_key($by)))) | first) as $cs
             | {series: ($cur | series_key($by)), harness, harness_version, model, effort,
-               segment, metrics, eligible,
+               segment, metrics, eligible, usage,
                usual: ($cs.baseline // null),
                flags: ([($cs.flags // [])[].metric])}]
         };
@@ -284,6 +297,19 @@ render() {
         def caveat: "These come from your real work, not a controlled test: harder tasks look like a worse assistant.";
         def current_line: $v.current | if length == 0 then null else .[-1] as $c
           | "Current session (in progress, \($c.series)): " + ([mkeys[] as $k | "\(mname($k)) \(fmt($k; $c.metrics[$k]))"] | join(" · ")) end;
+        def trim_num: tostring | sub("\\.0$"; "");
+        def tools_text: to_entries | .[:6] | map("\(.key) \(.value | trim_num)") | join(" · ");
+        def names_text: to_entries | map(.key + (if .value > 1 then " ×\(.value)" else "" end)) | join(", ");
+        def extras_text($u): [
+            (if ($u.skills // {}) != {} then "skills: " + ($u.skills | names_text) else empty end),
+            (if ($u.commands // {}) != {} then "commands: " + ($u.commands | to_entries | map("/" + .key + (if .value > 1 then " ×\(.value)" else "" end)) | join(", ")) else empty end)
+          ] | join("; ");
+        def usage_rows: [$v.series[].periods[] | select(.usage != null)
+          | {label: (.label + (if .sub != "" then " · " + .sub else "" end)), u: .usage}];
+        def current_usage_line: $v.current | if length == 0 then null else [.[] | .usage | objects] | first
+          | if . == null then null else
+              "Current session tools: " + (if .tools then (.tools | tools_text | if . == "" then "none" else . end) else "unknown" end)
+              + (extras_text(.) | if . != "" then "; " + . else "" end) end end;
 
         if $format == "text" then
           (table_rows) as $tr
@@ -310,7 +336,16 @@ render() {
                  ($tr[] | "  " + (.label | rpad($w)) + "  " + ([.sessions, .cells[]] as $c | [range(0; 5) as $i | $c[$i] | lpad($heads[$i] | length)] | join("  "))),
                  ""
                else empty end),
+              (usage_rows | if length > 0 then
+                 ([.[].label | length] | max) as $uw
+                 | "Tool use per session",
+                   (.[] | "  " + (.label | rpad($uw)) + "  "
+                     + (if .u.sessions > 0 then (.u.tools | tools_text) else "tools unknown" end)
+                     + (extras_text(.u) | if . != "" then "  (" + . + ")" else "" end)),
+                   ""
+               else empty end),
               (current_line | select(. != null)),
+              (current_usage_line | select(. != null)),
               (current_line | select(. != null) | ""),
               caveat
             ] | join("\n")
@@ -333,6 +368,13 @@ render() {
                "| \(if $by == "harness" then "Harness" else "Model" end) | Sessions | Bash failure rate | Rework rate | Events / prompt | Turns to green |",
                "|---|---:|---:|---:|---:|---:|",
                (.[] | "| \(.label) | \(.sessions) | \(.cells | join(" | ")) |"),
+               ""
+             else empty end),
+            (usage_rows | if length > 0 then
+               "## Tool use per session", "",
+               "| \(if $by == "harness" then "Harness" else "Model" end) | Tools (average calls per session) | Skills and commands |",
+               "|---|---|---|",
+               (.[] | "| \(.label) | \(if .u.sessions > 0 then (.u.tools | tools_text) else "unknown" end) | \(extras_text(.u) | if . == "" then "-" else . end) |"),
                ""
              else empty end),
             "_\(caveat) A `!` marks a signal that rose past the threshold (\($s.rate_threshold_pts) points for rates, \($s.count_threshold) for counts) against the sessions before the latest change, with at least \($s.min_sessions) sessions on each side._"

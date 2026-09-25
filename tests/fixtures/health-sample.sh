@@ -4,7 +4,8 @@
 # Mirrors docs/mockups/assistant-health.html: claude-code moves from 2.4.1 to
 # 2.5.0 on the mockup's Sep 22 and three signals rise; codex stays flat over
 # the same days. The mockup's Sep 25 is shifted to today minus DAY_OFFSET
-# (default 0), so date windows behave the same on any day.
+# (default 0), so date windows behave the same on any day. Tool use shifts
+# toward search after the change, as a regression might.
 
 OFFSET="${1:-0}"
 
@@ -26,7 +27,13 @@ row() {
      metrics: {prompts: 6, turns: 6, tool_events: 40, events_per_prompt: $e,
                bash_runs: 20, bash_failures: 0, bash_fail_rate: ($b / 100),
                failed_file_ops: 0, files_touched: 10, files_reworked: 1, rework_rate: ($r / 100),
-               check_runs: 4, check_recoveries: 1, check_unrecovered: 0, turns_to_green: $t}}'
+               check_runs: 4, check_recoveries: 1, check_unrecovered: 0, turns_to_green: $t},
+     usage: {
+       tools: ({"2.4.1": {read: 20, shell: 12, edit: 10, search: 6},
+                "2.5.0": {read: 22, search: 16, shell: 18, edit: 14},
+                "0.61.0": {shell: 26, edit: 8, plan: 3}}[$v]),
+       skills: (if $t >= 2 then {explain: 1} else {} end),
+       commands: (if $h == "claude-code" and $e >= 9 then {learn: 1} else {} end)}}'
 }
 
 row 10 claude-code 2.4.1 claude-opus-5.5  6 11 5.8 1

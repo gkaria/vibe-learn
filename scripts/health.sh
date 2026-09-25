@@ -7,12 +7,17 @@
 # turn's (model, effort) changes, so a session with no switch prints one line.
 # Read-only; prints nothing when the log has no prompts or tool events.
 # bootstrap.sh appends the output to health.jsonl before it rotates the log.
+# The first segment's row also carries `usage`: tool families and skills for
+# the whole session (from the host's transcript, see usage.sh) and slash
+# commands typed in prompts.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=identity.sh
 . "$SCRIPT_DIR/identity.sh"
+# shellcheck source=usage.sh
+[ -f "$SCRIPT_DIR/usage.sh" ] && . "$SCRIPT_DIR/usage.sh"
 
 LOG_DIR="${1:-.vibe-learn}"
 SESSION_LOG="$LOG_DIR/session-log.jsonl"
@@ -24,9 +29,10 @@ META=""
 [ -f "$META_FILE" ] && META=$(jq -c 'objects' "$META_FILE" 2>/dev/null)
 [ -n "$META" ] || META='{}'
 
-IFS="$VL_SEP" read -r HARNESS TRANSCRIPT META_VERSION META_MODEL <<EOF
+IFS="$VL_SEP" read -r HARNESS TRANSCRIPT META_VERSION META_MODEL SESSION_ID STARTED_AT <<EOF
 $(printf '%s' "$META" | jq -r --arg sep "$VL_SEP" \
-  '[(.harness // ""), (.transcript_path // ""), (.harness_version // ""), (.model // "")] | map(tostring) | join($sep)')
+  '[(.harness // ""), (.transcript_path // ""), (.harness_version // ""), (.model // ""),
+    (.session_id // ""), (.started_at // "")] | map(tostring) | join($sep)')
 EOF
 
 # Claude Code and Codex write their version into the transcript after
@@ -44,8 +50,16 @@ $(vl_host_config "$HARNESS" "$TRANSCRIPT" "" "")
 EOF
 fi
 
+USAGE=null
+if command -v vl_session_usage >/dev/null 2>&1; then
+  ROOT=$(cd "$LOG_DIR/.." 2>/dev/null && pwd)
+  USAGE=$(vl_session_usage "$HARNESS" "$TRANSCRIPT" "$ROOT" "$SESSION_ID" "$STARTED_AT")
+  printf '%s' "$USAGE" | jq -e 'type == "object" or . == null' >/dev/null 2>&1 || USAGE=null
+fi
+
 jq -Rn -c \
   --argjson meta "$META" \
+  --argjson usage "$USAGE" \
   --arg version "$VERSION" \
   --arg host_model "$HOST_MODEL" \
   --arg host_effort "$HOST_EFFORT" '
@@ -114,6 +128,12 @@ jq -Rn -c \
   | ($bash | map(select((.context.exit_code // 0) != 0)) | length) as $bash_failures
   | ($turns_per_file | length) as $files_touched
   | ($turns_per_file | map(select(. >= 3)) | length) as $files_reworked
+  | (if $i == 0 then
+      {tools: ($usage.tools // null), skills: ($usage.skills // null),
+       commands: ([$events[] | select(.event == "user_prompt") | .prompt // "" | tostring
+                   | capture("^\\s*(?:/|\\$)(?<c>[a-z][a-z0-9_.:-]*)(?=\\s|$)")? | .c]
+                  | group_by(.) | map({key: .[0], value: length}) | sort_by(-.value, .key) | from_entries)}
+    else null end) as $session_usage
   | {
       version: 1,
       session_id: ($meta.session_id // null),
@@ -142,6 +162,6 @@ jq -Rn -c \
         check_unrecovered: ($check_keys | map(select(.last_failed)) | length),
         turns_to_green: (if ($gaps | length) == 0 then null else ($gaps | add / length | round_to(1)) end)
       }
-    }
+    } + (if $session_usage then {usage: $session_usage} else {} end)
   end
 ' < "$SESSION_LOG" 2>/dev/null

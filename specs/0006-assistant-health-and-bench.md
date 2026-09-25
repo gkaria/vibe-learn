@@ -1,6 +1,6 @@
 # Spec 0006: Assistant Health and Bench — Is My Assistant Having a Bad Week?
 
-**Status:** In progress — Phases 2 (identity and history) and 3 (health surfaces) implemented
+**Status:** In progress — Phases 2 (identity and history) and 3 (health surfaces) implemented, plus per-session tool and skill use
 **Target version:** 0.10.0
 **Date:** 2026-09-25
 **Mockup:** [`docs/mockups/assistant-health.html`](../docs/mockups/assistant-health.html)
@@ -238,6 +238,61 @@ Metric definitions:
 Rows with fewer than `health.min_events` tool events (default 5) are written
 but excluded from baselines, so a "what does this file do?" session doesn't
 distort the numbers.
+
+### Tool and skill use (`scripts/usage.sh`)
+
+A regression often coincides with a change in how the assistant works: far
+more search calls, a new MCP server, or a skill that stopped loading. The
+first segment row of each session carries that session's mix:
+
+```json
+"usage": {
+  "tools": { "read": 22, "shell": 18, "search": 16, "edit": 14, "mcp:github": 3 },
+  "skills": { "explain": 1 },
+  "commands": { "learn": 1 }
+}
+```
+
+`usage` describes the whole session, so later segments of a session that
+switched model don't carry it.
+
+- **Source.** Hooks can't supply this: most hosts fire `PostToolUse` for a few
+  tools only, hosted tools (Codex web search) fire nothing, and skills never
+  appear as tool events. So `health.sh` sources `usage.sh`, which reads the
+  host's own session record at rotation, next to the identity reads.
+  `observe.sh` is unchanged.
+
+  | Host | Record | Calls |
+  |------|--------|-------|
+  | Claude Code | `transcript_path` | assistant `tool_use` blocks; `Skill` `input.skill` |
+  | Codex | `transcript_path` (rollout) | `response_item` `function_call` / `custom_tool_call` (`name` + `namespace`), `web_search_call`, `tool_search_call`, `local_shell_call`; the `<skill><name>` user message an explicit `$skill` injects |
+  | Cursor | `transcript_path` | assistant `tool_use` blocks; `CallDynamicTool` counts as `mcp:<namespace>` |
+  | Grok Build | `$GROK_HOME/sessions/<@uri root>/<id>/chat_history.jsonl` | `tool_calls[].name` |
+  | OpenCode | `$XDG_DATA_HOME/opencode/opencode.db` | `part` rows with `$.type = 'tool'` (read-only `sqlite3`, session id validated) |
+
+  Claude Code and Codex lines older than `started_at` are skipped, for
+  sessions resumed into the same file.
+- **Families.** Every host names tools differently, so names map to `read`,
+  `search`, `shell`, `edit`, `web`, `subagent`, `plan`, `skill`,
+  `mcp:<server>`, or `other`.
+- **Skills** come from skill-tool calls and from reads of
+  `…/skills*/<name>/SKILL.md` (how Codex, Cursor, and Grok load them).
+- **Commands** are slash or `$` commands at the start of a `user_prompt`
+  (`/learn`, `$pr-review`), read from the session log; paths such as
+  `/Users/…` don't match.
+- **Nulls.** `tools` and `skills` are `null` when the record can't be read and
+  `{}` when it has no calls, so "no data" and "no calls" stay distinct.
+- **Privacy.** Only family, server, skill, and command names are stored, never
+  arguments. `--redact` renames projects only; skill and MCP server names
+  stay, so check them before sharing a report.
+
+`vibe-learn health` averages tools per session (rows whose `tools` is an
+object) and sums skills and commands, per period, under "Tool use per
+session". The briefing card adds one line for the current session, and the
+trend page adds a table per period. Usage is context, not a signal: it is
+never flagged.
+
+Cost: 0.2 s on a 36 MB Codex rollout and 0.04 s on a 4 MB Claude transcript.
 
 ### Durable history (rotation)
 
@@ -498,6 +553,7 @@ migration:
 | `docs/mockups/assistant-health.html` | Static design mockup (already added; not generated, linked, or tested) |
 | `scripts/identity.sh` | Sourced helper: harness, model, effort, version from payloads and host files |
 | `scripts/health.sh` | Session log + meta → one health row per segment |
+| `scripts/usage.sh` | Sourced helper: tool families and skills per session from the host's own record |
 | `scripts/health-report.sh` | `vibe-learn health` |
 | `scripts/bench.sh` | `vibe-learn bench capture \| add \| run \| report` |
 | `adapters/claude-code/bench-run.sh` | Claude Code headless runner |
@@ -506,6 +562,7 @@ migration:
 | `adapters/grok/bench-run.sh` | Grok Build headless runner |
 | `adapters/opencode/bench-run.sh` | OpenCode headless runner (Phase 5) |
 | `tests/health.bats` | Metric rows, rotation append, identity per host |
+| `tests/usage.bats` | Tool and skill extraction per host from fixture records; `usage` on the first segment |
 | `tests/health-report.bats` | `vibe-learn health` flags, windows, sharing flags; briefing page, card, and index row |
 | `tests/fixtures/health-sample.sh` | The mockup's sample sessions as `health.jsonl` rows, dated relative to today |
 | `tests/bench.bats` | Capture, dirty-tree refusal, stub-runner runs, worktree cleanup, report flags |
@@ -584,6 +641,11 @@ None.
   `summary.json` fixture (with `GROK_HOME` pointed at a temp dir) populate
   the observed fields; a fake `grok` on `PATH` supplies `--version`; missing
   files or fields become `null`; `VIBE_LEARN_HARNESS` overrides.
+- **Tool and skill use** — a fixture record per host yields the expected
+  families and skills with no arguments leaked; lines before `started_at`
+  are skipped; an unreadable record is `null`, one with no calls is `{}`; an
+  OpenCode session id with SQL in it is refused; `usage` lands on the first
+  segment only, with typed commands and without paths.
 - **Mid-session switches** — Stop fixtures append `turn_end` with the right
   model; a log that switches model at turn 8 yields two rows sharing
   `session_id` with correct turn ranges; a log with no `turn_end` lines yields
@@ -646,14 +708,10 @@ None.
 - **Pause summary.** Should the Stop-hook summary mention a health flag? Lean:
   no — hooks stay mechanical, and the flag appears in the briefing and
   `vibe-learn health`.
-- **Tool and skill mix.** The health row could carry per-session counts of
-  tool families (read, search, shell, edit, web, subagent, `mcp:<server>`)
-  and skills used, so a report can show that a regression coincided with,
-  say, far more search calls or a skill no longer loading. Every host
-  exposes this, but under different names. Lean: count from the transcript
-  at rotation, next to the existing identity reads, rather than widening
-  `observe.sh` matchers. Store family and skill names only, never arguments
-  or MCP tool arguments.
+- **Flagging tool mix.** Usage is shown but never flagged. A shift in a
+  family's share (say, search doubling after a version change) could become
+  a signal once there is enough history to know what normal variation looks
+  like.
 
 ## Out of Scope
 

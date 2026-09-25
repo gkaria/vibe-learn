@@ -433,6 +433,13 @@ def detail($k; $m):
    elif ($flags | length) > 0 then "<span><strong>\($flags | length) of \(mkeys | length)</strong> signals rose on average after \($x.marker.change | @html) (\($x.marker.at | day_label)); the chips show by how much.</span>"
    else "<span>Within your usual range on all \(mkeys | length) signals for \($c.series | @html).</span>" end) as $footer
 | (if $c != null and ($c.eligible | not) then "<span class=\"muted\">Under \($s.min_events) tool events so far, so this session will not count yet.</span> " else "" end) as $short
+| ($c.usage // null) as $u
+| (def names($m; $prefix): $m | to_entries | map($prefix + .key + (if .value > 1 then " ×\(.value)" else "" end)) | join(", ");
+   if $u == null then "" else
+     ([(if $u.tools then "Tools: " + ($u.tools | to_entries | .[:8] | map("\(.key) \(.value)") | join(" · ") | if . == "" then "none" else . end) else empty end),
+       (if ($u.skills // {}) != {} then "Skills: " + names($u.skills; "") else empty end),
+       (if ($u.commands // {}) != {} then "Commands: " + names($u.commands; "/") else empty end)]
+      | if length == 0 then "" else "<p class=\"usage\">" + (map(@html) | join(" &nbsp;·&nbsp; ")) + "</p>" end) end) as $usage_line
 | (if $c == null then "" else "\($c.model // "unknown model") via \([$c.harness, $c.harness_version] | map(select(. != null)) | join(" "))" end) as $who
 | "
 
@@ -445,9 +452,11 @@ def detail($k; $m):
           #health .delta.bad{color:var(--danger);background:#fde8e4;border-color:#f0c8c0;}
           #health .card-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;}
           #health .muted{color:var(--muted);}
+          #health .usage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);margin:0 0 12px;overflow-wrap:anywhere;}
         </style>
         <div class=\"health-head\"><h2>Assistant health</h2><span class=\"who\">\($who | @html)</span></div>
         \($tiles)
+        \($usage_line)
         <div class=\"card-footer\"><span>\($short)\($footer)</span><a href=\"../health.html\">See the trend →</a></div>
       </section>"
 JQ
@@ -526,6 +535,8 @@ EOF
     table.metrics th.sel{background:rgba(217,119,87,.16);color:var(--text);}
     table.metrics td.flag{color:var(--danger);font-weight:700;}
     table.metrics .sub{color:var(--muted);font-size:11px;margin-left:6px;}
+    .subhead{font-size:14px;margin:28px 0 0;}
+    table.metrics.usage th,table.metrics.usage td{white-space:normal;text-align:left;}
     ul.status{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:4px;font-size:14px;color:var(--muted);}
     .notes{margin-top:32px;border-top:1px dashed var(--line);padding-top:14px;font-size:13.5px;color:var(--muted);}
     .notes h3{font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;}
@@ -586,6 +597,8 @@ EOF
       <div class="caption" id="chart-caption"></div>
     </div>
     <table class="metrics" id="metrics-table"></table>
+    <h3 class="subhead" id="usage-head" hidden>Tool use per session</h3>
+    <table class="metrics usage" id="usage-table"></table>
     <ul class="status" id="status"></ul>
     <div class="notes">
       <h3>How to read this</h3>
@@ -745,6 +758,23 @@ EOF
       el.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
     }
 
+    function renderUsage() {
+      const v = view();
+      const rows = v.series.flatMap(xs => xs.periods.filter(p => p.usage));
+      const el = document.getElementById("usage-table");
+      document.getElementById("usage-head").hidden = !rows.length;
+      if (!rows.length) { el.innerHTML = ""; return; }
+      const names = (m, prefix) => Object.entries(m || {}).map(([k, n]) => esc(prefix + k) + (n > 1 ? " ×" + n : "")).join(", ");
+      const body = rows.map(p => {
+        const u = p.usage;
+        const tools = u.sessions ? Object.entries(u.tools).slice(0, 8).map(([k, n]) => `${esc(k)} ${n}`).join(" · ") || "none" : "unknown";
+        const extras = [u.skills && Object.keys(u.skills).length ? "skills: " + names(u.skills, "") : "",
+                        u.commands && Object.keys(u.commands).length ? "commands: " + names(u.commands, "/") : ""].filter(Boolean).join("; ");
+        return `<tr><td>${esc(p.label)}${p.sub ? `<span class="sub">${esc(p.sub)}</span>` : ""}</td><td>${tools}</td><td>${extras || "-"}</td></tr>`;
+      }).join("");
+      el.innerHTML = `<thead><tr><th>${state.by === "harness" ? "Harness" : "Model"}</th><th>Tools (average calls per session)</th><th>Skills and commands</th></tr></thead><tbody>${body}</tbody>`;
+    }
+
     function renderStatus() {
       const lines = view().series.filter(x => x.status !== "flagged" && (x.status !== "steady" || x.marker)).map(x => {
         if (x.status === "building")
@@ -762,6 +792,7 @@ EOF
         `A dashed line marks a change of ${within}. The baseline is the sessions before the latest change in the window, not a rolling average, so a regression keeps showing instead of being absorbed.`,
         `A signal is flagged (!) when its average since the change is ${S.rate_threshold_pts} or more points higher for rates, or ${S.count_threshold} or more higher for counts, with at least ${S.min_sessions} sessions on each side.`,
         `The "held steady" sentence appears when another ${state.by} has ${S.control_min_sessions}+ sessions over the same days and stayed within the threshold of the flagged baseline.`,
+        `Tool use is read from each host's own session record and grouped into families (read, search, shell, edit, web, subagent, plan, skill, one per MCP server). Only names are kept, never arguments.`,
         `These come from your real work, not a controlled test: harder tasks look like a worse assistant.`,
         `The same numbers are in the terminal with <code>vibe-learn health</code>. <code>vibe-learn health --save --redact</code> writes a markdown report you can share.`,
       ].map(n => `<li>${n}</li>`).join("");
@@ -773,7 +804,7 @@ EOF
       });
     }
 
-    function render() { syncButtons(); renderCallouts(); renderChart(); renderTable(); renderStatus(); renderNotes(); }
+    function render() { syncButtons(); renderCallouts(); renderChart(); renderTable(); renderUsage(); renderStatus(); renderNotes(); }
 
     document.querySelectorAll("[data-control]").forEach(group => group.addEventListener("click", e => {
       const b = e.target.closest("button");

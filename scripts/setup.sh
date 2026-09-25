@@ -95,6 +95,7 @@ FILES=(
   "scripts/recap.sh"
   "scripts/identity.sh"
   "scripts/health.sh"
+  "scripts/usage.sh"
   "scripts/health-report.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
