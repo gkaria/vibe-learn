@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "env": {
+          "VIBE_LEARN_EVENT": "sessionStart"
+        },
+        "timeoutSec": 5
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "env": {
+          "VIBE_LEARN_EVENT": "userPromptSubmitted"
+        },
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch",
+        "env": {
+          "VIBE_LEARN_EVENT": "postToolUse"
+        },
+        "timeoutSec": 2
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "matcher": "bash|powershell|create|edit|str_replace_editor|apply_patch",
+        "env": {
+          "VIBE_LEARN_EVENT": "postToolUseFailure"
+        },
+        "timeoutSec": 2
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "HOOK_COMMAND_PLACEHOLDER",
+        "env": {
+          "VIBE_LEARN_EVENT": "agentStop"
+        },
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

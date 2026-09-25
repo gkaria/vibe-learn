@@ -113,6 +113,7 @@ but not documented, so it may change without notice:
 |------|---------|----------|-------------------|
 | Claude Code | SessionStart `model` (documented; optional, missing after `/clear` or recovery). Fallback: last assistant line's `message.model` in the transcript (observed) | `effort.level` on Stop and tool events, when the model supports it (documented) | Transcript lines carry `version`, e.g. `"2.1.222"` (observed) |
 | Codex | `model` on every hook, a Codex extension (documented) | Transcript `turn_context` lines carry `payload.model` and `payload.effort` per turn, e.g. `"low"` (observed). The hook payload has no effort field | Transcript first line `session_meta.payload.cli_version` (observed) |
+| GitHub Copilot CLI | Unavailable from the current hook payload; `null` | Unavailable from the current hook payload; `null` | Unavailable from the current hook payload; `null`. The adapter supplies `harness: "copilot-cli"`, so hook-derived metrics are still grouped correctly. |
 | Cursor | `model_id` if present, else `model`, on every hook (documented) | `model_params` entry for thinking/effort, when present (documented) | `cursor_version` on every hook (documented) |
 | OpenCode | Plugin hook `chat.message` input `model: {providerID, modelID}`, recorded as `providerID/modelID` (documented in `@opencode-ai/plugin` types) | Same hook's `variant`, which OpenCode defines as "provider-specific reasoning effort, e.g. high, max, minimal" (documented) | `session.created` event's `info.version`, the OpenCode version that created the session (documented `Session` type; e.g. `"1.16.2"` in the local database), so no subprocess is needed |
 | Grok Build | Not in the hook envelope; the common fields are `hookEventName`, `sessionId`, `cwd`, `workspaceRoot`, `timestamp`, `permissionMode`, `promptId` (documented). Read `current_model_id` from `$GROK_HOME/sessions/<url-encoded workspaceRoot>/<sessionId>/summary.json` (observed) | `reasoning_effort` in the same `summary.json` (observed) | `grok --version`, a native binary that answers in about 40 ms, e.g. `grok 1.0.13 (5e9a585) [stable]` (documented CLI) |
@@ -126,8 +127,8 @@ shows up as a failing test rather than silently wrong data. Harness
 resolution order, first match wins:
 
 1. `VIBE_LEARN_HARNESS` environment variable (explicit override).
-2. `harness` field in the payload — set by the Cursor shim and the OpenCode
-   plugin, which already translate payloads.
+2. `harness` field in the payload — set by the Copilot CLI and Cursor shims and
+   the OpenCode plugin, which already translate payloads.
 3. `GROK_HOOK_EVENT` set → `grok`.
 4. `transcript_path` under `~/.codex/` → `codex`; under `~/.claude/` →
    `claude-code`.
@@ -269,6 +270,7 @@ switched model don't carry it.
   | Cursor | `transcript_path` | assistant `tool_use` blocks; `CallDynamicTool` counts as `mcp:<namespace>` |
   | Grok Build | `$GROK_HOME/sessions/<@uri root>/<id>/chat_history.jsonl` | `tool_calls[].name` |
   | OpenCode | `$XDG_DATA_HOME/opencode/opencode.db` | `part` rows with `$.type = 'tool'` (read-only `sqlite3`, session id validated) |
+  | GitHub Copilot CLI | No supported full session record source in this phase | `tools` and `skills` stay `null`; commands still come from logged prompts |
 
   Claude Code and Codex lines older than `started_at` are skipped, for
   sessions resumed into the same file.
@@ -345,9 +347,8 @@ session card, so the three can never disagree:
   least `health.min_sessions` (default 5) sessions.
 - **Control sentence** ("codex stayed flat over the same days") appears only
   when another harness has at least `health.control_min_sessions` (default 3)
-  sessions on or after the marker, inside the window, and its mean for the
-  lead flagged metric is within the threshold of the flagged harness's
-  baseline.
+  eligible sessions before and after the marker, inside the window, and its
+  own mean for the lead flagged metric stays within the threshold.
 - With fewer than `min_sessions` baseline sessions, surfaces show raw numbers
   and "Building your baseline: N of 5 sessions", never a comparison.
 

@@ -1,0 +1,1 @@
+{"sessionId":"copilot-session-42","timestamp":1789221604000,"cwd":"/tmp/vibe-learn-project","toolName":"bash","toolArgs":{"command":"npm test"},"toolResult":{"resultType":"success","textResultForLlm":"token=do-not-log"}}

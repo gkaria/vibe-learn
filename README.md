@@ -4,7 +4,7 @@
 
 You can outsource your thinking, but you can't outsource your understanding.
 
-vibe-learn watches what Claude Code, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
+vibe-learn watches what Claude Code, GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor does during a session and helps you understand what was built, why, and how — without changing how you work.
 
 ![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
 
@@ -27,13 +27,13 @@ Inside Claude Code:
 
 That registers the hooks and adds `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, and `/vibe-learn:explain`. Updates arrive with `/plugin update vibe-learn@vibe-learn`. **Requires `jq`** — `brew install jq` / `apt-get install jq`.
 
-### Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
+### GitHub Copilot CLI, Codex, OpenCode, Grok Build, Cursor — or Claude Code without the plugin system
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gkaria/vibe-learn/main/scripts/setup.sh | bash
 ```
 
-Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. To update: re-run the same command. Latest release: [v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0).
+Installs to `~/.vibe-learn/`, creates the `vibe-learn` CLI, and registers hooks globally for every AI assistant detected on your machine. If the Claude Code plugin is already enabled, the installer skips Claude hook registration so events are not logged twice. GitHub Copilot CLI is detected via the `copilot` binary, `~/.copilot`, or `COPILOT_HOME`. To update: re-run the same command. Latest release: [v0.10.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.10.0).
 
 ---
 
@@ -43,7 +43,7 @@ After every AI response that touches files or runs commands, vibe-learn:
 
 - Appends every action to `.vibe-learn/session-log.jsonl`
 - Writes a pause summary to `.vibe-learn/pause-summary.txt`
-- Injects that summary into your assistant's context at the start of the next session (Claude Code)
+- Injects that summary into your assistant's context at the start of the next session (Claude Code and GitHub Copilot CLI)
 - Regenerates the session briefing in the background
 - When the next session starts, saves one row of [assistant health](#is-my-assistant-having-a-bad-week) counts for the one that just ended
 
@@ -57,7 +57,7 @@ Goal: add JWT auth middleware
   ✦ Edited src/routes/user.ts
   ✦ Ran: npm install jsonwebtoken
 
- /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+ /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 ---
@@ -76,6 +76,20 @@ Goal: add JWT auth middleware
 ```
 
 With the plugin install the same commands are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.
+
+### GitHub Copilot CLI
+
+```
+Use /learn
+Use /learn why did we add middleware?
+Use /digest
+Use /quiz
+Use /quiz review
+Use /explain src/middleware/auth.ts
+Use vibe-learn to learn what happened.
+```
+
+Copilot CLI loads these as Agent Skills from `.github/skills/` (project) or `${COPILOT_HOME:-~/.copilot}/skills/` (personal). They are skill references inside a prompt, not new built-in interactive commands; typing a bare `/learn` is not guaranteed to dispatch like Claude Code's custom slash commands. Project hooks live in `.github/hooks/` and need the folder trusted before they run.
 
 ### Codex
 
@@ -224,7 +238,7 @@ behind it. Want me to quiz you on this, or save it to Obsidian?
 
 ## Check your understanding
 
-Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add a fourth adapter?" — one at a time, then tells you what you got right and what you missed.
+Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — "why did we install bcrypt?", "which files would you touch to add another adapter?" — one at a time, then tells you what you got right and what you missed.
 
 Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. Concepts you answered shakily come back: `/quiz review` re-quizzes anything shaky or unreviewed for two weeks, `/learn` gives you a one-line heads-up when a shaky concept resurfaces in a new session, and `/digest`'s "Things to Study" accumulates across sessions instead of resetting.
 
@@ -286,7 +300,7 @@ No server, no build step, no external assets — just a static HTML file that op
 
 Assistants change under you: a harness update, a new default model, a different effort level. When a session feels off, it's hard to tell whether the assistant got worse or the task was just harder. vibe-learn keeps a small history to help answer that.
 
-When a session ends, vibe-learn saves one row of counts for it: how often shell commands failed, how often the same file was reworked across turns, tool events per prompt, turns from a failing check to a passing one, and which tool families, skills, and commands the session used. It then compares the sessions since the latest version, model, or effort change with the ones before it:
+When a session ends, vibe-learn saves one row of counts for it: how often shell commands failed, how often the same file was reworked across turns, tool events per prompt, turns from a failing check to a passing one, and, when the host's session record is available, which tool families, skills, and commands the session used. It then compares the sessions since the latest version, model, or effort change with the ones before it:
 
 ```bash
 vibe-learn health                  # last 14 days, grouped by harness
@@ -296,19 +310,19 @@ vibe-learn health --save --redact  # markdown report to share, project names rep
 ```
 
 ```
-Assistant health - my-api - last 14 days (18 sessions)
+Assistant health - my-api - last 14 days (20 sessions)
 
 Flagged
   claude-code 2.5.0 (claude-opus-5.5), since Sep 21 (2.4.1 → 2.5.0):
     bash failure rate    8% -> 21%
     rework rate         12% -> 22%
     events per prompt   6.1 -> 8.9
-  codex 0.61.0 (gpt-5.6) held steady over the same days (bash failure rate 9% vs 8% before), so the change is a likelier cause than harder tasks.
+  codex 0.61.0 (gpt-5.6) held steady over the same days (bash failure rate 9% vs 9% before), so the change is a likelier cause than harder tasks.
 
                                        sessions  bash fail  rework  events/prompt  turns to green
   claude-code 2.4.1 · claude-opus-5.5         8         8%     12%            6.1             1.4
   claude-code 2.5.0 · claude-opus-5.5         6      21% !   22% !          8.9 !             2.7
-  codex 0.61.0 · gpt-5.6                      4         9%     10%            5.4             1.3
+  codex 0.61.0 · gpt-5.6                      6         9%     10%            5.5             1.2
 
 Tool use per session
   claude-code 2.4.1 · claude-opus-5.5  read 20 · shell 12 · edit 10 · search 6  (skills: explain ×3)
@@ -328,11 +342,11 @@ The session briefing shows the same analysis as a trend page, linked from the he
 How to read it:
 
 - A signal is flagged when its average since the change is at least 10 points higher (rates) or 2 higher (counts), with at least 5 sessions on each side. Until then you'll see "building your baseline".
-- "Held steady" appears when another assistant you used over the same days didn't move. That points at the change rather than at harder tasks.
+- "Held steady" appears when another assistant has at least three eligible sessions before and after the change and its own signal stays within the threshold. That points at the change rather than at harder tasks.
 - Tool use is context, not a verdict. A jump in search calls or a skill that stopped loading can explain a flag, but it is never flagged on its own.
 - These are hints from your real work, not a benchmark.
 
-Rows hold counts and names only, never prompts, commands, file paths, or tool arguments. Tool and skill counts are read from each assistant's own session record on your machine; nothing is sent anywhere. `--redact` replaces project names, but skill and MCP server names stay in the report, so check them before you share it.
+Rows hold counts and names only, never prompts, commands, file paths, or tool arguments. Tool and skill counts are read from an assistant's own session record when available; Copilot CLI currently records the hook-derived metrics without model, version, or tool and skill counts. Nothing is sent anywhere. `--redact` replaces project names, but skill and MCP server names stay in the report, so check them before you share it.
 
 History goes to `.vibe-learn/health.jsonl` and, for `--all`, to `~/.vibe-learn/health.jsonl`. To keep it per-project, put `{"health":{"global_log":false}}` in `~/.vibe-learn/config.json`; to turn it off, use `{"health":{"enabled":false}}`. A project's `.vibe-learn/config.json` overrides the global one.
 
@@ -362,16 +376,21 @@ The audio prompt tells NotebookLM to produce a maintainer-focused overview — w
 | Assistant | How vibe-learn integrates |
 |-----------|--------------------------|
 | **Claude Code** | Plugin (`/plugin install vibe-learn@vibe-learn`) or JSON hooks in `settings.json`; native `/learn`, `/digest`, `/quiz`, and `/explain` slash commands |
+| **GitHub Copilot CLI** | Native JSON hooks in `.github/hooks/` or `~/.copilot/hooks/`; `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` project/personal skills |
 | **Codex App/CLI** | Inline TOML hooks in `config.toml`, global `vibe-learn` skill, prompt-file fallbacks |
 | **OpenCode** | JavaScript plugin in `.opencode/plugins/`, native `/learn`, `/digest`, `/quiz`, and `/explain` commands |
 | **Grok Build** | JSON hooks in `${GROK_HOME:-~/.grok}/hooks/vibe-learn.json`, native `/learn`, `/digest`, `/quiz`, `/explain`, and a `/vibe-learn` skill |
 | **Cursor** | `hooks.json` entries pointing at one shim (`.cursor/hooks/vibe-learn.sh`), plus `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills in `.cursor/skills/` |
 
-Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
+Auto-detected on install. To target one: `--assistant=claude-code`, `--assistant=copilot-cli`, `--assistant=codex`, `--assistant=opencode`, `--assistant=grok`, or `--assistant=cursor`.
 
 Project Grok hooks stay inert until the folder is trusted (`/hooks-trust` or `grok --trust`). If Claude Code vibe-learn is also installed, Grok may run both hook sets; set `[compat.claude] hooks = false` in `~/.grok/config.toml` to avoid double-logging.
 
 Cursor project hooks (`.cursor/hooks.json`) run once the workspace is trusted. Cursor has no context injection on `stop`, so the pause summary is written to `.vibe-learn/pause-summary.txt` and relayed at the next `sessionStart`; the skills read the file directly. Cloud Agents skip `sessionStart`, so there the file is the only channel.
+
+Copilot CLI project hooks also require folder trust. On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first, keeps the prompt hook silent, and emits prior-session context from the later `sessionStart`. A global vibe-learn hook defers when a project vibe-learn hook is present.
+
+Copilot also reads repository `.claude/settings.json` and `.claude/settings.local.json` hooks. Avoid installing vibe-learn in both those files and `.github/hooks/` for one project. Copilot's documented `disableAllHooks` repository-settings option pauses every non-policy hook source—including vibe-learn—so use it only when you intend to pause all hooks; the installer never changes it automatically.
 
 ---
 
@@ -384,7 +403,7 @@ cd your-project
 vibe-learn install
 ```
 
-Detects which assistants the project already uses and installs only those. Adds `.vibe-learn/` to `.gitignore`.
+Detects which assistants the project already uses (including `.github/` for Copilot CLI) and installs only those. Adds `.vibe-learn/` to `.gitignore`.
 
 ---
 
@@ -399,7 +418,7 @@ Save learnings to an [Obsidian](https://obsidian.md) vault and recall them acros
 /digest obsidian:recall                  — digest enriched with connections to previous work
 ```
 
-On first use, Claude asks for your vault path and offers to save it to `.vibe-learn/obsidian.json`. Equivalent Codex requests work the same way via the skill.
+On first use, Claude asks for your vault path and offers to save it to `.vibe-learn/obsidian.json`. Equivalent Codex and Copilot CLI requests work the same way via the skill.
 
 ---
 
@@ -409,10 +428,10 @@ Four lifecycle hooks, all fast and offline:
 
 | Hook | Script | What it does |
 |------|--------|--------------|
-| `SessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log |
-| `UserPromptSubmit` | `capture-prompt.sh` | Logs your prompt with a turn counter |
-| `PostToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
-| `Stop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
+| `SessionStart` / `sessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log |
+| `UserPromptSubmit` / `userPromptSubmitted` | `capture-prompt.sh` | Logs your prompt with a turn counter |
+| `PostToolUse` / `postToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
+| `Stop` / `agentStop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
 
 On-demand (never from hooks): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, and the knowledge helper `scripts/knowledge.sh`.
 
@@ -426,7 +445,7 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 brew install bats-core    # macOS
 apt-get install bats      # Linux
 
-bats tests/               # 282 tests
+bats tests/               # 399 tests
 ```
 
 ---
@@ -435,13 +454,14 @@ bats tests/               # 282 tests
 
 - **Bash** (POSIX-compatible)
 - **jq** (`brew install jq` / `apt-get install jq`)
-- **Claude Code**, **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
+- **Claude Code**, **GitHub Copilot CLI** (verified with 1.0.84-4), **Codex App/CLI**, **OpenCode**, **Grok Build**, or **Cursor**
 
 ---
 
 ## Releases
 
-- **[v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0) (this branch):** Claude Code plugin + self-hosted marketplace · Cursor adapter · `/explain` guided tours · `vibe-learn recap` · ledger-aware briefing · demo GIFs and community scaffolding
+- **[v0.10.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.10.0):** GitHub Copilot CLI as a first-class assistant — native JSON hooks · `/learn`, `/digest`, `/quiz`, `/explain`, and `vibe-learn` skills · `--assistant=copilot-cli` · auto-detect via `copilot` / `~/.copilot` / `COPILOT_HOME` · sessionStart context relay
+- **[v0.9.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.9.0):** Claude Code plugin + self-hosted marketplace · Cursor adapter · `/explain` guided tours · `vibe-learn recap` · ledger-aware briefing · demo GIFs and community scaffolding
 - **[v0.8.0](https://github.com/gkaria/vibe-learn/releases/tag/v0.8.0):** Grok Build as a first-class assistant — `/learn`, `/digest`, `/quiz`, `/vibe-learn` skill · `--assistant=grok` · auto-detect via `grok` / `~/.grok` / `GROK_HOME`
 - **v0.7.0:** Active recall — `/quiz` and `/quiz review` · cross-session knowledge ledger (`knowledge.json`) · cumulative "Things to Study" in digests
 - **v0.6.0:** OpenCode support · session briefing · auto-generated briefing after each response · turn-structured session log · `vibe-learn audio-prep` · `vibe-learn briefing`

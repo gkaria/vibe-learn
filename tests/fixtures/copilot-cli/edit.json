@@ -1,0 +1,1 @@
+{"sessionId":"copilot-session-42","timestamp":1789221603000,"cwd":"/tmp/vibe-learn-project","toolName":"edit","toolArgs":{"path":"src/routes.ts","old_str":"old secret","new_str":"new secret"},"toolResult":{"resultType":"success","textResultForLlm":"edited"}}

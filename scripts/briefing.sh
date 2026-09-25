@@ -298,6 +298,22 @@ AUDIO_EXTRA=""
 AUDIO_EXTRA_JS=""
 LEDGER_TOTAL=0
 
+render_knowledge_rows() {
+  local label status quizzed sessions pill
+  while IFS="$(printf '\t')" read -r label status quizzed sessions; do
+    [ -z "${label:-}" ] && continue
+    case "$status" in
+      shaky) pill="action-deleted" ;;
+      solid) pill="action-created" ;;
+      *)     pill="action-edited" ;;
+    esac
+    printf '<li class="file-row" data-status="%s"><span class="pill %s">%s</span><code class="fpath">%s</code><span class="area area-docs">last quizzed %s · %s session(s)</span></li>\n' \
+      "$status" "$pill" "$status" "$(printf '%s' "$label" | html_escape)" "$(printf '%s' "$quizzed" | html_escape)" "$sessions"
+  done <<EOF
+$KNOWLEDGE_TSV
+EOF
+}
+
 if [ "$LEDGER_OK" = true ]; then
   LEDGER_TOTAL="$(jq -r '.concepts | length' "$LEDGER_FILE")"
   SHAKY_COUNT="$(jq -r '[.concepts[] | select(.status == "shaky")] | length' "$LEDGER_FILE")"
@@ -318,26 +334,8 @@ if [ "$LEDGER_OK" = true ]; then
     | [(.label // .name // "concept"), (.status // "new"), (.last_quizzed // "never"), ((.sessions // 0) | tostring)]
     | @tsv' "$LEDGER_FILE" 2>/dev/null)"
 
-  # A function, not an inline $( ... ): bash 3.2 misparses `case` patterns
-  # inside command substitution.
-  knowledge_rows_html() {
-    local label status quizzed sessions pill
-    while IFS="$(printf '\t')" read -r label status quizzed sessions; do
-      [ -z "${label:-}" ] && continue
-      case "$status" in
-        shaky) pill="action-deleted" ;;
-        solid) pill="action-created" ;;
-        *)     pill="action-edited" ;;
-      esac
-      printf '<li class="file-row" data-status="%s"><span class="pill %s">%s</span><code class="fpath">%s</code><span class="area area-docs">last quizzed %s · %s session(s)</span></li>\n' \
-        "$status" "$pill" "$status" "$(printf '%s' "$label" | html_escape)" "$(printf '%s' "$quizzed" | html_escape)" "$sessions"
-    done <<EOF
-$KNOWLEDGE_TSV
-EOF
-  }
-
   if [ "$LEDGER_TOTAL" -gt 0 ]; then
-    KNOWLEDGE_ROWS_HTML="$(knowledge_rows_html)"
+    KNOWLEDGE_ROWS_HTML="$(render_knowledge_rows)"
 
     KNOWLEDGE_NAV="
       <a href=\"#knowledge\">Knowledge state <span class=\"nbadge\">$LEDGER_TOTAL</span></a>"
@@ -654,7 +652,7 @@ EOF
         ).join("");
         const c = x.control;
         const control = c
-          ? `<p class="control">${esc(seriesLine(c))} held steady over the same days (${M[c.metric].name.toLowerCase()} ${fmt(c.metric, c.value)} vs ${fmt(c.metric, x.baseline.means[c.metric])} before), so the change is a likelier cause than harder tasks.</p>`
+          ? `<p class="control">${esc(seriesLine(c))} held steady over the same days (${M[c.metric].name.toLowerCase()} ${fmt(c.metric, c.value)} vs ${fmt(c.metric, c.before)} before), so the change is a likelier cause than harder tasks.</p>`
           : "";
         return `<div class="callout">
           <h3>Something changed around ${dayLabel(x.marker.at)}</h3>
@@ -796,7 +794,7 @@ EOF
       document.getElementById("notes").innerHTML = [
         `A dashed line marks a change of ${within}. The baseline is the sessions before the latest change in the window, not a rolling average, so a regression keeps showing instead of being absorbed.`,
         `A signal is flagged (!) when its average since the change is ${S.rate_threshold_pts} or more points higher for rates, or ${S.count_threshold} or more higher for counts, with at least ${S.min_sessions} sessions on each side.`,
-        `The "held steady" sentence appears when another ${state.by} has ${S.control_min_sessions}+ sessions over the same days and stayed within the threshold of the flagged baseline.`,
+        `The "held steady" sentence appears when another ${state.by} has ${S.control_min_sessions}+ sessions before and after the change and its own signal stayed within the threshold.`,
         `Tool use is read from each host's own session record and grouped into families (read, search, shell, edit, web, subagent, plan, skill, one per MCP server). Only names are kept, never arguments.`,
         `These come from your real work, not a controlled test: harder tasks look like a worse assistant.`,
         `The same numbers are in the terminal with <code>vibe-learn health</code>. <code>vibe-learn health --save --redact</code> writes a markdown report you can share.`,

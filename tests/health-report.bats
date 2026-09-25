@@ -46,7 +46,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   seed_history
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"last 14 days (20 sessions)"* ]]
+  [[ "$output" == *"last 14 days (22 sessions)"* ]]
   [[ "$output" == *"claude-code 2.5.0 (claude-opus-5.5), since"*"(2.4.1 → 2.5.0)"* ]]
   [[ "$output" == *"bash failure rate    8% -> 21%"* ]]
   [[ "$output" == *"rework rate         12% -> 22%"* ]]
@@ -81,6 +81,24 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   ! echo "$output" | grep -q abc1234
 }
 
+@test "a control that deteriorated against its own baseline is not called steady" {
+  seed_history
+  local file="$TEST_PROJECT_DIR/.vibe-learn/health.jsonl"
+  local marker
+  marker="$(jq -r 'select(.harness == "claude-code" and .harness_version == "2.5.0") | .started_at' "$file" | head -1)"
+  jq -c --arg marker "$marker" '
+    if .harness == "claude-code" then
+      .metrics.bash_fail_rate = (if .started_at < $marker then 0.25 else 0.40 end)
+    elif .harness == "codex" then
+      .metrics.bash_fail_rate = (if .started_at < $marker then 0.01 else 0.24 end)
+    else . end' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.series[] | select(.key == "claude-code") | .flags[0].metric')" = "bash_fail_rate" ]
+  [ "$(echo "$output" | jq -r '.series[] | select(.key == "claude-code") | .control')" = "null" ]
+}
+
 @test "--by=model groups by model and still finds the harness change" {
   seed_history
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --by=model --json
@@ -93,15 +111,15 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
 @test "--days=all widens the window past 14 days" {
   seed_history
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --days=all --json
-  [ "$(echo "$output" | jq -r '.sessions')" = "22" ]
+  [ "$(echo "$output" | jq -r '.sessions')" = "24" ]
   [ "$(echo "$output" | jq -r '.days')" = "null" ]
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --days=30
-  [[ "$output" == *"last 30 days (22 sessions)"* ]]
+  [[ "$output" == *"last 30 days (24 sessions)"* ]]
 }
 
 @test "under five earlier sessions it says the baseline is still building" {
   seed_history
-  filter_history 'select(.harness_version == "2.4.1")' 
+  filter_history 'select(.harness_version == "2.4.1")'
   head -n 3 "$TEST_PROJECT_DIR/.vibe-learn/health.jsonl" > "$TEST_PROJECT_DIR/.vibe-learn/h" && mv "$TEST_PROJECT_DIR/.vibe-learn/h" "$TEST_PROJECT_DIR/.vibe-learn/health.jsonl"
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --days=all
   [[ "$output" == *"Nothing flagged."* ]]
@@ -155,7 +173,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
   [ "$(echo "$output" | jq -r '.current | length')" = "1" ]
   [ "$(echo "$output" | jq -r '.current[0].series')" = "claude-code" ]
-  [ "$(echo "$output" | jq -r '.sessions')" = "20" ]
+  [ "$(echo "$output" | jq -r '.sessions')" = "22" ]
 
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
   [[ "$output" == *"Current session (in progress, claude-code): bash failure rate 67%"* ]]
@@ -164,7 +182,20 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   bash "$SCRIPTS_DIR/health.sh" "$TEST_PROJECT_DIR/.vibe-learn" >> "$TEST_PROJECT_DIR/.vibe-learn/health.jsonl"
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
   [ "$(echo "$output" | jq -r '.current | length')" = "0" ]
-  [ "$(echo "$output" | jq -r '.sessions')" = "21" ]
+  [ "$(echo "$output" | jq -r '.sessions')" = "23" ]
+}
+
+@test "a reused fallback session id does not hide a newer live session" {
+  seed_history
+  seed_session
+  local file="$TEST_PROJECT_DIR/.vibe-learn/health.jsonl"
+  jq -c '.session_id = "unknown"' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  jq -c '.session_id = "unknown"' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json" > "$TEST_PROJECT_DIR/.vibe-learn/meta.tmp"
+  mv "$TEST_PROJECT_DIR/.vibe-learn/meta.tmp" "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.current | length')" = "1" ]
 }
 
 @test "--save writes a markdown report; --redact hides project names" {

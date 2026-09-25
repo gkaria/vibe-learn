@@ -1,0 +1,1 @@
+{"sessionId":"copilot-session-42","timestamp":1789221605000,"cwd":"/tmp/vibe-learn-project","toolName":"bash","toolArgs":{"command":"npm run build"},"error":"exit status 2: sensitive stderr"}

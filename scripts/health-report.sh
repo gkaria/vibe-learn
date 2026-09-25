@@ -227,16 +227,22 @@ render() {
       | ($done | group_by(series_key($by)) | map(. as $g | analyze_series($by; $eff; $g[0] | series_key($by); $g | sort_by(.started_at // "", .segment.index // 1)))) as $series
       | ($series | map(select(.status == "flagged") | . as $fs
           | ($fs.flags[0].metric) as $lead
-          | ([$done[] | select(series_key($by) != $fs.key and .eligible and (.started_at // "") >= $fs.marker.at)]
+          | ([$done[] | select(series_key($by) != $fs.key and .eligible)]
               | group_by(series_key($by))
-              | map(select(length >= $s.control_min_sessions)
-                  | {key: (.[0] | series_key($by)), sessions: length, value: mean_of($lead), rows: .}
-                  | select(.value != null and ((.value - $fs.baseline.means[$lead]) | fabs) < thr($lead)))
+              | map(. as $control_rows
+                  | [$control_rows[] | select((.started_at // "") < $fs.marker.at)] as $before
+                  | [$control_rows[] | select((.started_at // "") >= $fs.marker.at)] as $after
+                  | select(($before | count_of($lead)) >= $s.control_min_sessions
+                           and ($after | count_of($lead)) >= $s.control_min_sessions)
+                  | {key: ($control_rows[0] | series_key($by)), sessions: ($after | count_of($lead)),
+                     before: ($before | mean_of($lead)), value: ($after | mean_of($lead)), rows: $after}
+                  | select(.before != null and .value != null
+                           and ((.value - .before) | fabs) < thr($lead)))
               | sort_by(-.sessions) | first) as $c
           | {key: $fs.key, control: (if $c == null then null else
               ($c.rows | with_cfg($by) | .[-1]) as $last
               | {key: $c.key, label: ($last | period_label($by; $c.key)), sub: ($last | period_sub($by; $eff)),
-                 metric: $lead, value: $c.value, sessions: $c.sessions} end)})
+                 metric: $lead, before: $c.before, value: $c.value, sessions: $c.sessions} end)})
           | map({key: .key, value: .control}) | from_entries) as $controls
       | {
           by: $by,
@@ -254,13 +260,16 @@ render() {
 
     # Rows: history plus the session in progress (minus any segment already saved).
     [inputs] as $input
-    | ($input | map(select(.current | not) | .row | "\(.session_id)#\(.segment.index // 1)")) as $saved
+    | ($input | map(select(.current | not) | .row
+        | [(.project // $project), .session_id, .started_at, (.segment.index // 1)] | @json)) as $saved
     | ($input | map(select(.current | not) | .row | .project) + [$project] | map(select(. != null)) | unique) as $projects
     | ($projects | sort_by(. as $p | ($input | map(.row.project) | index($p)) // -1) | to_entries
         | map({key: .value, value: "project-\(.key + 1)"}) | from_entries) as $redaction
     | def redact_project: if $redact and . != null then ($redaction[.] // "project") else . end;
     ($input
-      | map(select(.current == false or ((.row | "\(.session_id)#\(.segment.index // 1)") as $id | $saved | index($id) | not)))
+      | map(select(.current == false or ((.row
+          | [(.project // $project), .session_id, .started_at, (.segment.index // 1)] | @json)
+          as $id | $saved | index($id) | not)))
       | map(.row + {current: .current,
                     project: ((.row.project // (if .current then $project else null end)) | redact_project),
                     eligible: ((.row.metrics.tool_events // 0) >= $s.min_events)}
@@ -285,7 +294,7 @@ render() {
         def flagged: [$v.series[] | select(.status == "flagged")];
         def headline($fs): "\(series_line($fs.marker)), since \($fs.marker.at | day_label) (\($fs.marker.change))";
         def control_text($fs): $fs.control as $c | if $c == null then null else
-          "\(series_line($c)) held steady over the same days (\(mname($c.metric)) \(fmt($c.metric; $c.value)) vs \(fmt($c.metric; $fs.baseline.means[$c.metric])) before), so the change is a likelier cause than harder tasks." end;
+          "\(series_line($c)) held steady over the same days (\(mname($c.metric)) \(fmt($c.metric; $c.value)) vs \(fmt($c.metric; $c.before)) before), so the change is a likelier cause than harder tasks." end;
         def status_text($x): if $x.status == "building" then
             "\($x.key): building your baseline, \($x.baseline.sessions) of \($s.min_sessions) sessions with \($s.min_events)+ tool events"
           elif $x.status == "waiting" then

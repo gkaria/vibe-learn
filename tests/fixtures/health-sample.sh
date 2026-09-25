@@ -1,9 +1,10 @@
 #!/bin/bash
 # health-sample.sh DAY_OFFSET — print the mockup's sample health rows.
 #
-# Mirrors docs/mockups/assistant-health.html: claude-code moves from 2.4.1 to
+# Based on docs/mockups/assistant-health.html: claude-code moves from 2.4.1 to
 # 2.5.0 on the mockup's Sep 22 and three signals rise; codex stays flat over
-# the same days. The mockup's Sep 25 is shifted to today minus DAY_OFFSET
+# the same days. Two extra codex rows give the control enough sessions before
+# the change to verify that it stayed flat. The mockup's Sep 25 is shifted to today minus DAY_OFFSET
 # (default 0), so date windows behave the same on any day. Tool use shifts
 # toward search after the change, as a regression might.
 
@@ -46,7 +47,9 @@ row 16 claude-code 2.4.1 claude-opus-5.5  7 12 6.3 1
 row 17 claude-code 2.4.1 claude-opus-5.5  9 11 6.1 2
 row 17 codex       0.61.0 gpt-5.6         8 11 5.6 2
 row 18 claude-code 2.4.1 claude-opus-5.5  8 13 6.0 1
+row 19 codex       0.61.0 gpt-5.6         9 10 5.4 1
 row 19 claude-code 2.4.1 claude-opus-5.5  6 12 6.2 1
+row 20 codex       0.61.0 gpt-5.6         9 10 5.5 1
 row 20 claude-code 2.4.1 claude-opus-5.5 10 12 6.0 2
 row 21 claude-code 2.4.1 claude-opus-5.5  8 12 6.2 1
 row 22 claude-code 2.5.0 claude-opus-5.5 18 20 8.6 2

@@ -48,6 +48,23 @@ DEMO_DIR="$VIBE_LEARN_DIR/docs/demo"
   grep -q 'Tools: read 9' "$b"/sessions/*.html
   [ ! -e "$real_home/.vibe-learn/health.jsonl" ]
 
+  run bash "$DEMO_DIR/briefing-demo.sh" "$TEST_PROJECT_DIR/demo/my-api"
+  [ "$status" -eq 0 ]
+
+  local screenshot_before screenshot_after
+  screenshot_before="$(shasum "$VIBE_LEARN_DIR/docs/briefing-index.png")"
+  run env CHROME=/usr/bin/false bash "$DEMO_DIR/briefing-demo.sh" --screenshots "$TEST_PROJECT_DIR/demo/my-api"
+  [ "$status" -ne 0 ]
+  screenshot_after="$(shasum "$VIBE_LEARN_DIR/docs/briefing-index.png")"
+  [ "$screenshot_before" = "$screenshot_after" ]
+
+  local other="$TEST_PROJECT_DIR/other/my-api"
+  mkdir -p "$other"
+  echo 'keep me' > "$other/sentinel.txt"
+  run bash "$DEMO_DIR/briefing-demo.sh" "$other"
+  [ "$status" -ne 0 ]
+  [ "$(cat "$other/sentinel.txt")" = 'keep me' ]
+
   run bash "$DEMO_DIR/briefing-demo.sh" "$TEST_PROJECT_DIR/demo/not-my-api"
   [ "$status" -ne 0 ]
 }

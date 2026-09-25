@@ -2,7 +2,9 @@
 
 This project has vibe-learn installed. Session activity (file writes, edits, bash commands) is logged to `.vibe-learn/session-log.jsonl` automatically via hooks.
 
-### Slash Commands
+### Learning Commands and Skills
+
+In GitHub Copilot CLI, invoke these as skills inside a prompt (`Use /learn`, `Use /digest`, `Use /quiz`, or `Use /explain`). They are not new built-in interactive commands.
 
 (Installed as a Claude Code plugin, these are namespaced: `/vibe-learn:learn`, `/vibe-learn:digest`, `/vibe-learn:quiz`, `/vibe-learn:explain`.)
 
