@@ -10,10 +10,6 @@
 * **health:** record tool and skill use per session ([16ec76a](https://github.com/gkaria/vibe-learn/commit/16ec76a6eba7282c2032b72175d5cf327c366013))
 
 
-### Bug Fixes
-
-* **opencode:** scope health identity to session ([c84e97e](https://github.com/gkaria/vibe-learn/commit/c84e97e06a21c033f8da6820bf2e50c090e958a2))
-
 ## [0.10.0](https://github.com/gkaria/vibe-learn/compare/v0.9.1...v0.10.0) (2026-09-12)
 
 
