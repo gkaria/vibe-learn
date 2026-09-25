@@ -58,7 +58,13 @@ const { server } = await import(pathToFileURL(pluginPath).href);
 const hooks = await server({ directory: targetDir, worktree: targetDir });
 
 // session.created — dispatched via the event hook
-await hooks.event({ event: { type: "session.created", properties: { info: { id: "open-session" } } } });
+await hooks.event({ event: { type: "session.created", properties: { info: { id: "open-session", version: "1.18.5" } } } });
+
+// chat.message — remembers the model and reasoning variant for the idle event
+await hooks["chat.message"](
+  { sessionID: "open-session", model: { providerID: "anthropic", modelID: "claude-opus-5.5" }, variant: "high" },
+  { message: {}, parts: [] }
+);
 
 // tool.execute.after — bash (args in input, exit code in output.metadata)
 await hooks["tool.execute.after"](
@@ -98,6 +104,15 @@ JS
   local created_count
   created_count="$(grep -c '"file_path":"src/created.js"' "$calls_file")"
   [ "$created_count" -eq 1 ]
+
+  local boot idle
+  boot="$(grep '^bootstrap.sh' "$calls_file" | cut -f2)"
+  idle="$(grep '^pause-summary.sh' "$calls_file" | cut -f2)"
+  [ "$(printf '%s' "$boot" | jq -r '.harness')" = "opencode" ]
+  [ "$(printf '%s' "$boot" | jq -r '.harness_version')" = "1.18.5" ]
+  [ "$(printf '%s' "$idle" | jq -r '.harness')" = "opencode" ]
+  [ "$(printf '%s' "$idle" | jq -r '.model')" = "anthropic/claude-opus-5.5" ]
+  [ "$(printf '%s' "$idle" | jq -r '.effort')" = "high" ]
 }
 
 @test "opencode install renders paths containing sed replacement characters" {

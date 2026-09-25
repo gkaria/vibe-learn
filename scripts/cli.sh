@@ -13,6 +13,7 @@ Usage:
   vibe-learn install    [target-dir] [--assistant=claude-code|codex|opencode|grok|all]
   vibe-learn briefing   [target-dir] [--latest]
   vibe-learn recap      [target-dir] [--days=7] [--save]
+  vibe-learn health     [target-dir] [--days=14|all] [--by=harness|model] [--all] [--json] [--save] [--redact]
   vibe-learn audio-prep [target-dir]
   vibe-learn help
 EOF
@@ -32,6 +33,10 @@ case "$COMMAND" in
   recap)
     shift
     exec "$VIBE_LEARN_DIR/scripts/recap.sh" "$@"
+    ;;
+  health)
+    shift
+    exec "$VIBE_LEARN_DIR/scripts/health-report.sh" "$@"
     ;;
   audio-prep)
     shift

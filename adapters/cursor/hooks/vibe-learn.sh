@@ -8,12 +8,12 @@
 # which replaces VIBE_LEARN_DIR_PLACEHOLDER with the real install directory.
 #
 # Event map (Cursor hook name -> core script):
-#   sessionStart        -> scripts/bootstrap.sh       (additional_context relayed)
+#   sessionStart        -> scripts/bootstrap.sh       (additional_context relayed; identity forwarded)
 #   beforeSubmitPrompt  -> scripts/capture-prompt.sh  (always {"continue":true})
 #   afterFileEdit       -> scripts/observe.sh         (Write when the edit creates the file, else Edit)
 #   postToolUse         -> scripts/observe.sh         (Shell -> Bash with exit code)
 #   postToolUseFailure  -> scripts/observe.sh         (Shell -> Bash, action "ran", exit code 1)
-#   stop                -> scripts/pause-summary.sh   (file only; never a followup_message)
+#   stop                -> scripts/pause-summary.sh   (file only; never a followup_message; identity forwarded)
 #
 # The project root is workspace_roots[0]; `cwd` is only a fallback because
 # Cursor omits it on several events and it may point below the root.
@@ -28,10 +28,19 @@ EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null || 
 CWD=$(printf '%s' "$INPUT" | jq -r '.workspace_roots[0] // .cwd // empty' 2>/dev/null || true)
 [ -n "$CWD" ] || exit 0
 
+# Identity fields shared by sessionStart and stop, in the core scripts' names.
+IDENTITY='{
+  harness: "cursor",
+  harness_version: .cursor_version,
+  model: (.model_id // .model),
+  effort: (first(.model_params[]? | select(.id == "effort") | .value) // null),
+  transcript_path: .transcript_path
+}'
+
 case "$EVENT" in
   sessionStart)
     OUT=$(printf '%s' "$INPUT" \
-      | jq -c --arg cwd "$CWD" '{cwd: $cwd, session_id: (.session_id // .conversation_id // "unknown")}' \
+      | jq -c --arg cwd "$CWD" "{cwd: \$cwd, session_id: (.session_id // .conversation_id // \"unknown\")} + $IDENTITY" \
       | bash "$SCRIPTS/bootstrap.sh" 2>/dev/null || true)
     if [ -n "$OUT" ]; then
       printf '%s' "$OUT" \
@@ -94,7 +103,7 @@ case "$EVENT" in
     # pause-summary.sh writes .vibe-learn/pause-summary.txt and prints nothing for a
     # lowercase "stop" event. Never print a followup_message: Cursor would auto-submit it.
     printf '%s' "$INPUT" \
-      | jq -c --arg cwd "$CWD" '{cwd: $cwd, hook_event_name: "stop"}' \
+      | jq -c --arg cwd "$CWD" "{cwd: \$cwd, hook_event_name: \"stop\"} + $IDENTITY" \
       | bash "$SCRIPTS/pause-summary.sh" >/dev/null 2>&1 || true
     ;;
 esac

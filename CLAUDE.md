@@ -35,6 +35,9 @@ scripts/          ← assistant-agnostic core (accepts Claude and Grok hook enve
   dashboard.sh    ← static session briefing generator
   knowledge.sh    ← knowledge ledger helper (record/touch/list/due)
   recap.sh        ← `vibe-learn recap`: weekly "what I learned" markdown (read-only)
+  identity.sh     ← sourced helper: harness, model, effort, version from payloads and host files
+  health.sh       ← session log + meta → one assistant-health row per session segment (read-only)
+  health-report.sh ← `vibe-learn health`: before/after-change comparison of health rows (read-only)
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -93,7 +96,7 @@ Codex PostToolUse currently covers Bash, `apply_patch`, and MCP tool calls upstr
 
 Grok PostToolUse and PostToolUseFailure matchers list both Grok names (`write`, `search_replace`, `run_terminal_command`) and Claude aliases (`Write`, `Edit`, `MultiEdit`, `Bash`). Matcher regex is case-sensitive. Grok reports failures on `PostToolUseFailure`, not `PostToolUse`; both call `observe.sh`. Failed file ops are logged with `action: "failed"` so pause summaries and briefings do not count them as created/edited. Failed shell commands keep `action: "ran"` with a non-zero `exit_code`. Grok also scans Claude hook files by default; if both adapters are installed, the same tool event can be logged twice. Document `[compat.claude] hooks = false` as the opt-out — do not auto-edit `~/.claude/settings.json`. Grok fires an extra observe-only Stop at session end (`reason` is not `end_turn`); `pause-summary.sh` ignores those.
 
-Cursor event map (shim): `sessionStart` → `bootstrap.sh` (its `additionalContext` is relayed as Cursor's `additional_context`); `beforeSubmitPrompt` → `capture-prompt.sh` (always answers `{"continue":true}`); `afterFileEdit` → `observe.sh` as `Write` when the single edit has an empty `old_string`, else `Edit`; `postToolUse` / `postToolUseFailure` with matcher `Shell` → `observe.sh` as `Bash` (`tool_output` is a JSON string carrying `exitCode`; failures log `action: "ran"` with exit code 1); `stop` → `pause-summary.sh` with `hook_event_name: "stop"` so it writes the file and prints nothing. The shim must never emit `followup_message` — Cursor would auto-submit it as the next user prompt. The project root is `workspace_roots[0]`, falling back to `cwd`. Cloud Agents do not run `sessionStart`, so the prior summary is not injected there. Re-check https://cursor.com/docs/agent/hooks when touching the shim; event names and payloads have changed between releases.
+Cursor event map (shim): `sessionStart` → `bootstrap.sh` (its `additionalContext` is relayed as Cursor's `additional_context`); `beforeSubmitPrompt` → `capture-prompt.sh` (always answers `{"continue":true}`); `afterFileEdit` → `observe.sh` as `Write` when the single edit has an empty `old_string`, else `Edit`; `postToolUse` / `postToolUseFailure` with matcher `Shell` → `observe.sh` as `Bash` (`tool_output` is a JSON string carrying `exitCode`; failures log `action: "ran"` with exit code 1); `stop` → `pause-summary.sh` with `hook_event_name: "stop"` so it writes the file and prints nothing. On `sessionStart` and `stop` the shim also forwards `harness: "cursor"`, `harness_version` (`cursor_version`), `model` (`model_id` else `model`), `effort` (the `model_params` entry with `id: "effort"`), and `transcript_path`. The shim must never emit `followup_message` — Cursor would auto-submit it as the next user prompt. The project root is `workspace_roots[0]`, falling back to `cwd`. Cloud Agents do not run `sessionStart`, so the prior summary is not injected there. Re-check https://cursor.com/docs/agent/hooks when touching the shim; event names and payloads have changed between releases.
 
 All scripts write to `.vibe-learn/` in the target project (never in this repo itself).
 
@@ -143,6 +146,7 @@ Key options:
 - `capture_prompts` — whether to log user messages (can disable for privacy)
 - `pause_summary_max_lines` — max lines in the stop-hook summary
 - `rotate_on_session_start` — keeps previous log as `.prev.jsonl`
+- `health` — assistant-health settings. `enabled` and `global_log` are read today, from `~/.vibe-learn/config.json` overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`); the thresholds (`min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions`) are read by `health-report.sh` from the same two files
 
 **Obsidian config** is stored separately in `.vibe-learn/obsidian.json` (project-level) or `~/.vibe-learn/obsidian.json` (global fallback). `config/obsidian-defaults.json` is the reference template. The assistant prompts the user for their vault path on first use and offers to save the config automatically.
 
@@ -273,7 +277,31 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 {"timestamp":"...","event":"tool_use","tool":"Bash","command":"npm install","action":"ran","context":{"exit_code":0}}
 ```
 
-Session metadata (event counts, timestamps) is tracked separately in `.vibe-learn/session-meta.json`.
+`pause-summary.sh` also appends one line per genuine turn end, recording the model and effort that answered (either may be `null`):
+
+```json
+{"timestamp":"...","event":"turn_end","turn":7,"model":"claude-opus-5.5","effort":"high"}
+```
+
+Every reader filters by `event`, so older readers ignore `turn_end`.
+
+Session metadata is tracked separately in `.vibe-learn/session-meta.json`: `session_id`, `started_at`, `event_count`, `current_turn`, plus identity fields written by `bootstrap.sh` — `harness` (`claude-code`, `codex`, `cursor`, `opencode`, `grok`, or `unknown`), `harness_version`, `model`, `effort`, `transcript_path`, `git_head`, `git_dirty` (each `null` when unknown).
+
+## Assistant Health
+
+Spec: `specs/0006-assistant-health-and-bench.md`. Identity comes from `scripts/identity.sh`, which `bootstrap.sh`, `pause-summary.sh`, and `health.sh` source:
+
+- Harness: `VIBE_LEARN_HARNESS`, then the payload `harness` (Cursor shim, OpenCode plugin), then `GROK_HOOK_EVENT`, then a `transcript_path` under `~/.codex/` or `~/.claude/`.
+- Model / effort: hook payload fields (`model_id`/`model`, `effort` or `effort.level`), plus host files — the last assistant `message.model` in a Claude Code transcript, the last `turn_context` in a Codex transcript, and Grok's `$GROK_HOME/sessions/<@uri workspaceRoot>/<sessionId>/summary.json` (`current_model_id`, `reasoning_effort`). At session start the payload wins; at turn end the host file wins.
+- Version: payload `harness_version`, Claude transcript `version`, Codex transcript `session_meta.payload.cli_version`, or `grok --version`. The OpenCode plugin forwards `Session.version`.
+
+The Claude Code and Codex transcripts and Grok's `summary.json` are undocumented: every read yields `null` on failure, and `tests/health.bats` pins each format with a fixture. `bootstrap.sh` and `pause-summary.sh` define no-op fallbacks when `identity.sh` is missing, for installs that copy hook scripts one by one.
+
+Before rotating the log, `bootstrap.sh` runs `health.sh` on the previous session and appends its rows to `.vibe-learn/health.jsonl` and, with `"project"` added, to `~/.vibe-learn/health.jsonl`. `health.sh` splits a session into segments wherever the `(model, effort)` of a turn changes; a `null` field carries the previous value forward. Switches live in `~/.vibe-learn/config.json`, overridden by the project's `.vibe-learn/config.json`: `{"health":{"enabled":false}}` stops the append, `{"health":{"global_log":false}}` keeps it per-project. Rows hold counts and identifiers only, never prompts, commands, or file paths.
+
+`scripts/health-report.sh` (`vibe-learn health [dir] [--days=14|all] [--by=harness|model] [--all] [--json] [--save] [--redact]`) is the one analysis behind every health surface. It groups rows into series by harness (or model), places a change marker where `harness_version`, `model`, or `effort` (or, by model, `harness`) changes, and compares the rows since the latest marker with the rows before it in the window. A signal is flagged when the since mean is at least `rate_threshold_pts` points (rates) or `count_threshold` (counts) higher, with `min_sessions` eligible rows (`tool_events >= min_events`) on each side. The "held steady" control needs another series with `control_min_sessions` rows since the marker, within the threshold of the flagged baseline. The session in progress comes from running `health.sh` on the live log; it is shown but never counted, and dropped once its segment is saved. `--save` writes `.vibe-learn/health-reports/<date>-health.md`, `--redact` renames projects to `project-N`, and `git_head` never leaves a report. The hidden `--views` flag prints all four `--by` × `--days` (14, all) views in one JSON document.
+
+When `.vibe-learn/health.jsonl` has rows, `briefing.sh` embeds that `--views` JSON in `briefing/health.html` (trend callout, metric / group-by / window controls, SVG chart, table), adds an "Assistant health" card and nav entry after the session brief (chips mark the trend's flags; a value turns red only when this session alone is past the threshold), and an index sidebar row. Without rows the outputs are byte-identical to before and a stale `health.html` is removed; a malformed file warns on stderr. `tests/fixtures/health-sample.sh` reproduces the mockup's sample data, dated relative to today.
 
 ## Architecture Constraints
 
@@ -282,3 +310,4 @@ Session metadata (event counts, timestamps) is tracked separately in `.vibe-lear
 - **No stdout noise from hooks** — scripts should not print to stdout (Claude Code captures it). Use `>&2` for debug output, or suppress entirely.
 - **`pause-summary.sh` injects via `additionalContext`** — output must be valid JSON with `{"hookSpecificOutput": {"additionalContext": "..."}}` when providing summaries to Claude's context.
 - **Hooks never write the knowledge ledger** — `.vibe-learn/knowledge.json` is updated only by learning commands via `scripts/knowledge.sh`. Do not call `knowledge.sh` from any hook script.
+- **Health history is append-only and written only at rotation** — `bootstrap.sh` appends one row per session segment to `.vibe-learn/health.jsonl` and `~/.vibe-learn/health.jsonl`, swallowing every failure. `health.sh` is a single `jq` pass (about 1.4 s on a 10 MB log); keep it linear, since it runs inside the `SessionStart` timeout.

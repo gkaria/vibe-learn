@@ -93,6 +93,9 @@ FILES=(
   "scripts/cli.sh"
   "scripts/knowledge.sh"
   "scripts/recap.sh"
+  "scripts/identity.sh"
+  "scripts/health.sh"
+  "scripts/health-report.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
   "config/defaults.json"
@@ -301,6 +304,11 @@ fi
 echo ""
 echo "Any assistant:"
 echo "  vibe-learn recap            — shareable \"what I learned this week\" markdown from the knowledge ledger"
+echo "  vibe-learn health           — did your assistant get worse after a model or harness change?"
+echo ""
+echo "Assistant health: each finished session adds one row of counts (no prompts, commands, or paths)"
+echo "  to .vibe-learn/health.jsonl and ~/.vibe-learn/health.jsonl. To keep it per-project only, put"
+echo "  {\"health\":{\"global_log\":false}} in ~/.vibe-learn/config.json."
 
 # --- PATH advisory ---
 if [[ ":$PATH:" != *":$SHIM_DIR:"* ]]; then

@@ -269,6 +269,22 @@ JSON
   grep -q "/learn" "$summary"
 }
 
+@test "cursor shim forwards model, effort, and version on sessionStart and stop" {
+  run_cursor_install
+  local ident='"cursor_version":"3.2.1","model":"claude-opus-5-5-thinking-high","model_id":"claude-opus-5-5","model_params":[{"id":"thinking","value":"true"},{"id":"effort","value":"high"}],"transcript_path":"/tmp/t.jsonl"'
+
+  run run_shim sessionStart "\"session_id\":\"sess-7\",$ident"
+  [ "$status" -eq 0 ]
+  local meta="$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  [ "$(jq -r '[.harness, .harness_version, .model, .effort, .transcript_path] | join(",")' "$meta")" = "cursor,3.2.1,claude-opus-5-5,high,/tmp/t.jsonl" ]
+
+  run_shim beforeSubmitPrompt '"prompt":"go"' >/dev/null
+  run run_shim stop '"status":"completed","loop_count":0,"model":"gpt-5.6-sol","model_params":[{"id":"effort","value":"low"}]'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ "$(jq -c 'select(.event == "turn_end") | {turn, model, effort}' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '{"turn":1,"model":"gpt-5.6-sol","effort":"low"}' ]
+}
+
 @test "cursor shim falls back to cwd when workspace_roots is missing and exits quietly without either" {
   run_cursor_install
 
