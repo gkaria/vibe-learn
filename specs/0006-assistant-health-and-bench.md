@@ -598,10 +598,12 @@ None.
       at rotation, to the project and global logs"
 - [ ] **`README.md`** — "Is my assistant having a bad week?" section with the
       health card screenshot, `vibe-learn health`, and the bench flow,
-      including the sandboxing caveat
-- [ ] **`GETTING_STARTED.md`** — health after a few sessions; first bench with
-      `--runs=1`
-- [ ] **`templates/instructions.md`** — new files under `.vibe-learn/`
+      including the sandboxing caveat (health part done; screenshots come
+      from `docs/demo/briefing-demo.sh --screenshots`)
+- [ ] **`GETTING_STARTED.md`** — health after a few sessions (done); first
+      bench with `--runs=1`
+- [x] **`templates/instructions.md`** — new files under `.vibe-learn/`
+      (health files; add `bench/` with Phase 4)
 - [ ] **`AGENTS.md`** — review
 - [ ] **`CHANGELOG.md`** — narrative 0.10.0 section
 
