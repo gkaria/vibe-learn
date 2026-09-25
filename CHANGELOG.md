@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/gkaria/vibe-learn/compare/v0.10.0...v0.11.0) (2026-09-25)
+
+
+### Features
+
+* add assistant health history and trend reports ([e6ae38e](https://github.com/gkaria/vibe-learn/commit/e6ae38e0a8c7d4ad4a9201d382ee949cd1281895))
+* add assistant health signals, history, and vibe-learn health ([a8593a4](https://github.com/gkaria/vibe-learn/commit/a8593a4a74207258ed186a959646fa3c78b9a9f9))
+* **health:** record tool and skill use per session ([16ec76a](https://github.com/gkaria/vibe-learn/commit/16ec76a6eba7282c2032b72175d5cf327c366013))
+
+
+### Bug Fixes
+
+* **opencode:** scope health identity to session ([c84e97e](https://github.com/gkaria/vibe-learn/commit/c84e97e06a21c033f8da6820bf2e50c090e958a2))
+
 ## [0.10.0](https://github.com/gkaria/vibe-learn/compare/v0.9.1...v0.10.0) (2026-09-12)
 
 
