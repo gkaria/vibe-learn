@@ -260,7 +260,7 @@ You don't change how you work. You just have a trail to learn from afterward.
 ## Next steps
 
 - **After a week or so of sessions:** run `vibe-learn health`. It needs about five sessions on each side of a model or version change before it flags anything; until then it says "building your baseline". See [docs/health.md](docs/health.md).
-- **GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor?** See [README.md](README.md#supported-assistants) for setup.
-- **Save notes to Obsidian?** See [README.md](README.md#obsidian-integration).
+- **GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor?** See [docs/assistants.md](docs/assistants.md) for setup.
+- **Save notes to Obsidian?** See [docs/obsidian.md](docs/obsidian.md).
 - **Per-project install** (to share with teammates): `vibe-learn install` in your project root.
 - **Something not working?** Check that `jq` is installed and that `~/.local/bin` is in your `PATH`.
