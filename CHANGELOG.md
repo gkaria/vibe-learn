@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/gkaria/vibe-learn/compare/v0.11.0...v0.12.0) (2026-10-01)
+
+
+### Features
+
+* add plugin icon ([10a97e2](https://github.com/gkaria/vibe-learn/commit/10a97e2d2aa38ea6b8466ffe6c2823b783212559))
+
 ## [0.11.0](https://github.com/gkaria/vibe-learn/compare/v0.10.0...v0.11.0) (2026-09-25)
 
 
