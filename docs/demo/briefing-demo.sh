@@ -104,7 +104,7 @@ ev() { jq -cn "$@"; }
   ev --arg t "$(ts 14:20)" '{timestamp:$t,event:"user_prompt",turn:3,prompt:"/learn why does the auth check run before the route handlers?"}'
   ev --arg t "$(ts 14:22)" '{timestamp:$t,event:"user_prompt",turn:4,prompt:"move the secret check to startup so a missing JWT_SECRET fails fast"}'
   ev --arg t "$(ts 14:23)" '{timestamp:$t,event:"tool_use",turn:4,tool:"Edit",file:"src/middleware/auth.ts",action:"edited",context:{}}'
-  ev --arg t "$(ts 14:24)" '{timestamp:$t,event:"tool_use",turn:4,tool:"Bash",command:"npx tsc --noEmit",action:"ran",context:{exit_code:0}}'
+  ev --arg t "$(ts 14:24)" '{timestamp:$t,event:"tool_use",turn:4,tool:"Bash",command:"tsc --noEmit",action:"ran",context:{exit_code:0}}'
   ev --arg t "$(ts 14:25)" '{timestamp:$t,event:"tool_use",turn:4,tool:"Bash",command:"npm test",action:"ran",context:{exit_code:0}}'
   ev --arg t "$(ts 14:26)" '{timestamp:$t,event:"turn_end",turn:4,model:"claude-opus-5.5",effort:"high"}'
 } > .vibe-learn/session-log.jsonl
