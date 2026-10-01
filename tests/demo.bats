@@ -69,9 +69,11 @@ DEMO_DIR="$VIBE_LEARN_DIR/docs/demo"
   [ "$status" -ne 0 ]
 }
 
-@test "README embeds the briefing and health screenshots" {
-  for f in briefing-index briefing-session briefing-health; do
+@test "README embeds the briefing screenshots and health.md embeds the health screenshot" {
+  for f in briefing-index briefing-session; do
     grep -q "docs/$f.png" "$VIBE_LEARN_DIR/README.md"
     [ -s "$VIBE_LEARN_DIR/docs/$f.png" ]
   done
+  grep -q "(briefing-health.png)" "$VIBE_LEARN_DIR/docs/health.md"
+  [ -s "$VIBE_LEARN_DIR/docs/briefing-health.png" ]
 }
