@@ -37,7 +37,7 @@ jobs:
           node-version: 22
 
       - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+        run: npm install -g @anthropic-ai/claude-code@2.1.287
 
       # The repo root doubles as the marketplace root (marketplace.json) and the
       # plugin root (plugin.json); validate both. The plugin check is not --strict
