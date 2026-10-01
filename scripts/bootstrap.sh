@@ -54,11 +54,12 @@ done
 HEALTH_ENABLED=true
 HEALTH_GLOBAL=true
 if [ "${#CONFIG_FILES[@]}" -gt 0 ]; then
-  IFS="$VL_SEP" read -r HEALTH_ENABLED HEALTH_GLOBAL <<EOF
-$(jq -rn --arg sep "$VL_SEP" '
+  VL_READ_1=$(jq -rn --arg sep "$VL_SEP" '
   [inputs | objects | .health | objects] | add // {}
   | (if .enabled == false then "false" else "true" end) + $sep
     + (if .global_log == false then "false" else "true" end)' "${CONFIG_FILES[@]}" 2>/dev/null || printf 'true%strue' "$VL_SEP")
+IFS="$VL_SEP" read -r HEALTH_ENABLED HEALTH_GLOBAL <<EOF
+$VL_READ_1
 EOF
 fi
 
@@ -83,8 +84,7 @@ fi
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Identity: which assistant, version, model, and effort this session runs on.
-IFS="$VL_SEP" read -r P_HARNESS P_VERSION P_MODEL P_EFFORT P_TRANSCRIPT P_ROOT <<EOF
-$(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" '
+VL_READ_2=$(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" '
   def str: if type == "string" then . else "" end;
   [ (.harness | str),
     (.harness_version | str),
@@ -93,12 +93,15 @@ $(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" '
     ((.transcript_path // .transcriptPath) | str),
     ((.workspaceRoot // .cwd) | str)
   ] | join($sep)' 2>/dev/null)
+IFS="$VL_SEP" read -r P_HARNESS P_VERSION P_MODEL P_EFFORT P_TRANSCRIPT P_ROOT <<EOF
+$VL_READ_2
 EOF
 HARNESS=$(vl_resolve_harness "${P_HARNESS:-}" "${P_TRANSCRIPT:-}")
 HARNESS_VERSION="${P_VERSION:-}"
 [ -n "$HARNESS_VERSION" ] || HARNESS_VERSION=$(vl_harness_version "$HARNESS" "${P_TRANSCRIPT:-}")
+VL_READ_3=$(vl_host_config "$HARNESS" "${P_TRANSCRIPT:-}" "${P_ROOT:-$CWD}" "${SESSION_ID:-}")
 IFS="$VL_SEP" read -r H_MODEL H_EFFORT <<EOF
-$(vl_host_config "$HARNESS" "${P_TRANSCRIPT:-}" "${P_ROOT:-$CWD}" "${SESSION_ID:-}")
+$VL_READ_3
 EOF
 # The payload describes the session starting now; a resumed transcript may
 # still end with the previous model.

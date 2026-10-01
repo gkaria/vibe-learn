@@ -45,8 +45,7 @@ META_FILE="$LOG_DIR/session-meta.json"
 META=""
 [ -f "$META_FILE" ] && META=$(jq -c 'objects' "$META_FILE" 2>/dev/null)
 [ -n "$META" ] || META='{}'
-IFS="$VL_SEP" read -r TURN P_HARNESS P_MODEL P_EFFORT P_TRANSCRIPT P_ROOT P_SESSION <<EOF
-$(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" --argjson meta "$META" '
+VL_READ_1=$(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" --argjson meta "$META" '
   def str: if type == "string" then . else "" end;
   [ ($meta.current_turn // 0 | tostring),
     ((.harness // $meta.harness) | str),
@@ -56,10 +55,13 @@ $(printf '%s' "$INPUT" | jq -r --arg sep "$VL_SEP" --argjson meta "$META" '
     ((.workspaceRoot // .cwd) | str),
     ((.session_id // .sessionId // $meta.session_id) | str)
   ] | join($sep)' 2>/dev/null)
+IFS="$VL_SEP" read -r TURN P_HARNESS P_MODEL P_EFFORT P_TRANSCRIPT P_ROOT P_SESSION <<EOF
+$VL_READ_1
 EOF
 TURN_HARNESS=$(vl_resolve_harness "${P_HARNESS:-}" "${P_TRANSCRIPT:-}")
+VL_READ_2=$(vl_host_config "$TURN_HARNESS" "${P_TRANSCRIPT:-}" "${P_ROOT:-$CWD}" "${P_SESSION:-}")
 IFS="$VL_SEP" read -r H_MODEL H_EFFORT <<EOF
-$(vl_host_config "$TURN_HARNESS" "${P_TRANSCRIPT:-}" "${P_ROOT:-$CWD}" "${P_SESSION:-}")
+$VL_READ_2
 EOF
 jq -cn \
   --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
