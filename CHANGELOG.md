@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/gkaria/vibe-learn/compare/v0.12.0...v0.13.0) (2026-10-01)
+
+
+### Features
+
+* honour capture_prompts and add a privacy policy ([48e0c4a](https://github.com/gkaria/vibe-learn/commit/48e0c4a9439dc474c14f37a9efd29601d71b35ca))
+* honour capture_prompts and add a privacy policy ([1acabf6](https://github.com/gkaria/vibe-learn/commit/1acabf602f82ca61aa3af69805cd9591f1c2848c))
+
 ## [0.12.0](https://github.com/gkaria/vibe-learn/compare/v0.11.0...v0.12.0) (2026-10-01)
 
 
