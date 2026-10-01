@@ -153,7 +153,7 @@ Requires: `bash`, `jq`
 
 Key options:
 - `log_dir` — where session data is stored (default: `.vibe-learn`)
-- `capture_prompts` — whether to log user messages (can disable for privacy)
+- `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh` from `~/.vibe-learn/config.json`, overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`)
 - `pause_summary_max_lines` — max lines in the stop-hook summary
 - `rotate_on_session_start` — keeps previous log as `.prev.jsonl`
 - `health` — assistant-health settings. `enabled` and `global_log` are read today, from `~/.vibe-learn/config.json` overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`); the thresholds (`min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions`) are read by `health-report.sh` from the same two files

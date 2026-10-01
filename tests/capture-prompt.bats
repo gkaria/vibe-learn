@@ -89,3 +89,36 @@ JSON
   echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"Test prompt"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
   [ "$(jq '.turn' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "5" ]
 }
+
+@test "capture_prompts false in project config logs the turn but not the prompt text" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"capture_prompts":false}' > "$TEST_PROJECT_DIR/.vibe-learn/config.json"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"my secret plan"}' \
+    | bash "$SCRIPTS_DIR/capture-prompt.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.event')" = "user_prompt" ]
+  [ "$(echo "$entry" | jq -r '.prompt')" = "" ]
+  [ "$(echo "$entry" | jq -r '.turn')" = "1" ]
+  ! grep -q "secret plan" "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+}
+
+@test "capture_prompts false in global config applies to every project" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn" "$HOME/.vibe-learn"
+  echo '{"capture_prompts":false}' > "$HOME/.vibe-learn/config.json"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"my secret plan"}' \
+    | bash "$SCRIPTS_DIR/capture-prompt.sh"
+
+  [ "$(jq -r '.prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "" ]
+}
+
+@test "project capture_prompts true overrides global false" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn" "$HOME/.vibe-learn"
+  echo '{"capture_prompts":false}' > "$HOME/.vibe-learn/config.json"
+  echo '{"capture_prompts":true}' > "$TEST_PROJECT_DIR/.vibe-learn/config.json"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"Build me an API"}' \
+    | bash "$SCRIPTS_DIR/capture-prompt.sh"
+
+  [ "$(jq -r '.prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "Build me an API" ]
+}

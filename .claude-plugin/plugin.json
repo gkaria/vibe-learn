@@ -9,6 +9,7 @@
   },
   "homepage": "https://github.com/gkaria/vibe-learn",
   "repository": "https://github.com/gkaria/vibe-learn",
+  "privacyPolicyUrl": "https://github.com/gkaria/vibe-learn/blob/main/docs/privacy.md",
   "license": "MIT",
   "keywords": [
     "learning",
