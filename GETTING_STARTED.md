@@ -69,7 +69,7 @@ Goal: Build a simple Express API with a /health endpoint
   ✦ Created src/index.ts
   ✦ Created src/routes/health.ts
   ✦ Ran: npm install express
-  ✦ Ran: npx tsc --noEmit
+  ✦ Ran: tsc --noEmit
 
  /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
@@ -134,7 +134,7 @@ and basic project structure.
 
 ### Things To Study Next
 - [ ] How Express middleware order affects request handling
-- [ ] What npx tsc --noEmit does and when to run it
+- [ ] What tsc --noEmit does and when to run it
 - [ ] How to add error handling middleware
 ```
 

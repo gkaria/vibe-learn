@@ -3,7 +3,7 @@ Goal: Build a simple Express REST API with JWT authentication. I want endpoints 
 
   ✦ Created src/types/index.ts
   ✦ Edited src/routes/auth.ts
-  ✦ Ran: npx tsc --noEmit
+  ✦ Ran: tsc --noEmit
   ✦ Ran: node dist/index.js
 
 Use /learn to understand any of these decisions, or /digest for a full session report.

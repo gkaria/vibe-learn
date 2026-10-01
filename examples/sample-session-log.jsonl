@@ -7,8 +7,8 @@
 {"timestamp":"2026-03-17T14:33:15Z","event":"tool_use","tool":"Write","file":"src/db/users.ts","action":"created","context":{"new_file":true}}
 {"timestamp":"2026-03-17T14:33:28Z","event":"tool_use","tool":"Write","file":".env.example","action":"created","context":{"new_file":true}}
 {"timestamp":"2026-03-17T14:33:45Z","event":"tool_use","tool":"Edit","file":"src/index.ts","action":"edited","context":{}}
-{"timestamp":"2026-03-17T14:33:58Z","event":"tool_use","tool":"Bash","command":"npx tsc --noEmit","action":"ran","context":{"exit_code":0}}
+{"timestamp":"2026-03-17T14:33:58Z","event":"tool_use","tool":"Bash","command":"tsc --noEmit","action":"ran","context":{"exit_code":0}}
 {"timestamp":"2026-03-17T14:34:12Z","event":"tool_use","tool":"Write","file":"src/types/index.ts","action":"created","context":{"new_file":true}}
 {"timestamp":"2026-03-17T14:34:25Z","event":"tool_use","tool":"MultiEdit","file":"src/routes/auth.ts","action":"edited","context":{}}
-{"timestamp":"2026-03-17T14:34:39Z","event":"tool_use","tool":"Bash","command":"npx tsc --noEmit","action":"ran","context":{"exit_code":0}}
+{"timestamp":"2026-03-17T14:34:39Z","event":"tool_use","tool":"Bash","command":"tsc --noEmit","action":"ran","context":{"exit_code":0}}
 {"timestamp":"2026-03-17T14:34:52Z","event":"tool_use","tool":"Bash","command":"node dist/index.js","action":"ran","context":{"exit_code":0}}
