@@ -27,6 +27,17 @@ mkdir -p "$LOG_DIR"
 # Truncate prompt to 500 chars
 PROMPT="${PROMPT:0:500}"
 
+# capture_prompts from ~/.vibe-learn/config.json, overridden by the project's
+# .vibe-learn/config.json. Defaults to on. When off, the turn is still counted
+# but the prompt text is never written.
+CAPTURE_PROMPTS=true
+for f in "$HOME/.vibe-learn/config.json" "$LOG_DIR/config.json"; do
+  [ -f "$f" ] || continue
+  v=$(jq -r 'if .capture_prompts == false then "false" elif .capture_prompts == true then "true" else "" end' "$f" 2>/dev/null || true)
+  [ -n "$v" ] && CAPTURE_PROMPTS="$v"
+done
+[ "$CAPTURE_PROMPTS" = "false" ] && PROMPT=""
+
 # Get current timestamp
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 

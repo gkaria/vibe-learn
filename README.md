@@ -149,6 +149,7 @@ skips the check entirely.
 - [Session briefing & audio](docs/briefing.md) — HTML briefing, NotebookLM
 - [Assistant health](docs/health.md) — is the assistant having a bad week?
 - [Obsidian](docs/obsidian.md) — save and recall learn notes
+- [Privacy](docs/privacy.md) — what is stored, where, and how to turn it off
 - [Changelog](CHANGELOG.md) · [Releases](https://github.com/gkaria/vibe-learn/releases)
 
 ## Requirements
