@@ -148,6 +148,12 @@ HOOKS_JSON=$(cat <<EOF
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
     }
   ],
+  "PostToolUseFailure": [
+    {
+      "matcher": "Write|Edit|MultiEdit|Bash",
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
+    }
+  ],
   "Stop": [
     {
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/pause-summary.sh", "timeout": 10}]

@@ -18,6 +18,7 @@ load test_helper
   [ -f "$TEST_PROJECT_DIR/.claude/settings.local.json" ]
   jq -e '.hooks.SessionStart' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
   jq -e '.hooks.PostToolUse' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
+  jq -e '.hooks.PostToolUseFailure' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
   jq -e '.hooks.Stop' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
   jq -e '.hooks.UserPromptSubmit' "$TEST_PROJECT_DIR/.claude/settings.local.json" >/dev/null
 }

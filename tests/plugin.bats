@@ -47,6 +47,13 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   jq -e '.hooks.Stop'             "$HOOKS_JSON" >/dev/null
 }
 
+@test "plugin hooks.json registers PostToolUseFailure so failed tools are logged" {
+  jq -e '.hooks.PostToolUseFailure' "$HOOKS_JSON" >/dev/null
+  [ "$(jq -r '.hooks.PostToolUseFailure[0].matcher' "$HOOKS_JSON")" = "$(jq -r '.hooks.PostToolUse[0].matcher' "$HOOKS_JSON")" ]
+  [ "$(jq '.hooks.PostToolUseFailure[0].hooks[0].timeout' "$HOOKS_JSON")" = "2" ]
+  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | test("observe\\.sh")' "$HOOKS_JSON" >/dev/null
+}
+
 @test "plugin hooks.json commands resolve to scripts that exist in the repo" {
   local cmd script
   while IFS= read -r cmd; do
