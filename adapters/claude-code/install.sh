@@ -148,6 +148,12 @@ HOOKS_JSON=$(cat <<EOF
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
     }
   ],
+  "PostToolUseFailure": [
+    {
+      "matcher": "Write|Edit|MultiEdit|Bash",
+      "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
+    }
+  ],
   "Stop": [
     {
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/pause-summary.sh", "timeout": 10}]
@@ -165,7 +171,27 @@ if [ ! -f "$SETTINGS_FILE" ]; then
     echo "✓ Created .claude/settings.local.json"
   fi
 elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
-  if [ "$MODE" = "global" ]; then
+  # Upgrade path: installs from before PostToolUseFailure existed registered our
+  # observe.sh under PostToolUse only. Ownership is the exact command this installer
+  # writes ($HOOK_BASE/scripts/observe.sh), never a basename guess, and what gets
+  # added is this installer's own template entry, never a copy of the user's config.
+  MIGRATED=false
+  TMP=$(mktemp)
+  if jq --arg cmd "$HOOK_BASE/scripts/observe.sh" --argjson hooks "$HOOKS_JSON" '
+    def ours: any(.hooks[]?; .command == $cmd);
+    if ((.hooks.PostToolUse // []) | any(ours))
+       and (((.hooks.PostToolUseFailure // []) | any(ours)) | not)
+    then .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + $hooks.PostToolUseFailure)
+    else empty end
+  ' "$SETTINGS_FILE" > "$TMP" 2>/dev/null && [ -s "$TMP" ]; then
+    mv "$TMP" "$SETTINGS_FILE"
+    MIGRATED=true
+  else
+    rm -f "$TMP"
+  fi
+  if [ "$MIGRATED" = true ]; then
+    echo "✓ Added the PostToolUseFailure hook to the existing vibe-learn hooks in $SETTINGS_FILE (other hooks untouched)."
+  elif [ "$MODE" = "global" ]; then
     echo "⚠ ~/.claude/settings.json already has hooks — skipping global hook merge."
     echo "  To re-register: remove the \"hooks\" key from ~/.claude/settings.json and re-run setup."
   else

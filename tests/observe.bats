@@ -270,3 +270,15 @@ JSON
 
   [ "$(jq -r '.file' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "src/via-env.ts" ]
 }
+
+@test "observe logs Claude PostToolUseFailure for Bash as exit code 1" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"ls /nope"}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+
+  local entry
+  entry=$(cat "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")
+  [ "$(echo "$entry" | jq -r '.tool')" = "Bash" ]
+  [ "$(echo "$entry" | jq -r '.action')" = "ran" ]
+  [ "$(echo "$entry" | jq '.context.exit_code')" = "1" ]
+}

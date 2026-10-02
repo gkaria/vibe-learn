@@ -85,7 +85,7 @@ The plugin registers four lifecycle hooks:
 |------|--------|---------|
 | `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
-| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Grok also registers `PostToolUseFailure` so failed tools are logged. |
+| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
 | `Stop` | `scripts/pause-summary.sh` | After AI finishes responding |
 
 Hook registration format differs per assistant:
@@ -181,7 +181,7 @@ Each adapter's `install.sh` handles:
 - Copying command, prompt, or skill files to the assistant's supported directory
 - Adding `.vibe-learn/` to `.gitignore` (project-level only)
 
-The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same four hooks with absolute paths. Keep the two in sync. CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
+The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same hooks (the four lifecycle events plus `PostToolUseFailure`) with absolute paths. Keep the two in sync. When settings already has a `hooks` block the installer never rewrites it; it only adds its own `PostToolUseFailure` entry when the exact `$HOOK_BASE/scripts/observe.sh` command is already under `PostToolUse` (ownership is that exact command, never a basename match). CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
 
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
