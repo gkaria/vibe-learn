@@ -429,3 +429,54 @@ EOF
 
   rm -rf "$fake_home"
 }
+
+@test "plugin-deferral strip keeps a third-party observe.sh and unrelated hooks in a shared group" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  cat > "$fake_home/.claude/settings.json" <<EOF2
+{
+  "enabledPlugins": {"vibe-learn@vibe-learn": true},
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Bash", "hooks": [
+        {"type": "command", "command": "$fake_home/.vibe-learn/scripts/observe.sh"},
+        {"type": "command", "command": "/usr/bin/true"}
+      ]},
+      {"hooks": [{"type": "command", "command": "/other/tool/observe.sh"}]}
+    ]
+  }
+}
+EOF2
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  local f="$fake_home/.claude/settings.json"
+  [ "$(jq '.hooks.PostToolUse | length' "$f")" = "2" ]
+  [ "$(jq -r '.hooks.PostToolUse[0].hooks | map(.command) | join(",")' "$f")" = "/usr/bin/true" ]
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Bash" ]
+  [ "$(jq -r '.hooks.PostToolUse[1].hooks[0].command' "$f")" = "/other/tool/observe.sh" ]
+
+  rm -rf "$fake_home"
+}
+
+@test "plugin-deferral strip removes quoted clone-path and plugin-cache vibe-learn hooks" {
+  local fake_home
+  fake_home="$(mktemp -d)"
+  mkdir -p "$fake_home/.claude" "$TEST_PROJECT_DIR/.claude"
+  cat > "$fake_home/.claude/settings.json" <<EOF2
+{
+  "enabledPlugins": {"vibe-learn@vibe-learn": true},
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "\"/Users/me/code/vibe-learn/scripts/bootstrap.sh\""}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "/h/.claude/plugins/cache/m/vibe-learn/0.13.0-abc/scripts/observe.sh"}]}]
+  }
+}
+EOF2
+
+  HOME="$fake_home" run bash "$ADAPTERS_DIR/claude-code/install.sh" "$VIBE_LEARN_DIR" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  ! jq -e '.hooks' "$fake_home/.claude/settings.json" >/dev/null
+
+  rm -rf "$fake_home"
+}

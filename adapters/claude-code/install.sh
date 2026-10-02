@@ -64,8 +64,12 @@ plugin_enabled() {
   return 1
 }
 
-# Drop matcher groups whose command points at a vibe-learn core script. Leaves
-# unrelated hooks alone. Returns 0 if anything was removed.
+# Remove hooks that are ours, and only those. A command is ours when it is one of
+# the four core scripts under a directory this installer could have written
+# ($HOOK_BASE, $VIBE_LEARN_DIR, ~/.vibe-learn) or under a `vibe-learn/` directory
+# (a clone or the plugin cache). A bare `/…/observe.sh` from another tool is not.
+# Other hooks sharing a matcher group are kept; a group is dropped only when it
+# ends up empty. Returns 0 if anything was removed.
 strip_legacy_vibe_learn_hooks() {
   local settings_file="$1"
   [ -f "$settings_file" ] || return 1
@@ -73,12 +77,18 @@ strip_legacy_vibe_learn_hooks() {
 
   local tmp cleaned removed
   tmp="$(mktemp)"
-  cleaned="$(jq '
-    def is_vibe:
-      (.command // "") | test("/(bootstrap|capture-prompt|observe|pause-summary)\\.sh$")
-        or test("vibe-learn/.*/scripts/(bootstrap|capture-prompt|observe|pause-summary)\\.sh");
+  cleaned="$(jq \
+    --arg base "$HOOK_BASE" --arg vld "$VIBE_LEARN_DIR" --arg home "$HOME/.vibe-learn" '
+    def names: ["bootstrap","capture-prompt","observe","pause-summary"];
+    ([$base, $vld, $home] | map(select(. != "")) | unique
+      | map(. as $d | names | map($d + "/scripts/" + . + ".sh")) | add) as $exact
+    | def is_vibe:
+        ((.command // "") | sub("^\""; "") | sub("\"$"; "")) as $c
+        | ($exact | index($c) != null)
+          or ($c | test("/vibe-learn/(.+/)?scripts/(bootstrap|capture-prompt|observe|pause-summary)\\.sh$"));
     def scrub:
-      map(select(((.hooks // []) | map(is_vibe) | any) | not));
+      map(.hooks = ((.hooks // []) | map(select(is_vibe | not))))
+      | map(select((.hooks | length) > 0));
     . as $root
     | ($root.hooks // {}) as $h
     | ($h | to_entries
