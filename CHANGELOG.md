@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/gkaria/vibe-learn/compare/v0.13.1...v0.13.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* strip only vibe-learn's own hooks when deferring to the plugin ([#44](https://github.com/gkaria/vibe-learn/issues/44)) ([2469235](https://github.com/gkaria/vibe-learn/commit/2469235611bec38293d6c4b22a24eb95b50f6d82))
+
 ## [0.13.1](https://github.com/gkaria/vibe-learn/compare/v0.13.0...v0.13.1) (2026-10-02)
 
 
