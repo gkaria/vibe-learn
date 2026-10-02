@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/gkaria/vibe-learn/compare/v0.13.0...v0.13.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* log failed tool calls on Claude Code via PostToolUseFailure ([#42](https://github.com/gkaria/vibe-learn/issues/42)) ([917778a](https://github.com/gkaria/vibe-learn/commit/917778a04e4fd8a0ba29f3f34dab857dc1fac486))
+
 ## [0.13.0](https://github.com/gkaria/vibe-learn/compare/v0.12.0...v0.13.0) (2026-10-01)
 
 
