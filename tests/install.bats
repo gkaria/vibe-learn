@@ -73,6 +73,18 @@ load test_helper
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
 }
 
+@test "install migration copies only the vibe-learn hook out of a shared matcher group" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  echo '{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/usr/bin/true"},{"type":"command","command":"/x/vibe-learn/scripts/observe.sh","timeout":2}]}]}}' > "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  [ "$(jq '.hooks.PostToolUseFailure[0].hooks | length' "$f")" = "1" ]
+  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | test("observe\\.sh")' "$f" >/dev/null
+  [ "$(jq '.hooks.PostToolUse[0].hooks | length' "$f")" = "2" ]
+  [ "$(jq -r '.hooks.PostToolUseFailure[0].matcher' "$f")" = "Bash" ]
+}
+
 @test "install does not add PostToolUseFailure when no vibe-learn observe hook exists" {
   mkdir -p "$TEST_PROJECT_DIR/.claude"
   local f="$TEST_PROJECT_DIR/.claude/settings.local.json"

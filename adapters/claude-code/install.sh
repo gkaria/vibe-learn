@@ -178,7 +178,7 @@ elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
     def is_observe: any(.hooks[]?; (.command // "") | test("observe\\.sh\"?$"));
     if ((.hooks.PostToolUse // []) | any(is_observe))
        and (((.hooks.PostToolUseFailure // []) | any(is_observe)) | not)
-    then .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + [.hooks.PostToolUse[] | select(is_observe)])
+    then .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + [.hooks.PostToolUse[] | select(is_observe) | .hooks |= map(select((.command // "") | test("observe\\.sh\"?$")))])
     else empty end
   ' "$SETTINGS_FILE" > "$TMP" 2>/dev/null && [ -s "$TMP" ]; then
     mv "$TMP" "$SETTINGS_FILE"
