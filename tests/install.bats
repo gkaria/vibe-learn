@@ -60,6 +60,28 @@ load test_helper
   echo "$output" | grep -q "already has hooks"
 }
 
+@test "install adds PostToolUseFailure to existing vibe-learn hooks and keeps other hooks" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  echo '{"hooks":{"PostToolUse":[{"matcher":"Write|Edit|MultiEdit|Bash","hooks":[{"type":"command","command":"/x/vibe-learn/scripts/observe.sh","timeout":2}]}],"PreToolUse":[{"hooks":[{"type":"command","command":"/usr/bin/true"}]}]}}' > "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | test("observe\\.sh")' "$f" >/dev/null
+  jq -e '.hooks.PreToolUse[0].hooks[0].command == "/usr/bin/true"' "$f" >/dev/null
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
+}
+
+@test "install does not add PostToolUseFailure when no vibe-learn observe hook exists" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  echo '{"hooks":{"SessionStart":[]}}' > "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  jq -e '.hooks.PostToolUseFailure == null' "$f" >/dev/null
+}
+
 @test "install makes scripts executable" {
   bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
   [ -x "$SCRIPTS_DIR/bootstrap.sh" ]
