@@ -273,7 +273,7 @@ JSON
 
 @test "observe logs Claude PostToolUseFailure for Bash as exit code 1" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"ls /nope"},"error":"Exit code 1"}' \
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"ls /nope"}}' \
     | bash "$SCRIPTS_DIR/observe.sh"
 
   local entry

@@ -60,32 +60,65 @@ load test_helper
   echo "$output" | grep -q "already has hooks"
 }
 
-@test "install adds PostToolUseFailure to existing vibe-learn hooks and keeps other hooks" {
-  mkdir -p "$TEST_PROJECT_DIR/.claude"
-  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
-  echo '{"hooks":{"PostToolUse":[{"matcher":"Write|Edit|MultiEdit|Bash","hooks":[{"type":"command","command":"/x/vibe-learn/scripts/observe.sh","timeout":2}]}],"PreToolUse":[{"hooks":[{"type":"command","command":"/usr/bin/true"}]}]}}' > "$f"
+# A settings.local.json that predates PostToolUseFailure: a fresh install with that
+# one event removed, so the observer command is exactly what the installer writes.
+legacy_settings() {
+  bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code >/dev/null
+  LEGACY_FILE="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  jq 'del(.hooks.PostToolUseFailure)' "$LEGACY_FILE" > "$LEGACY_FILE.tmp" && mv "$LEGACY_FILE.tmp" "$LEGACY_FILE"
+}
+
+@test "install adds PostToolUseFailure to a pre-existing vibe-learn install and keeps other hooks" {
+  legacy_settings
+  local f="$LEGACY_FILE"
+  jq '.hooks.PreToolUse = [{"hooks":[{"type":"command","command":"/usr/bin/true"}]}]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
-  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | test("observe\\.sh")' "$f" >/dev/null
+  echo "$output" | grep -q "Added the PostToolUseFailure hook"
+  ! echo "$output" | grep -q "skipping hook merge"
+  [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
+  jq -e '.hooks.PostToolUseFailure[0].matcher == "Write|Edit|MultiEdit|Bash"' "$f" >/dev/null
+  [ "$(jq '.hooks.PostToolUseFailure[0].hooks[0].timeout' "$f")" = "2" ]
   jq -e '.hooks.PreToolUse[0].hooks[0].command == "/usr/bin/true"' "$f" >/dev/null
 
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
 }
 
-@test "install migration copies only the vibe-learn hook out of a shared matcher group" {
-  mkdir -p "$TEST_PROJECT_DIR/.claude"
-  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
-  echo '{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/usr/bin/true"},{"type":"command","command":"/x/vibe-learn/scripts/observe.sh","timeout":2}]}]}}' > "$f"
+@test "install migration never copies a user hook that shares a matcher group with observe.sh" {
+  legacy_settings
+  local f="$LEGACY_FILE"
+  jq '.hooks.PostToolUse[0].hooks += [{"type":"command","command":"/usr/bin/true"}]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
   [ "$(jq '.hooks.PostToolUseFailure[0].hooks | length' "$f")" = "1" ]
-  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | test("observe\\.sh")' "$f" >/dev/null
+  jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | endswith("/scripts/observe.sh")' "$f" >/dev/null
   [ "$(jq '.hooks.PostToolUse[0].hooks | length' "$f")" = "2" ]
-  [ "$(jq -r '.hooks.PostToolUseFailure[0].matcher' "$f")" = "Bash" ]
 }
 
-@test "install does not add PostToolUseFailure when no vibe-learn observe hook exists" {
+@test "install migration ignores a foreign observe.sh and still migrates ours" {
+  legacy_settings
+  local f="$LEGACY_FILE"
+  jq '.hooks.PostToolUse += [{"hooks":[{"type":"command","command":"/other/tool/observe.sh"}]}]
+      | .hooks.PostToolUseFailure = [{"hooks":[{"type":"command","command":"/other/tool/observe.sh"}]}]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "2" ]
+  [ "$(jq '[.hooks.PostToolUseFailure[].hooks[].command | select(. == "/other/tool/observe.sh")] | length' "$f")" = "1" ]
+  [ "$(jq '[.hooks.PostToolUseFailure[].hooks[].command | select(endswith("/scripts/observe.sh") and (startswith("/other/") | not))] | length' "$f")" = "1" ]
+}
+
+@test "install does not migrate when only a foreign observe.sh is registered" {
+  mkdir -p "$TEST_PROJECT_DIR/.claude"
+  local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  echo '{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"/other/tool/observe.sh"}]}]}}' > "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  echo "$output" | grep -q "skipping hook merge"
+  jq -e '.hooks.PostToolUseFailure == null' "$f" >/dev/null
+}
+
+@test "install does not add PostToolUseFailure when settings has hooks but no vibe-learn observer" {
   mkdir -p "$TEST_PROJECT_DIR/.claude"
   local f="$TEST_PROJECT_DIR/.claude/settings.local.json"
   echo '{"hooks":{"SessionStart":[]}}' > "$f"
