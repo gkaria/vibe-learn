@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.3](https://github.com/gkaria/vibe-learn/compare/v0.13.2...v0.13.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* emit valid SessionStart JSON and avoid session-meta tmp collisions ([#46](https://github.com/gkaria/vibe-learn/issues/46)) ([44b52ab](https://github.com/gkaria/vibe-learn/commit/44b52ab195c9a5d5665b3b845441b67f26dd7641))
+
 ## [0.13.2](https://github.com/gkaria/vibe-learn/compare/v0.13.1...v0.13.2) (2026-10-02)
 
 
