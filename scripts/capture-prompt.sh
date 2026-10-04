@@ -59,8 +59,8 @@ echo "$ENTRY" >> "$SESSION_LOG"
 
 # Persist the new turn counter
 if [ -f "$META_FILE" ]; then
-  TMP_FILE="$META_FILE.tmp"
-  jq --argjson turn "$NEW_TURN" '.current_turn = $turn' "$META_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$META_FILE"
+  TMP_FILE="$META_FILE.$$.tmp"
+  jq --argjson turn "$NEW_TURN" '.current_turn = $turn' "$META_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$META_FILE" || rm -f "$TMP_FILE"
 fi
 
 exit 0

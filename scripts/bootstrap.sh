@@ -149,9 +149,8 @@ jq -n \
 
 # If a prior pause summary exists, inject it as context for Claude
 if [ -f "$PAUSE_SUMMARY" ]; then
-  SUMMARY_CONTENT=$(cat "$PAUSE_SUMMARY")
-  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"Prior session summary:\\n%s"}}\n' \
-    "$(echo "$SUMMARY_CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')"
+  tr '\n' ' ' < "$PAUSE_SUMMARY" \
+    | jq -Rsc '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:("Prior session summary:\n" + .)}}'
 else
   exit 0
 fi
