@@ -188,8 +188,8 @@ printf '%s\n' "$ENTRIES" >> "$SESSION_LOG"
 if [ -f "$META_FILE" ]; then
   CURRENT=$(jq '.event_count // 0' "$META_FILE")
   NEW_COUNT=$((CURRENT + EVENT_COUNT))
-  TMP_FILE="$META_FILE.tmp"
-  jq --argjson count "$NEW_COUNT" '.event_count = $count' "$META_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$META_FILE"
+  TMP_FILE="$META_FILE.$$.tmp"
+  jq --argjson count "$NEW_COUNT" '.event_count = $count' "$META_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$META_FILE" || rm -f "$TMP_FILE"
 fi
 
 exit 0

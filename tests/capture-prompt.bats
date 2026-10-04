@@ -122,3 +122,10 @@ JSON
 
   [ "$(jq -r '.prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "Build me an API" ]
 }
+
+@test "capture-prompt leaves no meta tmp file behind" {
+  bash "$SCRIPTS_DIR/bootstrap.sh" <<< '{"cwd":"'"$TEST_PROJECT_DIR"'","session_id":"s-tmp"}'
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"hi"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  run bash -c "ls '$TEST_PROJECT_DIR'/.vibe-learn/*.tmp 2>/dev/null"
+  [ -z "$output" ]
+}

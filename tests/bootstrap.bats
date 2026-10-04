@@ -68,3 +68,14 @@ load test_helper
   sid=$(jq -r '.session_id' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")
   [ "$sid" = "env-session" ]
 }
+
+@test "bootstrap emits valid JSON when the prior summary contains backslashes and quotes" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  printf 'Ran: grep "a\\.b" C:\\dir\\x\n' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+
+  run bash -c "echo '{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"s-bs\"}' | bash '$SCRIPTS_DIR/bootstrap.sh'"
+  [ "$status" -eq 0 ]
+  local ctx
+  ctx=$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')
+  [[ "$ctx" == *'grep "a\.b" C:\dir\x'* ]]
+}
