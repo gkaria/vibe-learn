@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Read `.vibe-learn/session-log.jsonl` to see what this session touched and why (the `user_prompt` events carry the intent). Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
-**Knowledge helper:** to mark concepts as seen, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; the `scripts/knowledge.sh` under the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh` or `~/.cursor/hooks/vibe-learn.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If none of these exist, skip the ledger step silently — the tour itself still works.
+**Knowledge helper:** to mark concepts as seen, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; the `scripts/knowledge.sh` under the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh` or `~/.cursor/hooks/vibe-learn.sh`; `scripts/knowledge.sh` under an installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/` or the marketplace install); `scripts/knowledge.sh` when working in the vibe-learn repo itself. If none of these exist, skip the ledger step silently — the tour itself still works.
 
 Treat the rest of the user's message after `/explain` as the target:
 
@@ -47,3 +47,5 @@ Rules:
 3. Offer the next step: "Want me to quiz you on this (`/quiz <topic>`), or save it to Obsidian (`/learn obsidian <topic>`)?"
 
 If the session log is empty and no target was given, say vibe-learn has not observed any changes yet and offer to tour a file the user names.
+
+If the session log is missing or empty, say vibe-learn has not captured events for this project yet (project hooks in `.cursor/hooks.json` only run in a trusted workspace). Then fall back to git: use `git status`, `git diff HEAD` and `git log -n 10 --stat` as the source of what changed, and say the answer is based on git rather than the session log. If this is not a git repository, offer to help from available repository context.

@@ -27,6 +27,24 @@ Requires `jq` — `brew install jq` / `apt-get install jq`.
 
 ![/quiz: a half-right answer gets corrected, and the result is recorded to the knowledge ledger](docs/demo/quiz.gif)
 
+## Cursor plugin (local install and testing)
+
+vibe-learn also ships as a Cursor plugin (`.cursor-plugin/plugin.json`), bundling the `/learn`, `/digest`, `/quiz`, `/explain` and `vibe-learn` skills plus the session hooks.
+
+```bash
+mkdir -p ~/.cursor/plugins/local
+git clone https://github.com/gkaria/vibe-learn ~/.cursor/plugins/local/vibe-learn
+```
+
+Cursor skips symlinks that point outside `~/.cursor/plugins/local`, so clone or copy the repo rather than symlinking it. Then:
+
+1. Restart Cursor or run **Developer: Reload Window**.
+2. Open **Customize** and check that the vibe-learn skills and hooks are listed.
+3. In a trusted git project, ask the agent to edit a file, then run `/learn`. `.vibe-learn/session-log.jsonl` should appear in the project.
+4. If no session log is captured, the skills fall back to `git status`, `git diff` and `git log`.
+
+If you used the curl installer for Cursor as well, keep only one of them, or every event will be logged twice. Teams and Enterprise admins must allow local plugin imports.
+
 ## New here?
 
 1. **Install** with the plugin or the curl line above.

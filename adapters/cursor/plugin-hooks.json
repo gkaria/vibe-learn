@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "timeout": 5
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "timeout": 5
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "timeout": 2
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "matcher": "Shell",
+        "timeout": 2
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "matcher": "Shell",
+        "timeout": 2
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/adapters/cursor/hooks/vibe-learn.sh\"",
+        "timeout": 10
+      }
+    ]
+  }
+}

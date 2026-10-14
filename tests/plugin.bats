@@ -130,3 +130,55 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   diff "$VIBE_LEARN_DIR/.claude/commands/learn.md"  "$VIBE_LEARN_DIR/adapters/claude-code/commands/learn.md"
   diff "$VIBE_LEARN_DIR/.claude/commands/digest.md" "$VIBE_LEARN_DIR/adapters/claude-code/commands/digest.md"
 }
+
+# ---------------------------------------------------------------------------
+# Cursor plugin packaging (.cursor-plugin/)
+# ---------------------------------------------------------------------------
+
+CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
+
+@test "cursor plugin.json is valid JSON named vibe-learn" {
+  jq -e '.name == "vibe-learn"' "$CURSOR_PLUGIN_JSON" >/dev/null
+}
+
+@test "cursor plugin.json version matches VERSION and Claude manifest" {
+  local v
+  v=$(jq -r '.version' "$CURSOR_PLUGIN_JSON")
+  [ "$v" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+  [ "$v" = "$(jq -r '.version' "$PLUGIN_JSON")" ]
+}
+
+@test "cursor plugin.json component paths are relative and exist" {
+  local skills hooks logo
+  skills=$(jq -r '.skills' "$CURSOR_PLUGIN_JSON")
+  hooks=$(jq -r '.hooks' "$CURSOR_PLUGIN_JSON")
+  logo=$(jq -r '.logo' "$CURSOR_PLUGIN_JSON")
+  [[ "$skills" == ./* ]]
+  [[ "$hooks" == ./* ]]
+  [ -d "$VIBE_LEARN_DIR/$skills" ]
+  [ -f "$VIBE_LEARN_DIR/$hooks" ]
+  [ -f "$VIBE_LEARN_DIR/$logo" ]
+  for s in learn digest quiz explain vibe-learn; do
+    [ -f "$VIBE_LEARN_DIR/$skills/$s/SKILL.md" ]
+  done
+}
+
+@test "cursor plugin hooks have no placeholders and match the install template events" {
+  local hooks
+  hooks="$VIBE_LEARN_DIR/$(jq -r '.hooks' "$CURSOR_PLUGIN_JSON")"
+  ! grep -q PLACEHOLDER "$hooks"
+  [ "$(jq -c '.hooks | keys' "$hooks")" = "$(jq -c '.hooks | keys' "$VIBE_LEARN_DIR/adapters/cursor/hooks.json")" ]
+}
+
+@test "release-please bumps the cursor plugin manifest" {
+  jq -e '.packages["."]["extra-files"][] | select(.path == ".cursor-plugin/plugin.json" and .jsonpath == "$.version")' \
+    "$VIBE_LEARN_DIR/release-please-config.json" >/dev/null
+}
+
+@test "cursor shim resolves the plugin root when the placeholder is unreplaced" {
+  local proj="$BATS_TEST_TMPDIR/proj"
+  mkdir -p "$proj"
+  printf '{"hook_event_name":"sessionStart","workspace_roots":["%s"],"session_id":"t1"}' "$proj" \
+    | CURSOR_PLUGIN_ROOT="$VIBE_LEARN_DIR" bash "$VIBE_LEARN_DIR/adapters/cursor/hooks/vibe-learn.sh" >/dev/null
+  [ -d "$proj/.vibe-learn" ]
+}
