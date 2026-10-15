@@ -21,6 +21,11 @@
 set -uo pipefail
 
 VIBE_LEARN_DIR="VIBE_LEARN_DIR_PLACEHOLDER"
+# Running from the repo or an installed Cursor plugin, the placeholder is left
+# unreplaced: resolve the plugin root from this script's location instead.
+case "$VIBE_LEARN_DIR" in
+  *_PLACEHOLDER) VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)" ;;
+esac
 SCRIPTS="$VIBE_LEARN_DIR/scripts"
 
 INPUT=$(cat)
