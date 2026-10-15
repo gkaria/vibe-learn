@@ -46,6 +46,4 @@ Rules:
 2. If any concept covered is already `shaky` in the ledger, say so in one line ("You marked middleware ordering shaky on July 11 — this is the code behind it.").
 3. Offer the next step: "Want me to quiz you on this (`/quiz <topic>`), or save it to Obsidian (`/learn obsidian <topic>`)?"
 
-If the session log is empty and no target was given, say vibe-learn has not observed any changes yet and offer to tour a file the user names.
-
-If the session log is missing or empty, say vibe-learn has not captured events for this project yet (project hooks in `.cursor/hooks.json` only run in a trusted workspace). Then fall back to git: use `git status`, `git diff HEAD` and `git log -n 10 --stat` as the source of what changed, and say the answer is based on git rather than the session log. If this is not a git repository, offer to help from available repository context.
+If the session log is missing or empty, say vibe-learn has not captured events for this project yet (project hooks in `.cursor/hooks.json` only run in a trusted workspace). Then fall back to git: use `git status`, `git diff HEAD` and `git log -n 10 --stat` as the source of what changed, and say the answer is based on git rather than the session log. If this is not a git repository, or git shows no changes and no target was given, offer to tour a file the user names.

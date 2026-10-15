@@ -139,6 +139,8 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
 
 @test "cursor plugin.json is valid JSON named vibe-learn" {
   jq -e '.name == "vibe-learn"' "$CURSOR_PLUGIN_JSON" >/dev/null
+  # Cursor's plugin schema allows only name and email on author.
+  jq -e '.author | keys - ["name", "email"] == []' "$CURSOR_PLUGIN_JSON" >/dev/null
 }
 
 @test "cursor plugin.json version matches VERSION and Claude manifest" {
