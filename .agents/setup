@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Amp orb setup: installs what CI uses to test and validate vibe-learn.
+# Runs once per fresh orb (and again on stale snapshots), so every step is idempotent.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() { echo "==> $*"; }
+timed() { local start=$SECONDS; "$@"; echo "    (${1}: $((SECONDS - start))s)"; }
+
+# bats runs the test suite (tests/); sqlite3 enables the OpenCode usage test.
+packages=(bats sqlite3)
+missing=()
+for pkg in "${packages[@]}"; do
+  dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+done
+if ((${#missing[@]})); then
+  step "Installing apt packages: ${missing[*]}"
+  timed sudo apt-get update -qq
+  timed sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+else
+  step "apt packages already installed: ${packages[*]}"
+fi
+
+# jq >= 1.7 (as on CI's Ubuntu). Debian 12 ships jq 1.6, which rejects `$label`
+# in scripts/knowledge.sh. /usr/local/bin precedes /usr/bin on PATH.
+jq_version=1.7.1
+jq_sha256=5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
+if [[ "$(/usr/local/bin/jq --version 2>/dev/null)" == "jq-$jq_version" ]]; then
+  step "jq $jq_version already installed"
+else
+  step "Installing jq $jq_version"
+  tmp=$(mktemp)
+  timed curl -fsSL -o "$tmp" "https://github.com/jqlang/jq/releases/download/jq-$jq_version/jq-linux-amd64"
+  echo "$jq_sha256  $tmp" | sha256sum -c --quiet
+  sudo install -m 0755 "$tmp" /usr/local/bin/jq
+  rm -f "$tmp"
+fi
+
+# Claude Code CLI for `claude plugin validate`, pinned to the version CI uses.
+claude_version=$(sed -n 's/.*@anthropic-ai\/claude-code@\([0-9][0-9.]*\).*/\1/p' .github/workflows/ci.yml | head -n1)
+if [[ -n "$claude_version" ]] && command -v claude >/dev/null 2>&1 \
+  && [[ "$(claude --version 2>/dev/null)" == "$claude_version"* ]]; then
+  step "Claude Code CLI $claude_version already installed"
+else
+  step "Installing Claude Code CLI ${claude_version:-latest}"
+  timed npm install -g --no-fund --no-audit "@anthropic-ai/claude-code@${claude_version:-latest}"
+fi
+
+step "Done"

@@ -13,3 +13,6 @@
 
 # Misc
 *.log
+
+# Amp orb portals
+.amp/portals/*
