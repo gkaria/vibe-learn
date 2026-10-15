@@ -102,12 +102,12 @@ case "$COMMAND" in
     esac
     CURRENT="$(read_ledger)"
     UPDATED="$(echo "$CURRENT" | jq \
-      --arg name "$NAME" --arg label "$LABEL" --arg status "$STATUS" \
+      --arg name "$NAME" --arg concept_label "$LABEL" --arg status "$STATUS" \
       --arg notes "$NOTES" --arg today "$TODAY" '
       .concepts |=
         if any(.[]?; .name == $name) then
           map(if .name == $name then
-            .label = (if $label != "" then $label else .label end)
+            .label = (if $concept_label != "" then $concept_label else .label end)
             | .sessions = (if .last_seen == $today then .sessions else .sessions + 1 end)
             | .last_seen = $today
             | .last_quizzed = $today
@@ -117,7 +117,7 @@ case "$COMMAND" in
         else
           . + [{
             name: $name,
-            label: (if $label != "" then $label else $name end),
+            label: (if $concept_label != "" then $concept_label else $name end),
             first_seen: $today,
             last_seen: $today,
             sessions: 1,
@@ -133,18 +133,18 @@ case "$COMMAND" in
     [ -n "$NAME" ] || { echo "ERROR: touch requires a concept name." >&2; exit 1; }
     CURRENT="$(read_ledger)"
     UPDATED="$(echo "$CURRENT" | jq \
-      --arg name "$NAME" --arg label "$LABEL" --arg today "$TODAY" '
+      --arg name "$NAME" --arg concept_label "$LABEL" --arg today "$TODAY" '
       .concepts |=
         if any(.[]?; .name == $name) then
           map(if .name == $name then
-            .label = (if $label != "" then $label else .label end)
+            .label = (if $concept_label != "" then $concept_label else .label end)
             | .sessions = (if .last_seen == $today then .sessions else .sessions + 1 end)
             | .last_seen = $today
           else . end)
         else
           . + [{
             name: $name,
-            label: (if $label != "" then $label else $name end),
+            label: (if $concept_label != "" then $concept_label else $name end),
             first_seen: $today,
             last_seen: $today,
             sessions: 1,

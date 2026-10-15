@@ -8,11 +8,23 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # system = Ubuntu's jq (1.7+); 1.6 is still the default on Debian 12 and Ubuntu 22.04.
+        jq: [system, "1.6"]
+    name: test (jq ${{ matrix.jq }})
     steps:
       - uses: actions/checkout@v4
 
       - name: Install bats and jq
         run: sudo apt-get install -y bats jq
+
+      - name: Use jq ${{ matrix.jq }}
+        if: matrix.jq != 'system'
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/jq "https://github.com/jqlang/jq/releases/download/jq-${{ matrix.jq }}/jq-linux64"
+          sudo chmod +x /usr/local/bin/jq
+          jq --version
 
       - name: Run tests
         run: bats tests/
