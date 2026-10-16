@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/gkaria/vibe-learn/compare/v0.13.3...v0.14.0) (2026-10-16)
+
+
+### Features
+
+* package vibe-learn as a Cursor / Grok Bot marketplace plugin ([#48](https://github.com/gkaria/vibe-learn/issues/48)) ([529e288](https://github.com/gkaria/vibe-learn/commit/529e288df91d13f31dd366b3f6cacf5413a43dd6))
+
+
+### Bug Fixes
+
+* make knowledge.sh work with jq 1.6 ([#53](https://github.com/gkaria/vibe-learn/issues/53)) ([69eef31](https://github.com/gkaria/vibe-learn/commit/69eef31847cf5b5e1003217b3b73dff046fe360c))
+
 ## [0.13.3](https://github.com/gkaria/vibe-learn/compare/v0.13.2...v0.13.3) (2026-10-04)
 
 
