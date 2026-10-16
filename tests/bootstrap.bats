@@ -32,6 +32,24 @@ load test_helper
   [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" ]
 }
 
+@test "bootstrap keeps the log and metadata when the same session resumes" {
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","session_id":"s-resume"}' | bash "$SCRIPTS_DIR/bootstrap.sh"
+  local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  local meta="$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  echo '{"event":"user_prompt","prompt":"build it"}' > "$log"
+  jq '.event_count = 1' "$meta" > "$meta.tmp" && mv "$meta.tmp" "$meta"
+  local before
+  before=$(cat "$meta")
+
+  # claude --continue and /compact fire SessionStart again with the same id.
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","session_id":"s-resume","source":"resume"}' | bash "$SCRIPTS_DIR/bootstrap.sh"
+
+  [ "$(cat "$log")" = '{"event":"user_prompt","prompt":"build it"}' ]
+  [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/session-log.prev.jsonl" ]
+  [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/health.jsonl" ]
+  [ "$(cat "$meta")" = "$before" ]
+}
+
 @test "bootstrap exits silently when cwd is missing" {
   run bash -c 'echo "{}" | bash '"$SCRIPTS_DIR/bootstrap.sh"
   [ "$status" -eq 0 ]

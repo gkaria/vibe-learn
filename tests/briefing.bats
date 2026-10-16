@@ -146,3 +146,30 @@ pack_file_for_test_project() {
   grep -q "overflow-x:hidden" "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
   grep -q "max-width:100%" "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
 }
+
+@test "briefing index lists the current session before older same-day sessions" {
+  write_sample_session
+  local sessions="$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions"
+  mkdir -p "$sessions"
+  # Sorts after the current session's filename, but was written earlier.
+  echo '<!doctype html><title>older</title>' > "$sessions/2026-06-05-zzz-older.html"
+  touch -t 202606051000 "$sessions/2026-06-05-zzz-older.html"
+
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
+
+  local index="$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
+  local current older
+  current=$(grep -n 'class="card-title">.*dash-test' "$index" | cut -d: -f1)
+  older=$(grep -n 'class="card-title">2026-06-05-zzz-older' "$index" | cut -d: -f1)
+  [ -n "$current" ]
+  [ -n "$older" ]
+  [ "$current" -lt "$older" ]
+}
+
+@test "briefing timeline filters can hide items" {
+  write_sample_session
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
+
+  # The filter buttons set li.hidden; the flex rule on timeline items must not override it.
+  grep -q 'ol.timeline li\[hidden\]{display:none;}' "$(session_file_for_test_project)"
+}

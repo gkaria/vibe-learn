@@ -100,17 +100,21 @@ boot() {
   write_meta '{}'
   {
     prompt 1
-    for cmd in "npm test" "pytest -q" "bats tests/" "go test ./..." "cargo clippy" "npm run lint" "pnpm build" "make check" "./node_modules/.bin/tsc --noEmit" "ruff check ."; do
+    for cmd in "npm test" "pytest -q" "bats tests/" "go test ./..." "cargo clippy" "npm run lint" "pnpm build" "make check" "./node_modules/.bin/tsc --noEmit" "ruff check ." \
+      "cd api && npm test" "bun test" "npx jest --ci" "python -m pytest" "CI=1 npx vitest run" "./test"; do
       bash_ev 1 "$cmd" 0
     done
-    for cmd in "ls -la" "git status" "npm install" "cat testdata.txt" "echo contest"; do
+    # A test directory, the test builtin, or check commands inside heredoc text are not check runs.
+    for cmd in "ls -la" "git status" "npm install" "cat testdata.txt" "echo contest" \
+      "ls test" "cat >> test/app.test.js" "mkdir -p test" "test -f package.json && echo ok" "grep -rn test src" \
+      "cat > NOTES.md <<'EOF'\\nRun npm test before pushing.\\nEOF"; do
       bash_ev 1 "$cmd" 0
     done
   } | write_log
 
   run health
-  [ "$(jq -r '.metrics.check_runs' <<<"$output")" = "10" ]
-  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "15" ]
+  [ "$(jq -r '.metrics.check_runs' <<<"$output")" = "16" ]
+  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "27" ]
 }
 
 @test "health.sh turns_to_green averages recoveries and counts unrecovered checks" {

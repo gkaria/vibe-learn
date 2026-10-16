@@ -14,7 +14,8 @@ if [ ! -d "$EXPORTS_DIR" ]; then
   exit 1
 fi
 
-PACK=$(find "$EXPORTS_DIR" -maxdepth 1 -name '*-notebooklm-pack.md' -type f | sort -r | head -1)
+# Newest by modification time: same-day filenames differ only by session id.
+PACK=$(ls -1t "$EXPORTS_DIR"/*-notebooklm-pack.md 2>/dev/null | head -1 || true)
 
 if [ -z "$PACK" ]; then
   echo "No NotebookLM pack found in $EXPORTS_DIR." >&2

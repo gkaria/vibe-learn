@@ -65,3 +65,25 @@ load test_helper
 
   rm -rf "$fake_bin"
 }
+
+@test "cli audio-prep picks the most recently written pack, not the last filename" {
+  local exports="$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"
+  mkdir -p "$exports"
+  # Same day: the newer session's id sorts first alphabetically.
+  echo "# older" > "$exports/2026-06-05-proj-ffff-notebooklm-pack.md"
+  touch -t 202606051000 "$exports/2026-06-05-proj-ffff-notebooklm-pack.md"
+  echo "# newer" > "$exports/2026-06-05-proj-0000-notebooklm-pack.md"
+
+  local fake_bin
+  fake_bin="$(mktemp -d)"
+  for tool in pbcopy xclip open; do
+    printf '#!/bin/sh\nexit 1\n' > "$fake_bin/$tool"
+    chmod +x "$fake_bin/$tool"
+  done
+
+  run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
+  rm -rf "$fake_bin"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "2026-06-05-proj-0000-notebooklm-pack.md"
+  ! echo "$output" | grep -q "ffff"
+}
