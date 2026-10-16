@@ -173,3 +173,26 @@ pack_file_for_test_project() {
   # The filter buttons set li.hidden; the flex rule on timeline items must not override it.
   grep -q 'ol.timeline li\[hidden\]{display:none;}' "$(session_file_for_test_project)"
 }
+
+write_learning_session() {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"session_id":"learn-test","started_at":"2026-10-16T09:00:00Z"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  sed "s#__ROOT__#$TEST_PROJECT_DIR#g" "$VIBE_LEARN_DIR/tests/fixtures/session-learning.jsonl" \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+}
+
+@test "briefing counts leave out learning turns and the timeline marks them" {
+  write_learning_session
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+
+  local index="$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" session
+  session="$(session_file_for_test_project)"
+  # app.js created + edited, app.test.js created; npm install, npm test x2, lint.
+  grep -q '<span class="tag">3 files</span>' "$index"
+  grep -q '<span class="tag">4 commands</span>' "$index"
+  grep -q '2 failed' "$index"
+  # Turn 4 (prompt, ls, digest write) and turn 6 (prompt, cat).
+  [ "$(grep -c 'data-learning="true"' "$session")" -eq 5 ]
+  ! grep -q 'class="command-row[^"]*"[^>]*><code class="cmd-text">ls .vibe-learn/digests' "$session"
+}

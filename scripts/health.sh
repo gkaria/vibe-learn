@@ -9,7 +9,9 @@
 # bootstrap.sh appends the output to health.jsonl before it rotates the log.
 # The first segment's row also carries `usage`: tool families and skills for
 # the whole session (from the host's transcript, see usage.sh) and slash
-# commands typed in prompts.
+# commands typed in prompts. Learning turns (/learn, /digest, /quiz, /explain;
+# see learning_event in lib/session.jq) are left out of segments and metrics,
+# but usage still counts them: it records what the host ran.
 
 set -uo pipefail
 
@@ -57,12 +59,13 @@ if command -v vl_session_usage >/dev/null 2>&1; then
   printf '%s' "$USAGE" | jq -e 'type == "object" or . == null' >/dev/null 2>&1 || USAGE=null
 fi
 
-jq -Rn -c \
+jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
   --argjson meta "$META" \
   --argjson usage "$USAGE" \
   --arg version "$VERSION" \
   --arg host_model "$HOST_MODEL" \
   --arg host_effort "$HOST_EFFORT" '
+  include "session";
   def nonempty: if . == "" then null else . end;
   def round_to($n): if . == null then null else (. * pow(10; $n) | round) / pow(10; $n) end;
   # A check is a test, lint, or build tool in command position: the start of a
@@ -81,12 +84,11 @@ jq -Rn -c \
         | (strip_prefix | strip_prefix)
         | test("^(\\S*/)?(pytest|jest|vitest|bats|mocha|rspec|tsc|eslint|ruff|mypy)(\\s|$)|^\\S*/test(\\s|$)|^(go|bun|deno|mix|dotnet|swift|rails) test\\b|^cargo (test|check|clippy)\\b|^(npm|pnpm|yarn) (run )?(test|lint|build)\\b|^make (test|check)\\b"));
 
-  # Number turns by counting prompts in the append-only log. The stored `turn`
-  # fields come from session-meta.json, which stops counting if it is emptied.
-  [foreach (inputs | fromjson? | select(type == "object")) as $e (0;
-      if $e.event == "user_prompt" then . + 1 else . end;
-      $e + {_turn: ([., 1] | max)}
-    )] as $events
+  # Learning turns (/learn, /digest, /quiz, /explain) are not session work:
+  # their prompts and tool calls stay out of every metric and segment. Typed
+  # commands still count them in usage.commands.
+  ([inputs | fromjson? | select(type == "object")] | number_turns) as $all
+  | ($all | work_events) as $events
   | ($events | map(select(.event == "user_prompt" or .event == "tool_use"))) as $work
   | if ($work | length) == 0 then empty else
 
@@ -143,7 +145,7 @@ jq -Rn -c \
   | ($turns_per_file | map(select(. >= 3)) | length) as $files_reworked
   | (if $i == 0 then
       {tools: ($usage.tools // null), skills: ($usage.skills // null),
-       commands: ([$events[] | select(.event == "user_prompt") | .prompt // "" | tostring
+       commands: ([$all[] | select(.event == "user_prompt") | .prompt // "" | tostring
                    | capture("^\\s*(?:/|\\$)(?<c>[a-z][a-z0-9_.:-]*)(?=\\s|$)")? | .c]
                   | group_by(.) | map({key: .[0], value: length}) | sort_by(-.value, .key) | from_entries)}
     else null end) as $session_usage

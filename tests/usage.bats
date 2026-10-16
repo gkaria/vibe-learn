@@ -122,13 +122,14 @@ EOF
   jq -n --arg t "$t" '{session_id:"s1",started_at:"2026-09-25T10:00:00Z",harness:"claude-code",model:"m1",transcript_path:$t}' \
     > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'EOF'
-{"timestamp":"2026-09-25T10:00:00Z","event":"user_prompt","prompt":"/learn what happened"}
+{"timestamp":"2026-09-25T10:00:00Z","event":"user_prompt","prompt":"build it"}
 {"timestamp":"2026-09-25T10:00:01Z","event":"tool_use","tool":"Bash","command":"ls","action":"ran","context":{"exit_code":0}}
 {"timestamp":"2026-09-25T10:00:02Z","event":"turn_end","turn":1,"model":"m1","effort":null}
 {"timestamp":"2026-09-25T10:01:00Z","event":"user_prompt","prompt":"/Users/me/notes.txt is wrong"}
 {"timestamp":"2026-09-25T10:01:01Z","event":"tool_use","tool":"Bash","command":"ls","action":"ran","context":{"exit_code":0}}
 {"timestamp":"2026-09-25T10:01:02Z","event":"turn_end","turn":2,"model":"m2","effort":null}
 {"timestamp":"2026-09-25T10:02:00Z","event":"user_prompt","prompt":"$pr-review please"}
+{"timestamp":"2026-09-25T10:03:00Z","event":"user_prompt","prompt":"/learn what happened"}
 EOF
   run bash "$SCRIPTS_DIR/health.sh" "$TEST_PROJECT_DIR/.vibe-learn"
   [ "$(echo "$output" | wc -l | tr -d ' ')" = "2" ]
@@ -139,8 +140,9 @@ EOF
 @test "health.sh without a readable transcript still records typed commands" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'EOF'
-{"timestamp":"2026-09-25T10:00:00Z","event":"user_prompt","prompt":"/digest"}
+{"timestamp":"2026-09-25T10:00:00Z","event":"user_prompt","prompt":"add a route"}
 {"timestamp":"2026-09-25T10:00:01Z","event":"tool_use","tool":"Bash","command":"ls","action":"ran","context":{"exit_code":0}}
+{"timestamp":"2026-09-25T10:01:00Z","event":"user_prompt","prompt":"/digest"}
 EOF
   run bash "$SCRIPTS_DIR/health.sh" "$TEST_PROJECT_DIR/.vibe-learn"
   [ "$(echo "$output" | jq -c '.usage')" = '{"tools":null,"skills":null,"commands":{"digest":1}}' ]

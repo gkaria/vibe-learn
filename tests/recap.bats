@@ -98,6 +98,17 @@ EOF
   [ "$before" = "$(cat "$TEST_PROJECT_DIR/.vibe-learn/knowledge.json")" ]
 }
 
+@test "recap leaves learning turns out of prompts, files, and commands" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  sed -e "s#__ROOT__#$TEST_PROJECT_DIR#g" -e "s#2026-10-16#$TODAY#g" \
+    "$VIBE_LEARN_DIR/tests/fixtures/session-learning.jsonl" > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  run bash "$SCRIPTS_DIR/recap.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  # 4 work prompts; src/app.js and test/app.test.js (not the digest file);
+  # 4 work commands (not the digest's ls or the /learn turn's cat).
+  echo "$output" | grep -q "1 active day(s) · 4 prompt(s) · 2 file(s) touched · 4 command(s) run"
+}
+
 @test "recap on an empty project prints the nothing-yet message and exits 0" {
   run bash "$SCRIPTS_DIR/recap.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]

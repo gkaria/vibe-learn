@@ -73,6 +73,37 @@ boot() {
   [ "$(jq -c '.metrics' <<<"$row")" = '{"prompts":3,"turns":3,"tool_events":9,"events_per_prompt":3,"bash_runs":4,"bash_failures":2,"bash_fail_rate":0.5,"failed_file_ops":0,"files_touched":3,"files_reworked":1,"rework_rate":0.33,"check_runs":2,"check_recoveries":1,"check_unrecovered":0,"turns_to_green":1}' ]
 }
 
+@test "health.sh leaves learning turns out of every work metric" {
+  write_meta '{"session_id":"s1","started_at":"2026-10-16T08:59:00Z","harness":"claude-code","model":"opus"}'
+  sed "s#__ROOT__#$TEST_PROJECT_DIR#g" "$VIBE_LEARN_DIR/tests/fixtures/session-learning.jsonl" | write_log
+
+  run health
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+  # Work turns 1, 2, 3, 5. The /vibe-learn:digest turn (kind) and the /learn
+  # turn (no kind, an older log) each ran a failing command; neither counts.
+  [ "$(jq -c '.segment' <<<"$output")" = '{"index":1,"count":1,"first_turn":1,"last_turn":5}' ]
+  [ "$(jq -c '.metrics' <<<"$output")" = '{"prompts":4,"turns":4,"tool_events":8,"events_per_prompt":2,"bash_runs":4,"bash_failures":2,"bash_fail_rate":0.5,"failed_file_ops":0,"files_touched":2,"files_reworked":1,"rework_rate":null,"check_runs":3,"check_recoveries":1,"check_unrecovered":1,"turns_to_green":1}' ]
+  [ "$(jq -r '.ended_at' <<<"$output")" = "2026-10-16T09:04:20Z" ]
+  [ "$(jq -c '.usage.commands' <<<"$output")" = '{"learn":1,"vibe-learn:digest":1}' ]
+}
+
+@test "health.sh reports no failures for a session of learning turns after the work" {
+  {
+    prompt 1
+    bash_ev 1 "npm test" 0
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn what changed?"}' \
+      '{"event":"tool_use","tool":"Bash","command":"cat .vibe-learn/pause-summary.txt","action":"ran","context":{"exit_code":1}}' \
+      '{"event":"user_prompt","prompt":"/learn and the tests?"}' \
+      '{"event":"tool_use","tool":"Bash","command":"vibe-learn-knowledge due","action":"ran","context":{"exit_code":127}}' \
+      '{"event":"user_prompt","prompt":"/digest","kind":"learning"}' \
+      '{"event":"tool_use","tool":"Bash","command":"ls .vibe-learn/digests","action":"ran","context":{"exit_code":2}}'
+  } | write_log
+
+  run health
+  [ "$(jq -c '.metrics | [.prompts, .bash_runs, .bash_failures]' <<<"$output")" = '[1,1,0]' ]
+}
+
 @test "health.sh uses null rates for small denominators" {
   write_meta '{"session_id":"s1"}'
   { prompt 1; bash_ev 1 "ls" 1; edit_ev 1 a.ts; } | write_log

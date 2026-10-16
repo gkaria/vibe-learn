@@ -39,6 +39,7 @@ EOF
   esac
 done
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
@@ -159,11 +160,17 @@ if [ -f "$SUMMARY_FILE" ]; then
   PAUSE_SUMMARY="$(head -c 4000 "$SUMMARY_FILE")"
 fi
 
-FILES_CREATED="$(jq -r 'select(.event=="tool_use" and .action=="created") | .file // empty' "$SESSION_LOG" 2>/dev/null | sort -u)"
-FILES_EDITED="$(jq -r 'select(.event=="tool_use" and .action=="edited") | .file // empty' "$SESSION_LOG" 2>/dev/null | sort -u)"
-FILES_DELETED="$(jq -r 'select(.event=="tool_use" and .action=="deleted") | .file // empty' "$SESSION_LOG" 2>/dev/null | sort -u)"
+# The session's work: the log without learning turns (/learn, /digest, /quiz,
+# /explain), whose own tool calls are not part of what was built.
+WORK_LOG="$(jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "session";
+  [inputs | fromjson? | objects] | number_turns | work_events[]' "$SESSION_LOG" 2>/dev/null || true)"
+work_events() { printf '%s\n' "$WORK_LOG"; }
+
+FILES_CREATED="$(work_events | jq -r 'select(.event=="tool_use" and .action=="created") | .file // empty' 2>/dev/null | sort -u)"
+FILES_EDITED="$(work_events | jq -r 'select(.event=="tool_use" and .action=="edited") | .file // empty' 2>/dev/null | sort -u)"
+FILES_DELETED="$(work_events | jq -r 'select(.event=="tool_use" and .action=="deleted") | .file // empty' 2>/dev/null | sort -u)"
 ALL_FILES="$(printf '%s\n%s\n' "$FILES_CREATED" "$FILES_EDITED" | sort -u)"
-COMMANDS="$(jq -r 'select(.event=="tool_use" and .tool=="Bash") | [.command, (.context.exit_code // 0)] | @tsv' "$SESSION_LOG" 2>/dev/null)"
+COMMANDS="$(work_events | jq -r 'select(.event=="tool_use" and .tool=="Bash") | [.command, (.context.exit_code // 0)] | @tsv' 2>/dev/null)"
 FAILURES="$(printf '%s\n' "$COMMANDS" | awk -F '\t' '$2 != "" && $2 != "0" {print}')"
 
 CREATED_COUNT="$(printf '%s\n' "$FILES_CREATED" | sed '/^$/d' | wc -l | tr -d ' ')"
@@ -223,14 +230,20 @@ $COMMANDS
 EOF
 }
 
+# Rows from learning turns carry a "learning" chip; they are not session work.
 render_timeline() {
-  jq -r '
-    if .event == "user_prompt" then
-      "<li data-kind=\"prompt\"><span class=\"dot prompt\"></span><div class=\"tl-body\"><strong class=\"tl-type\">Prompt</strong><p>\(.prompt | @html)</p></div></li>"
+  jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "session";
+    [inputs | fromjson? | objects] | number_turns
+    | learning_turns as $l
+    | .[]
+    | (if $l[._turn | tostring] then " data-learning=\"true\"" else "" end) as $attr
+    | (if $attr != "" then " <span class=\"pill learning\">learning</span>" else "" end) as $chip
+    | if .event == "user_prompt" then
+      "<li data-kind=\"prompt\"\($attr)><span class=\"dot prompt\"></span><div class=\"tl-body\"><strong class=\"tl-type\">Prompt</strong>\($chip)<p>\(.prompt | @html)</p></div></li>"
     elif .event == "tool_use" and .tool == "Bash" then
-      "<li data-kind=\"command\"><span class=\"dot command\"></span><div class=\"tl-body\"><strong class=\"tl-type\">Command</strong><p><code>\((.command // "") | @html)</code></p></div></li>"
+      "<li data-kind=\"command\"\($attr)><span class=\"dot command\"></span><div class=\"tl-body\"><strong class=\"tl-type\">Command</strong>\($chip)<p><code>\((.command // "") | @html)</code></p></div></li>"
     elif .event == "tool_use" then
-      "<li data-kind=\"file\"><span class=\"dot file\"></span><div class=\"tl-body\"><strong class=\"tl-type\">\(.action // "changed")</strong><p><code>\((.file // "file") | @html)</code></p></div></li>"
+      "<li data-kind=\"file\"\($attr)><span class=\"dot file\"></span><div class=\"tl-body\"><strong class=\"tl-type\">\(.action // "changed")</strong>\($chip)<p><code>\((.file // "file") | @html)</code></p></div></li>"
     else empty end
   ' "$SESSION_LOG" 2>/dev/null
 }
@@ -380,7 +393,7 @@ fi
 # health.jsonl has rows. Without it every output stays byte-identical.
 HEALTH_FILE="$LOG_DIR/health.jsonl"
 HEALTH_PAGE="$BRIEFING_DIR/health.html"
-HEALTH_REPORT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/health-report.sh"
+HEALTH_REPORT="$SCRIPT_DIR/health-report.sh"
 HEALTH_VIEWS=""
 HEALTH_NAV=""
 HEALTH_SECTION=""
@@ -1086,6 +1099,7 @@ cat >> "$SESSION_FILE" <<'STYLE_BLOCK'
     .pill.action-created{background:#e8f0e1;color:var(--success);border-color:#c8d8b8;}
     .pill.action-edited{background:#e8eef5;color:#4a7aa8;border-color:#c0d0e0;}
     .pill.action-deleted{background:#fde8e4;color:var(--danger);border-color:#f0c8c0;}
+    .pill.learning{background:var(--surface-2);color:var(--muted);border-color:var(--line);margin-left:6px;}
     .area{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:4px;padding:2px 6px;border:1px solid;white-space:nowrap;}
     .area-tests{background:#e8f0e1;color:var(--success);border-color:#c8d8b8;}
     .area-adapter{background:#e8eef5;color:#4a7aa8;border-color:#c0d0e0;}
