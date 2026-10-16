@@ -71,6 +71,16 @@ components:
       destination: identity.sh
       fileType: generic
 
+  - id: script-session-lib
+    description: Shared jq definitions over the session log (learning-turn detection, session facts)
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/session.jq
+      destination: session.jq
+      fileType: generic
+
   - id: script-health
     description: Assistant health rows (one per session segment) appended to health.jsonl at log rotation
     dependencies: [jq]

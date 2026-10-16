@@ -183,6 +183,15 @@ JSON
   grep -q '"prompt":"add JWT auth"' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
 }
 
+@test "cursor shim marks a /quiz prompt as a learning turn" {
+  run_cursor_install
+
+  run_shim beforeSubmitPrompt '"prompt":"/quiz review","attachments":[]' >/dev/null
+  run_shim beforeSubmitPrompt '"prompt":"add a /health route","attachments":[]' >/dev/null
+
+  [ "$(jq -sc 'map(.kind)' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '["learning",null]' ]
+}
+
 @test "cursor shim afterFileEdit logs a Write for a new file and an Edit otherwise" {
   run_cursor_install
 

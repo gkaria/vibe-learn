@@ -39,6 +39,7 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   health.sh       ← session log + meta → one assistant-health row per session segment (read-only)
   usage.sh        ← sourced helper: tool families and skills per session from the host's own session record
   health-report.sh ← `vibe-learn health`: before/after-change comparison of health rows (read-only)
+  lib/session.jq  ← shared jq module: learning-turn detection (`learning_prompt`, `learning_event`)
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -286,10 +287,13 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 
 ```json
 {"timestamp":"...","event":"user_prompt","prompt":"..."}
+{"timestamp":"...","event":"user_prompt","prompt":"/digest","turn":8,"kind":"learning"}
 {"timestamp":"...","event":"tool_use","tool":"Write","file":"src/index.ts","action":"created","context":{"new_file":true}}
 {"timestamp":"...","event":"tool_use","tool":"Edit","file":"src/routes.ts","action":"edited","context":{}}
 {"timestamp":"...","event":"tool_use","tool":"Bash","command":"npm install","action":"ran","context":{"exit_code":0}}
 ```
+
+`capture-prompt.sh` adds `kind: "learning"` when the prompt invokes a learning command on any host (`/learn`, `/vibe-learn:digest`, `/prompts:quiz`, `$vibe-learn`, `/vibe-learn`, `Use /explain`, `Use vibe-learn to …`, `Read .codex/prompts/learn.md …`). The patterns live in one place, `learning_prompt` in `scripts/lib/session.jq`; extend them there, with a fixture, when a host phrases commands differently. The flag is written even when `capture_prompts` is off. OpenCode's plugin does not forward prompts, so it has no learning turns.
 
 `pause-summary.sh` also appends one line per genuine turn end, recording the model and effort that answered (either may be `null`):
 

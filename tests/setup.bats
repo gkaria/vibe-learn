@@ -168,3 +168,21 @@ teardown() {
   # Scripts and CLI shim are still installed for vibe-learn briefing / recap
   [ -f "$FAKE_INSTALL_DIR/scripts/briefing.sh" ]
 }
+
+@test "setup ships scripts/lib so the installed capture hook marks learning turns" {
+  bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code >/dev/null
+  [ -f "$FAKE_INSTALL_DIR/scripts/lib/session.jq" ]
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/digest"}' \
+    | bash "$FAKE_INSTALL_DIR/scripts/capture-prompt.sh"
+  [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
+}
+
+@test "a flat techpack-style copy finds session.jq next to the hook scripts" {
+  local flat="$FAKE_HOME/hooks"
+  mkdir -p "$flat"
+  cp "$SCRIPTS_DIR/capture-prompt.sh" "$flat/"
+  cp "$SCRIPTS_DIR/lib/session.jq" "$flat/session.jq"
+  grep -q 'source: scripts/lib/session.jq' "$VIBE_LEARN_DIR/techpack.yaml"
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$flat/capture-prompt.sh"
+  [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
+}

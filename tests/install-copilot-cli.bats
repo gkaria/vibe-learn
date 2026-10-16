@@ -93,6 +93,15 @@ run_hook() {
   [ "$cmd" = "'.github/hooks/vibe-learn.sh'" ]
 }
 
+@test "copilot-cli shim marks a Use /quiz prompt as a learning turn" {
+  run_copilot_install
+
+  run_hook userPromptSubmitted user-prompt-submitted.json >/dev/null
+  run_hook userPromptSubmitted user-prompt-learn.json >/dev/null
+
+  [ "$(jq -sc 'map(select(.event == "user_prompt") | .kind)' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '[null,"learning"]' ]
+}
+
 @test "copilot-cli shim translates documented lifecycle payloads into the core log" {
   run_copilot_install
 
