@@ -951,7 +951,8 @@ STUDY_QUEUE="$(render_ledger_study_items; render_study_queue)"
 
 render_index_cards() {
   local skip_old="$LATEST"
-  find "$SESSIONS_DIR" -maxdepth 1 -type f -name '*.html' -print | sort -r | while IFS= read -r file; do
+  # Newest first by modification time: same-day filenames differ only by session id.
+  ls -1t "$SESSIONS_DIR"/*.html | while IFS= read -r file; do
     local base href pack_href
     base="$(basename "$file")"
     href="sessions/$base"
@@ -1070,6 +1071,7 @@ cat >> "$SESSION_FILE" <<'STYLE_BLOCK'
     .filters button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
     ol.timeline{list-style:none;padding:0;margin:0;display:grid;gap:8px;}
     ol.timeline li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;display:flex;gap:12px;align-items:flex-start;}
+    ol.timeline li[hidden]{display:none;}
     ol.timeline li p{margin:4px 0 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere;word-break:break-word;}
     .dot{flex-shrink:0;width:10px;height:10px;border-radius:999px;margin-top:3px;background:var(--accent);}
     .dot.command{background:var(--accent-blue);}

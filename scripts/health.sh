@@ -65,8 +65,21 @@ jq -Rn -c \
   --arg host_effort "$HOST_EFFORT" '
   def nonempty: if . == "" then null else . end;
   def round_to($n): if . == null then null else (. * pow(10; $n) | round) / pow(10; $n) end;
+  # A check is a test, lint, or build tool in command position: the start of a
+  # command after &&, ||, ;, | or (, past env assignments and runners like npx.
+  # A heredoc body is text, not commands, so only its first line counts.
+  # sub, not gsub: jq 1.6 gsub loops on patterns that can match empty.
+  # strip_prefix runs twice for nesting such as `env CI=1 npx jest`.
+  def strip_prefix:
+    sub("^([A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)+"; "")
+    | sub("^(env(\\s+(-u\\s+\\S+|-\\S+))*|time|npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|bundle exec|python3? -m)\\s+"; "");
   def is_check:
-    test("(^|[ /])(test|pytest|jest|vitest|bats|mocha|rspec|tsc|eslint|ruff|mypy)\\b|go test|cargo (test|check|clippy)|npm (run )?(test|lint|build)|pnpm (test|lint|build)|yarn (test|lint|build)|make (test|check)");
+    (if test("<<") then split("\n")[0] else . end)
+    | [splits("&&|\\|\\||[;|(\n]")]
+    | any(.[];
+        sub("^\\s+"; "")
+        | (strip_prefix | strip_prefix)
+        | test("^(\\S*/)?(pytest|jest|vitest|bats|mocha|rspec|tsc|eslint|ruff|mypy)(\\s|$)|^\\S*/test(\\s|$)|^(go|bun|deno|mix|dotnet|swift|rails) test\\b|^cargo (test|check|clippy)\\b|^(npm|pnpm|yarn) (run )?(test|lint|build)\\b|^make (test|check)\\b"));
 
   # Number turns by counting prompts in the append-only log. The stored `turn`
   # fields come from session-meta.json, which stops counting if it is emptied.

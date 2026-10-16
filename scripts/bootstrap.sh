@@ -63,6 +63,14 @@ $VL_READ_1
 EOF
 fi
 
+# Resuming the session that owns the current log (claude --continue, /compact)
+# fires SessionStart again with the same id. Keep its log and
+# metadata, and skip the prior-session summary the assistant already has.
+if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "unknown" ] \
+  && [ "$(jq -r '.session_id // empty' "$META_FILE" 2>/dev/null)" = "$SESSION_ID" ]; then
+  exit 0
+fi
+
 # Rotate previous session log (keep one backup), first saving its health rows.
 # The old session-meta.json still describes that session at this point.
 if [ -f "$SESSION_LOG" ]; then
