@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "sessionStart",
+  "conversation_id": "cursor-smoke-conv",
+  "session_id": "cursor-smoke-sess",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "is_background_agent": false,
+  "cursor_version": "2.0.0-smoke",
+  "model": "composer-2",
+  "model_id": "composer-2",
+  "model_params": [{ "id": "effort", "value": "medium" }],
+  "transcript_path": "__PROJECT_ROOT__/.cursor/transcripts/smoke.jsonl"
+}

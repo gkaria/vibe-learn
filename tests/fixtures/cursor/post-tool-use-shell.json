@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "postToolUse",
+  "conversation_id": "cursor-smoke-conv",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "cwd": "__PROJECT_ROOT__",
+  "tool_name": "Shell",
+  "tool_input": {
+    "command": "node --test src/routes/health.test.js"
+  },
+  "tool_output": "{\"exitCode\":0,\"stdout\":\"ok\"}"
+}

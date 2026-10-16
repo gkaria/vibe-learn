@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "stop",
+  "conversation_id": "cursor-smoke-conv",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "status": "completed",
+  "loop_count": 0,
+  "cursor_version": "2.0.0-smoke",
+  "model": "composer-2",
+  "model_id": "composer-2",
+  "model_params": [{ "id": "effort", "value": "medium" }]
+}

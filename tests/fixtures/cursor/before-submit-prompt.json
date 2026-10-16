@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "beforeSubmitPrompt",
+  "conversation_id": "cursor-smoke-conv",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "prompt": "Build a simple /health endpoint for the Cursor smoke sample",
+  "attachments": []
+}

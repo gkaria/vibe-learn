@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "afterFileEdit",
+  "conversation_id": "cursor-smoke-conv",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "file_path": "__PROJECT_ROOT__/src/routes/health.js",
+  "edits": [
+    {
+      "old_string": "",
+      "new_string": "'use strict';\n\nfunction healthHandler(_req, res) {\n  const body = JSON.stringify({ ok: true, service: 'cursor-smoke' });\n  res.writeHead(200, {\n    'content-type': 'application/json',\n    'content-length': Buffer.byteLength(body),\n  });\n  res.end(body);\n}\n\nmodule.exports = { healthHandler };\n"
+    }
+  ]
+}

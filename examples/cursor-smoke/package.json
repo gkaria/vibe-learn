@@ -1,0 +1,11 @@
+{
+  "name": "vibe-learn-cursor-smoke",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Minimal sample app used by examples/cursor-smoke/run-smoke.sh to exercise the Cursor adapter end-to-end",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/routes/health.test.js"
+  }
+}
