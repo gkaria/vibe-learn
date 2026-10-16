@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "afterFileEdit",
+  "conversation_id": "cursor-smoke-conv",
+  "workspace_roots": ["__PROJECT_ROOT__"],
+  "file_path": "__PROJECT_ROOT__/src/index.js",
+  "edits": [
+    {
+      "old_string": "const port = Number(process.env.PORT || 3000);",
+      "new_string": "const port = Number(process.env.PORT || 3000);\n// wired /health via routes/health"
+    }
+  ]
+}
