@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Read `.vibe-learn/session-log.jsonl` to understand what happened in this session. Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
-**Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; the `scripts/knowledge.sh` under the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh` or `~/.cursor/hooks/vibe-learn.sh`; `scripts/knowledge.sh` when working in the vibe-learn repo itself. If the helper is missing, skip ledger updates and say so briefly.
+**Knowledge helper:** to read or update the ledger, use the `knowledge.sh` helper via your shell tool — never hand-edit the JSON. Locate it in this order: `~/.vibe-learn/scripts/knowledge.sh`; the `scripts/knowledge.sh` under the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh` or `~/.cursor/hooks/vibe-learn.sh`; `scripts/knowledge.sh` under an installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/` or the marketplace install); `scripts/knowledge.sh` when working in the vibe-learn repo itself. If the helper is missing, skip ledger updates and say so briefly.
 
 Treat the rest of the user's message after `/quiz` as the argument:
 

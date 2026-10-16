@@ -41,7 +41,7 @@ Cursor skips symlinks that point outside `~/.cursor/plugins/local`, so clone or 
 1. Restart Cursor or run **Developer: Reload Window**.
 2. Open **Customize** and check that the vibe-learn skills and hooks are listed.
 3. In a trusted git project, ask the agent to edit a file, then run `/learn`. `.vibe-learn/session-log.jsonl` should appear in the project.
-4. If no session log is captured, the skills fall back to `git status`, `git diff` and `git log`.
+4. If no session log is captured, `/learn`, `/digest` and `/explain` fall back to `git status`, `git diff` and `git log`. `/quiz` needs a session log or a knowledge ledger.
 
 If you used the curl installer for Cursor as well, keep only one of them, or every event will be logged twice. Teams and Enterprise admins must allow local plugin imports.
 

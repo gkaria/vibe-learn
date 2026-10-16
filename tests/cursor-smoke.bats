@@ -25,3 +25,14 @@ SMOKE_SCRIPT="$VIBE_LEARN_DIR/examples/cursor-smoke/run-smoke.sh"
   [[ "$output" == *"ok — Cursor hook replay"* ]]
   [[ "$output" == *"ok — session artifacts + knowledge helper"* ]]
 }
+
+@test "every Cursor skill that uses knowledge.sh can find it under a plugin install (#50)" {
+  local skill found=0
+  for skill in "$VIBE_LEARN_DIR"/adapters/cursor/skills/*/SKILL.md; do
+    grep -q 'knowledge\.sh' "$skill" || continue
+    found=$((found + 1))
+    grep -q 'installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/`' "$skill" \
+      || { echo "no plugin-root lookup: $skill"; return 1; }
+  done
+  [ "$found" -eq 5 ]
+}
