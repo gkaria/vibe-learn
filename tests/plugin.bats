@@ -22,13 +22,17 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
 }
 
 @test "plugin.json component paths are relative and exist" {
-  local commands hooks
+  local commands hooks icon
   commands=$(jq -r '.commands' "$PLUGIN_JSON")
   hooks=$(jq -r '.hooks' "$PLUGIN_JSON")
+  # Anthropic's directory reads the listing icon only from this field.
+  icon=$(jq -r '.icon' "$PLUGIN_JSON")
   [[ "$commands" == ./* ]]
   [[ "$hooks" == ./* ]]
+  [[ "$icon" == ./* ]]
   [ -d "$VIBE_LEARN_DIR/$commands" ]
   [ -f "$VIBE_LEARN_DIR/$hooks" ]
+  [ -f "$VIBE_LEARN_DIR/$icon" ]
 }
 
 @test "plugin commands directory ships learn, digest, and quiz" {
