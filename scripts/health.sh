@@ -69,13 +69,16 @@ jq -Rn -c \
   # command after &&, ||, ;, | or (, past env assignments and runners like npx.
   # A heredoc body is text, not commands, so only its first line counts.
   # sub, not gsub: jq 1.6 gsub loops on patterns that can match empty.
+  # strip_prefix runs twice for nesting such as `env CI=1 npx jest`.
+  def strip_prefix:
+    sub("^([A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)+"; "")
+    | sub("^(env(\\s+(-u\\s+\\S+|-\\S+))*|time|npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|bundle exec|python3? -m)\\s+"; "");
   def is_check:
     (if test("<<") then split("\n")[0] else . end)
     | [splits("&&|\\|\\||[;|(\n]")]
     | any(.[];
         sub("^\\s+"; "")
-        | sub("^([A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)+"; "")
-        | sub("^(time|npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|bundle exec|python3? -m)\\s+"; "")
+        | (strip_prefix | strip_prefix)
         | test("^(\\S*/)?(pytest|jest|vitest|bats|mocha|rspec|tsc|eslint|ruff|mypy)(\\s|$)|^\\S*/test(\\s|$)|^(go|bun|deno|mix|dotnet|swift|rails) test\\b|^cargo (test|check|clippy)\\b|^(npm|pnpm|yarn) (run )?(test|lint|build)\\b|^make (test|check)\\b"));
 
   # Number turns by counting prompts in the append-only log. The stored `turn`
