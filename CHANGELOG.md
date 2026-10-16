@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.0](https://github.com/gkaria/vibe-learn/compare/v0.14.0...v0.15.0) (2026-10-16)
+
+
+### Features
+
+* new plugin icon for the Claude and Cursor marketplaces ([#57](https://github.com/gkaria/vibe-learn/issues/57)) ([798430e](https://github.com/gkaria/vibe-learn/commit/798430e425f247956a39b652163628d2e641aca6))
+
+
+### Bug Fixes
+
+* briefing timeline filters, latest-session order, check detection, and resume rotation ([#56](https://github.com/gkaria/vibe-learn/issues/56)) ([a077700](https://github.com/gkaria/vibe-learn/commit/a07770028692ef788441a21f9184d2c5306e9d44))
+
 ## [0.14.0](https://github.com/gkaria/vibe-learn/compare/v0.13.3...v0.14.0) (2026-10-16)
 
 
