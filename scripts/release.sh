@@ -3,13 +3,23 @@
 # commit the change, and create a git tag.
 #
 # Usage:
-#   bash scripts/release.sh <new-version>
+#   bash scripts/release.sh [--dry-run] <new-version>
+#
+# --dry-run runs every check and lists the files it would bump, then exits
+# without writing, committing, or tagging.
 
 set -euo pipefail
 
-NEW_VERSION="${1:-}"
+DRY_RUN=false
+NEW_VERSION=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+    *) NEW_VERSION="$arg" ;;
+  esac
+done
 if [ -z "$NEW_VERSION" ]; then
-  echo "Usage: bash scripts/release.sh <new-version>"
+  echo "Usage: bash scripts/release.sh [--dry-run] <new-version>"
   echo "  e.g. bash scripts/release.sh 0.3.0"
   exit 1
 fi
@@ -31,6 +41,7 @@ VERSION_FILES=(
   "scripts/setup.sh"
   ".release-please-manifest.json"
   ".claude-plugin/plugin.json"
+  ".cursor-plugin/plugin.json"
 )
 
 # --- Verify all files contain the current version before touching anything ---
@@ -53,22 +64,41 @@ fi
 
 # --- Also check for any other occurrences we might have missed ---
 echo "Scanning for all occurrences of $CURRENT_VERSION..."
-ALL_HITS=$(grep -rF --include="*.sh" --include="*.json" --include="*.md" --include="VERSION" \
-  -l "$CURRENT_VERSION" "$REPO_ROOT" 2>/dev/null | grep -v '\.git/' | grep -v '/\.vibe-learn/' | grep -v 'CHANGELOG.md' | grep -v 'specs/' | grep -v 'scripts/release.sh' | grep -v 'CLAUDE.md' || true)
+ALL_HITS=$(cd "$REPO_ROOT" && grep -rnF --include="*.sh" --include="*.json" --include="*.md" --include="VERSION" \
+  "$CURRENT_VERSION" . 2>/dev/null | sed 's#^\./##' \
+  | grep -vE '^(\.git/|.*/\.vibe-learn/|\.vibe-learn/|CHANGELOG\.md:|specs/|scripts/release\.sh:|CLAUDE\.md:)' || true)
 
-# Check if any hits are outside our known list
-for HIT in $ALL_HITS; do
-  REL="${HIT#$REPO_ROOT/}"
+# Every hit must be in a listed file; report each unlisted file:line.
+UNLISTED=()
+while IFS= read -r HIT; do
+  [ -z "$HIT" ] && continue
+  REL="${HIT%%:*}"
   KNOWN=false
   for F in "${VERSION_FILES[@]}"; do
     [ "$REL" = "$F" ] && KNOWN=true && break
   done
-  if [ "$KNOWN" = false ]; then
-    echo "⚠ Found $CURRENT_VERSION in unlisted file: $REL"
-    echo "  Add it to VERSION_FILES in scripts/release.sh, then re-run."
-    exit 1
-  fi
-done
+  [ "$KNOWN" = false ] && UNLISTED+=("$HIT")
+done <<EOF
+$ALL_HITS
+EOF
+
+if [ ${#UNLISTED[@]} -gt 0 ]; then
+  echo "ERROR: Found $CURRENT_VERSION in files not listed in VERSION_FILES:"
+  for H in "${UNLISTED[@]}"; do
+    # file:line: text
+    echo "  $(printf '%s' "$H" | cut -d: -f1,2)"
+  done
+  echo "  Add them to VERSION_FILES in scripts/release.sh, then re-run."
+  exit 1
+fi
+
+if [ "$DRY_RUN" = true ]; then
+  echo "Dry run: would bump"
+  for FILE in "${VERSION_FILES[@]}"; do
+    echo "  $FILE"
+  done
+  exit 0
+fi
 
 # --- Apply the bump (portable: works on macOS and Linux) ---
 for FILE in "${VERSION_FILES[@]}"; do

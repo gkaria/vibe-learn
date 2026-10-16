@@ -188,3 +188,29 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
     | CURSOR_PLUGIN_ROOT="$VIBE_LEARN_DIR" bash "$VIBE_LEARN_DIR/adapters/cursor/hooks/vibe-learn.sh" >/dev/null
   [ -d "$proj/.vibe-learn" ]
 }
+
+# A copy of the repo without .git, so release.sh's scan sees only tracked content.
+copy_repo() {
+  local dest="$1"
+  mkdir -p "$dest"
+  tar -C "$VIBE_LEARN_DIR" --exclude=./.git --exclude=./.vibe-learn -cf - . | tar -C "$dest" -xf -
+}
+
+@test "release.sh --dry-run accepts every manifest that carries the version (#49)" {
+  local repo="$BATS_TEST_TMPDIR/repo"
+  copy_repo "$repo"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 0 ]
+  [[ "$output" == *".cursor-plugin/plugin.json"* ]]
+  [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+}
+
+@test "release.sh names the file and line of an unlisted version string" {
+  local repo="$BATS_TEST_TMPDIR/repo" v
+  copy_repo "$repo"
+  v=$(cat "$repo/VERSION")
+  printf '{\n  "name": "x",\n  "version": "%s"\n}\n' "$v" > "$repo/adapters/new-host.json"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"adapters/new-host.json:3"* ]]
+}

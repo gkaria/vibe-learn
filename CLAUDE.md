@@ -211,7 +211,7 @@ Do not call dashboard generation from hooks. It is intentionally on-demand via `
 bash scripts/release.sh 0.3.0
 ```
 
-This bumps the version in `VERSION`, `scripts/setup.sh`, `.release-please-manifest.json`, and `.claude-plugin/plugin.json`, commits the change, and creates an annotated git tag `v0.3.0`. Then push:
+This bumps the version in `VERSION`, `scripts/setup.sh`, `.release-please-manifest.json`, `.claude-plugin/plugin.json`, and `.cursor-plugin/plugin.json`, commits the change, and creates an annotated git tag `v0.3.0`. It aborts, naming each `file:line`, when the current version appears in a file it does not bump. `--dry-run` runs the checks and lists the files without writing. Then push:
 
 ```bash
 git push && git push --tags
