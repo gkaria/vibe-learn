@@ -19,7 +19,7 @@
     "hooks",
     "vibe-coding"
   ],
-  "logo": ".claude-plugin/icon.png",
+  "logo": "assets/icon.png",
   "category": "developer-tools",
   "tags": [
     "learning",

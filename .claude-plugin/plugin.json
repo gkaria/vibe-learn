@@ -22,5 +22,6 @@
     "vibe-coding"
   ],
   "commands": "./adapters/claude-code/commands/",
-  "hooks": "./adapters/claude-code/hooks.json"
+  "hooks": "./adapters/claude-code/hooks.json",
+  "icon": "./assets/icon.png"
 }
