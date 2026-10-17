@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.0](https://github.com/gkaria/vibe-learn/compare/v0.15.0...v0.16.0) (2026-10-17)
+
+
+### Features
+
+* milestone 1 — correct data (v0.16.0) ([#59](https://github.com/gkaria/vibe-learn/issues/59)) ([65486dc](https://github.com/gkaria/vibe-learn/commit/65486dcacbdafea15809caf09e9e374b45a3b663))
+* milestone 2 — briefing redesign (v0.17.0) ([#61](https://github.com/gkaria/vibe-learn/issues/61)) ([a8c627f](https://github.com/gkaria/vibe-learn/commit/a8c627f3bf12f7724be5b15000857c449bcc684e))
+* milestone 3 — knowledge and tools (v0.18.0) ([#62](https://github.com/gkaria/vibe-learn/issues/62)) ([9770f36](https://github.com/gkaria/vibe-learn/commit/9770f36b05d6045a4cb70d558be4c535f74f1373))
+* milestone 4 — bots and CI (v0.19.0) ([#63](https://github.com/gkaria/vibe-learn/issues/63)) ([f66e58a](https://github.com/gkaria/vibe-learn/commit/f66e58a0045f076cc50caa02328126400956e3d7))
+
 ## [0.15.0](https://github.com/gkaria/vibe-learn/compare/v0.14.0...v0.15.0) (2026-10-16)
 
 
