@@ -150,14 +150,12 @@ Requires: `bash`, `jq`
 
 ## Configuration
 
-`config/defaults.json` defines all configurable options. When installed into a project, these can be overridden in `.claude/settings.local.json`.
+The hooks and scripts read two files: `~/.vibe-learn/config.json` (every project) and the project's `.vibe-learn/config.json`, which wins key by key. Neither exists until you create it. `config/defaults.json` is a reference copy of every key with its default; nothing reads it (its `_comment` says so), and `tests/setup.bats` fails if it lists a key no script reads. Session data always lives in `.vibe-learn/`.
 
-Key options:
-- `log_dir` — where session data is stored (default: `.vibe-learn`)
-- `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh` from `~/.vibe-learn/config.json`, overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`)
-- `pause_summary_max_lines` — max lines in `pause-summary.txt` (default 20, minimum 4). Read by `pause-summary.sh` from `~/.vibe-learn/config.json`, overridden by `.vibe-learn/config.json`
-- `rotate_on_session_start` — keeps previous log as `.prev.jsonl`
-- `health` — assistant-health settings. `enabled` and `global_log` are read today, from `~/.vibe-learn/config.json` overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`); the thresholds (`min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions`) are read by `health-report.sh` from the same two files
+Keys:
+- `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh`
+- `pause_summary_max_lines` — max lines in `pause-summary.txt` (default 20, minimum 4). Read by `pause-summary.sh`
+- `health` — assistant-health settings. `enabled` and `global_log` are read by `bootstrap.sh`; the thresholds (`min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions`) by `health-report.sh`
 
 **Obsidian config** is stored separately in `.vibe-learn/obsidian.json` (project-level) or `~/.vibe-learn/obsidian.json` (global fallback). `config/obsidian-defaults.json` is the reference template. The assistant prompts the user for their vault path on first use and offers to save the config automatically.
 

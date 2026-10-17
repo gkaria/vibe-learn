@@ -158,10 +158,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 {
   "session_id": "abc123",
   "started_at": "2026-03-17T14:32:00Z",
-  "event_count": 47,
-  "config": {
-    "log_dir": ".vibe-learn"
-  }
+  "event_count": 47
 }
 ```
 

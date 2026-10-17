@@ -53,6 +53,25 @@ All data stays in `.vibe-learn/` inside your project. No network calls, no exter
 
 ---
 
+## Configuration
+
+vibe-learn reads two optional files: `~/.vibe-learn/config.json` for every project, and `.vibe-learn/config.json` inside a project, which wins key by key. Create either one with only the keys you want to change:
+
+```json
+{ "capture_prompts": false, "pause_summary_max_lines": 12, "health": { "global_log": false } }
+```
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `capture_prompts` | `true` | `false` keeps prompt text out of the log; turns are still counted |
+| `pause_summary_max_lines` | `20` | Line cap for `pause-summary.txt` (minimum 4) |
+| `health.enabled`, `health.global_log` | `true` | Turn [assistant health](health.md) rows off, or keep them per project |
+| `health.min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions` | see `config/defaults.json` | Thresholds for `vibe-learn health` |
+
+`config/defaults.json` in the install lists every key with its default. It is a reference; editing it has no effect.
+
+---
+
 ## Knowledge ledger
 
 Reading a digest feels like learning; answering questions proves it. `/quiz` asks 3–5 recall questions grounded in what actually happened this session — one at a time, then tells you what you got right and what you missed.

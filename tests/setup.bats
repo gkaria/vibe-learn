@@ -186,3 +186,11 @@ teardown() {
   jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$flat/capture-prompt.sh"
   [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
 }
+
+@test "config/defaults.json lists only keys some script reads" {
+  local key
+  jq -e '._comment | test("never reads this file")' "$VIBE_LEARN_DIR/config/defaults.json" >/dev/null
+  for key in $(jq -r 'del(._comment) | paths(scalars) | last' "$VIBE_LEARN_DIR/config/defaults.json"); do
+    grep -rqE "\.$key\b" "$SCRIPTS_DIR" || { echo "no script reads $key"; return 1; }
+  done
+}

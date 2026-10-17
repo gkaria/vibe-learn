@@ -151,8 +151,7 @@ jq -n \
     git_head: ($git_head | nonempty),
     git_dirty: (if $git_dirty == "" then null else $git_dirty == "true" end),
     event_count: 0,
-    current_turn: 0,
-    config: {log_dir: ".vibe-learn"}
+    current_turn: 0
   }' > "$META_FILE"
 
 # If a prior pause summary exists, inject it as context for Claude

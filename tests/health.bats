@@ -365,7 +365,7 @@ JSONL
   [ "$(jq -c '[.harness_version, .model, .effort, .transcript_path, .git_head, .git_dirty]' "$meta")" = '[null,null,null,null,null,null]' ]
   [ "$(jq -r '.event_count' "$meta")" = "0" ]
   [ "$(jq -r '.current_turn' "$meta")" = "0" ]
-  [ "$(jq -r '.config.log_dir' "$meta")" = ".vibe-learn" ]
+  [ "$(jq -r 'has("config")' "$meta")" = "false" ]
 }
 
 @test "bootstrap reads Claude Code model, effort, and harness from the payload and transcript path" {
