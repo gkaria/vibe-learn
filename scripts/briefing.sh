@@ -95,6 +95,9 @@ EXPORTS_DIR="$BRIEFING_DIR/exports"
 INDEX_FILE="$BRIEFING_DIR/index.html"
 LOCK_DIR="$BRIEFING_DIR/.lock"
 STAMPS_DIR="$BRIEFING_DIR/.stamps"
+# One JSON line per built session: its start time and id (the order of
+# sessions, never build mtimes) and the numbers the index sidebar shows.
+RECORDS_DIR="$BRIEFING_DIR/.sessions"
 PENDING_DIR="$BRIEFING_DIR/.pending"
 
 html_escape() {
@@ -267,7 +270,7 @@ acquire_lock() {
 }
 
 acquire_lock
-mkdir -p "$SESSIONS_DIR" "$EXPORTS_DIR" "$STAMPS_DIR" "$PENDING_DIR"
+mkdir -p "$SESSIONS_DIR" "$EXPORTS_DIR" "$STAMPS_DIR" "$RECORDS_DIR" "$PENDING_DIR"
 # Private scratch space: the live snapshot and the outputs before they are
 # renamed into place, so a killed run never leaves a half-written page.
 WORK="$(mktemp -d "$PENDING_DIR/XXXXXX")"
@@ -1185,10 +1188,26 @@ COMMAND_ROWS="$(render_command_rows)"
 TIMELINE_ROWS="$(render_timeline)"
 STUDY_QUEUE="$(render_ledger_study_items; render_study_queue)"
 
+# Session pages, newest first: recorded sessions by start time, then session
+# id; then pages from before records existed, by mtime. A rebuild of an older
+# session never moves it ahead (same-day filenames differ only by session id).
+ordered_pages() {
+  local recorded
+  recorded="$(cat "$RECORDS_DIR"/* 2>/dev/null \
+    | jq -Rnr '[inputs | fromjson? | objects | select(.slug | type == "string")]
+               | sort_by(.started_at // "", .session_id // "") | reverse | .[].slug' 2>/dev/null || true)"
+  printf '%s\n' "$recorded" | while IFS= read -r slug; do
+    [ -n "$slug" ] && [ -f "$SESSIONS_DIR/$slug.html" ] && printf '%s\n' "$SESSIONS_DIR/$slug.html"
+  done
+  ls -1t "$SESSIONS_DIR"/*.html 2>/dev/null | while IFS= read -r file; do
+    base="$(basename "$file" .html)"
+    printf '%s\n' "$recorded" | grep -qxF -- "$base" || printf '%s\n' "$file"
+  done
+}
+
 render_index_cards() {
   local skip_old="$LATEST"
-  # Newest first by modification time: same-day filenames differ only by session id.
-  ls -1t "$SESSIONS_DIR"/*.html | while IFS= read -r file; do
+  ordered_pages | while IFS= read -r file; do
     local base href pack_href
     base="$(basename "$file")"
     href="sessions/$base"
@@ -1210,6 +1229,24 @@ render_index_cards() {
           </div>
         </article>
 CARD
+    elif [ "$skip_old" = "false" ] && [ -f "$RECORDS_DIR/${base%.html}" ]; then
+      # A session built earlier: its card comes from its record.
+      jq -r --arg href "$href" --arg pack_href "$pack_href" \
+        --arg has_pack "$([ -f "$EXPORTS_DIR/${base%.html}-notebooklm-pack.md" ] && echo true || echo false)" '
+        "        <article class=\"card\" data-failures=\"\(.failures)\" data-has-pack=\"\($has_pack)\">",
+        "          <div class=\"card-meta\">",
+        "            <span class=\"tag\">\(.date | @html)</span>",
+        "            <span class=\"tag\">\(.files) files</span>",
+        "            <span class=\"tag\">\(.commands) commands</span>",
+        (if .failures > 0 then "            <span class=\"tag danger\">\(.failures) failed</span>" else empty end),
+        "          </div>",
+        "          <h3 class=\"card-title\">\(.slug | @html)</h3>",
+        "          <p class=\"card-goal\">\(.goal // "" | @html)</p>",
+        "          <div class=\"actions\">",
+        "            <a class=\"button primary\" href=\"\($href)\">Open briefing</a>",
+        (if $has_pack == "true" then "            <a class=\"button\" href=\"\($pack_href)\" download>Audio pack</a>" else empty end),
+        "          </div>",
+        "        </article>"' "$RECORDS_DIR/${base%.html}" 2>/dev/null || true
     elif [ "$skip_old" = "false" ]; then
       local title
       title="$(printf '%s' "${base%.html}" | html_escape)"
@@ -1535,10 +1572,29 @@ cat >> "$WORK/session.html" <<EOF
 </html>
 EOF
 
-# The page and pack go into place first: the index lists sessions/*.html.
+# The page, pack and record go into place first: the index lists them.
 mv "$WORK/pack.md" "$PACK_FILE"
 mv "$WORK/session.html" "$SESSION_FILE"
+jq -nc --arg slug "$SESSION_SLUG" --arg id "$SESSION_ID" \
+  --arg started "${STARTED_AT:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}" --arg date "$SESSION_DATE" \
+  --argjson files "${FILES_TOTAL:-0}" --argjson commands "${COMMAND_COUNT:-0}" --argjson failures "${FAILURE_COUNT:-0}" \
+  --arg goal "$GOAL" \
+  '{slug: $slug, session_id: $id, started_at: $started, date: $date,
+    files: $files, commands: $commands, failures: $failures, goal: $goal}' > "$WORK/record.json"
+mv "$WORK/record.json" "$RECORDS_DIR/$SESSION_SLUG"
 INDEX_CARDS="$(render_index_cards)"
+
+# The sidebar describes the newest session. Workers can reach the lock out of
+# order, so a run for an older session keeps the newest one's numbers.
+INDEX_DATE="$SESSION_DATE" INDEX_FILES="$FILES_TOTAL" INDEX_COMMANDS="$COMMAND_COUNT" INDEX_FAILURES="${FAILURE_COUNT:-0}"
+NEWEST_PAGE="$(ordered_pages | sed -n 1p)"
+if [ -n "$NEWEST_PAGE" ] && [ "$NEWEST_PAGE" != "$SESSION_FILE" ]; then
+  NEWEST_RECORD="$RECORDS_DIR/$(basename "$NEWEST_PAGE" .html)"
+  if NEWEST_STATS="$(jq -r '[.date, .files, .commands, .failures] | map(tostring) | join(" ")' "$NEWEST_RECORD" 2>/dev/null)"; then
+    read -r INDEX_DATE INDEX_FILES INDEX_COMMANDS INDEX_FAILURES <<< "$NEWEST_STATS"
+  fi
+fi
+INDEX_DATE="$(printf '%s' "$INDEX_DATE" | html_escape)"
 
 cat > "$WORK/index.html" <<EOF
 <!doctype html>
@@ -1602,10 +1658,10 @@ cat > "$WORK/index.html" <<EOF
       <div class="sidebar-panel">
         <div class="sidebar-heading">This project</div>
         <div class="stat-row"><span class="stat-label">Project</span><span class="stat-value mono">$PROJECT_HTML</span></div>
-        <div class="stat-row"><span class="stat-label">Latest</span><span class="stat-value mono">$SESSION_DATE</span></div>
-        <div class="stat-row"><span class="stat-label">Files</span><span class="stat-value">$FILES_TOTAL</span></div>
-        <div class="stat-row"><span class="stat-label">Commands</span><span class="stat-value">$COMMAND_COUNT</span></div>
-        <div class="stat-row"><span class="stat-label">Failures</span><span class="stat-value $([ "${FAILURE_COUNT:-0}" -gt 0 ] && echo "danger" || echo "ok")">$FAILURE_COUNT</span></div>
+        <div class="stat-row"><span class="stat-label">Latest</span><span class="stat-value mono">$INDEX_DATE</span></div>
+        <div class="stat-row"><span class="stat-label">Files</span><span class="stat-value">$INDEX_FILES</span></div>
+        <div class="stat-row"><span class="stat-label">Commands</span><span class="stat-value">$INDEX_COMMANDS</span></div>
+        <div class="stat-row"><span class="stat-label">Failures</span><span class="stat-value $([ "${INDEX_FAILURES:-0}" -gt 0 ] 2>/dev/null && echo "danger" || echo "ok")">$INDEX_FAILURES</span></div>
         <div class="stat-row"><span class="stat-label">Audio pack</span><span class="stat-value ok">yes</span></div>$HEALTH_INDEX_ROW
       </div>
     </aside>

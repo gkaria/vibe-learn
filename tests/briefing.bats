@@ -166,6 +166,52 @@ pack_file_for_test_project() {
   [ "$current" -lt "$older" ]
 }
 
+# A finished session's snapshot: its id, start time, goal, and file count.
+make_snapshot() {
+  local snap="$BATS_TEST_TMPDIR/snap-$1" i
+  mkdir -p "$snap"
+  jq -nc --arg id "$1" --arg at "$2" '{session_id: $id, started_at: $at}' > "$snap/session-meta.json"
+  jq -nc --arg p "$3" '{event: "user_prompt", prompt: $p}' > "$snap/session-log.jsonl"
+  for i in $(seq 1 "$4"); do
+    jq -nc --arg f "$TEST_PROJECT_DIR/src/$1-$i.js" '{event: "tool_use", tool: "Write", file: $f, action: "created"}' >> "$snap/session-log.jsonl"
+  done
+  printf '%s\n' "$snap"
+}
+
+index_card_order() {
+  grep -o 'class="card-title">[^<]*' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" | sed 's/.*>//' | tr '\n' ' '
+}
+
+@test "an older session built after a newer one leaves the index on the newer session" {
+  local newer older index="$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" order
+  # Same day; the newer id sorts first, and the older session is built last.
+  newer="$(make_snapshot aaaa-new 2026-06-05T11:00:00Z "Ship the newer session goal today" 3)"
+  older="$(make_snapshot zzzz-old 2026-06-05T10:00:00Z "Finish the older session goal first" 1)"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$newer" >/dev/null
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
+
+  grep -q 'stat-label">Files</span><span class="stat-value">3<' "$index"
+  order="$(index_card_order)"
+  [[ "$order" == *aaaa-new*zzzz-old* ]]
+  # Both cards carry their own session's goal.
+  grep -q "Ship the newer session goal today" "$index"
+  grep -q "Finish the older session goal first" "$index"
+}
+
+@test "same-day sessions are listed by start time, not by id or filename" {
+  local newer older order
+  older="$(make_snapshot ffff-old 2026-06-05T10:00:00Z "Finish the older session goal first" 1)"
+  newer="$(make_snapshot 0000-new 2026-06-05T11:00:00Z "Ship the newer session goal today" 2)"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$newer" >/dev/null
+  # Rebuilding the older session gives it the newest mtime but not the top spot.
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
+
+  order="$(index_card_order)"
+  [[ "$order" == *0000-new*ffff-old* ]]
+  grep -q 'stat-label">Files</span><span class="stat-value">2<' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
+}
+
 @test "briefing timeline filters can hide items" {
   write_sample_session
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"

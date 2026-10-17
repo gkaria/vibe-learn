@@ -40,7 +40,7 @@ vibe-learn audio-prep
 
 This:
 
-1. Finds the latest pack in `.vibe-learn/briefing/exports/`
+1. Finds the pack of the session that started last in `.vibe-learn/briefing/exports/`
 2. Copies the file path to your clipboard
 3. Opens NotebookLM in your browser
 4. Opens the exports folder in Finder

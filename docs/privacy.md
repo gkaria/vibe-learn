@@ -16,6 +16,7 @@ Everything is written under `.vibe-learn/` in the project you are working in, ex
 | `health.jsonl` | One row of counts and identifiers per session segment. Never prompts, commands, or file paths |
 | `briefing/`, `digests/`, `recaps/` | Reports: briefings are built on request, by `/learn` and `/digest`, and when the next session starts; digests and recaps on request |
 | `briefing/.pending/` | A copy of a session (log, meta, pause summary, knowledge ledger, and a diff of the work tree of up to 12,000 bytes) while its briefing is built; deleted when the run ends, or after a day if it was killed |
+| `briefing/.sessions/`, `briefing/.stamps/` | One line per built session (start time, id, file, command and failure counts, and the goal its page shows), which orders the index; and a checksum of what each page was built from |
 
 With the global health log enabled (the default), each health row is also appended to `~/.vibe-learn/health.jsonl` with the project's directory name added.
 

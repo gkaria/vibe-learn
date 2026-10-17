@@ -122,3 +122,28 @@ load test_helper
   echo "$output" | grep -q "2026-06-05-proj-0000-notebooklm-pack.md"
   ! echo "$output" | grep -q "ffff"
 }
+
+@test "cli audio-prep returns the newest session's pack after an older session is rebuilt" {
+  local snap id at
+  for spec in "aaaa-new 2026-06-05T11:00:00Z" "zzzz-old 2026-06-05T10:00:00Z"; do
+    read -r id at <<< "$spec"
+    snap="$BATS_TEST_TMPDIR/snap-$id"
+    mkdir -p "$snap"
+    jq -nc --arg id "$id" --arg at "$at" '{session_id: $id, started_at: $at}' > "$snap/session-meta.json"
+    echo '{"event":"user_prompt","prompt":"Build the thing for this session"}' > "$snap/session-log.jsonl"
+    # The newer session is built first; the older one finishes last.
+    bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$snap" >/dev/null
+  done
+
+  local fake_bin
+  fake_bin="$(mktemp -d)"
+  for tool in pbcopy xclip open; do
+    printf '#!/bin/sh\nexit 1\n' > "$fake_bin/$tool"
+    chmod +x "$fake_bin/$tool"
+  done
+  run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
+  rm -rf "$fake_bin"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "NotebookLM pack: .*aaaa-new-notebooklm-pack.md"
+  refute_grep -F "zzzz-old" <<< "$output"
+}
