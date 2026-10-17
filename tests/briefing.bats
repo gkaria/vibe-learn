@@ -359,6 +359,12 @@ STUB
     n=$((n + 1))
   done
   [ "$n" -eq 16 ]
+  # /digest records concepts after its first refresh; a second one puts them on the page.
+  for f in "$VIBE_LEARN_DIR"/adapters/claude-code/commands/digest.md \
+           "$VIBE_LEARN_DIR"/adapters/{codex/prompts,opencode/commands,grok/commands}/digest.md \
+           "$VIBE_LEARN_DIR"/adapters/{cursor,copilot-cli}/skills/digest/SKILL.md; do
+    grep -q 'run the briefing refresh from the start of these instructions once more' "$f" || { echo "no second refresh: $f"; return 1; }
+  done
 }
 
 @test "the page shows the pause summary only when this session wrote it" {

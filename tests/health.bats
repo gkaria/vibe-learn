@@ -158,7 +158,8 @@ boot() {
   {
     prompt 1
     for cmd in "npm test" "pytest -q" "bats tests/" "go test ./..." "cargo clippy" "npm run lint" "pnpm build" "make check" "./node_modules/.bin/tsc --noEmit" "ruff check ." \
-      "cd api && npm test" "bun test" "npx jest --ci" "python -m pytest" "CI=1 npx vitest run" "./test" "env CI=1 npm test" "env -u DEBUG CI=1 npx jest"; do
+      "cd api && npm test" "bun test" "npx jest --ci" "python -m pytest" "CI=1 npx vitest run" "./test" "env CI=1 npm test" "env -u DEBUG CI=1 npx jest" \
+      "python3 - <<'E'\\nprint(1)\\nE\\nnpm test"; do
       bash_ev 1 "$cmd" 0
     done
     # A test directory, the test builtin, or check commands inside heredoc text are not check runs.
@@ -170,8 +171,8 @@ boot() {
   } | write_log
 
   run health
-  [ "$(jq -r '.metrics.check_runs' <<<"$output")" = "18" ]
-  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "29" ]
+  [ "$(jq -r '.metrics.check_runs' <<<"$output")" = "19" ]
+  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "30" ]
 }
 
 @test "health.sh turns_to_green averages recoveries and counts unrecovered checks" {
