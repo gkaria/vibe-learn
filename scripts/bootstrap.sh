@@ -162,18 +162,31 @@ jq -n \
     current_turn: 0
   }' > "$META_FILE"
 
-# Build the finished session's briefing from the snapshot, once, in a fully
-# detached process: no fd may keep the host's pipe to this hook open, and the
-# hook returns at once. setsid gives it its own session; macOS has no setsid,
-# so the fallback subshell backgrounds it and exits, reparenting it to init.
+# Build the finished session's briefing once, in a fully detached process: no
+# fd may keep the host's pipe to this hook open, and the hook returns at once.
+# The run reads its own copy of the finished session (log, meta, pause summary)
+# under briefing/.pending/, because the next rotation overwrites the .prev files
+# while this run may still be waiting up to 60 s on the briefing lock. The
+# wrapper removes the copy when briefing.sh exits, whatever its status; copies
+# left by killed runs are swept here once they are a day old. setsid gives the
+# run its own session; macOS has no setsid, so the fallback subshell
+# backgrounds it and exits, reparenting it to init.
 BRIEFING="$SCRIPT_DIR/briefing.sh"
+PENDING_DIR="$LOG_DIR/briefing/.pending"
 if [ "$ROTATED" = true ] && [ -s "$PREV_LOG" ] && [ -f "$BRIEFING" ]; then
-  if command -v setsid >/dev/null 2>&1; then
-    setsid bash "$BRIEFING" "$CWD" --log "$PREV_LOG" --meta "$PREV_META" --lock-wait 60 \
-      </dev/null >/dev/null 2>&1 &
+  find "$PENDING_DIR" -mindepth 1 -maxdepth 1 -mmin +1440 -exec rm -rf {} + 2>/dev/null || true
+  SNAP="$(mkdir -p "$PENDING_DIR" && mktemp -d "$PENDING_DIR/XXXXXX" 2>/dev/null)" || SNAP=""
+  if [ -n "$SNAP" ] && cp "$PREV_LOG" "$SNAP/session-log.jsonl" 2>/dev/null; then
+    [ -f "$PREV_META" ] && cp "$PREV_META" "$SNAP/session-meta.json" 2>/dev/null
+    [ -f "$PAUSE_SUMMARY" ] && cp "$PAUSE_SUMMARY" "$SNAP/pause-summary.txt" 2>/dev/null
+    RUN='bash "$1" "$2" --log "$3/session-log.jsonl" --meta "$3/session-meta.json" --lock-wait 60; rm -rf "$3"'
+    if command -v setsid >/dev/null 2>&1; then
+      setsid bash -c "$RUN" _ "$BRIEFING" "$CWD" "$SNAP" </dev/null >/dev/null 2>&1 &
+    else
+      ( bash -c "$RUN" _ "$BRIEFING" "$CWD" "$SNAP" </dev/null >/dev/null 2>&1 & )
+    fi
   else
-    ( bash "$BRIEFING" "$CWD" --log "$PREV_LOG" --meta "$PREV_META" --lock-wait 60 \
-      </dev/null >/dev/null 2>&1 & )
+    [ -n "$SNAP" ] && rm -rf "$SNAP"
   fi
 fi
 

@@ -24,7 +24,8 @@ NotebookLM-ready source pack for the current session log.
   --if-stale     do nothing when this session's page is newer than the
                  session log and knowledge.json (what /learn and /digest run)
   --log, --meta  read this session log and session-meta.json instead of the
-                 live pair (bootstrap.sh passes the rotated .prev files)
+                 live pair; pause-summary.txt is read from beside the log
+                 (bootstrap.sh passes a copy of the finished session)
   --lock-wait    seconds to wait while another briefing run holds
                  .vibe-learn/briefing/.lock (default 10)
 EOF
@@ -84,7 +85,8 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 LOG_DIR="$TARGET_DIR/.vibe-learn"
 SESSION_LOG="${LOG_ARG:-$LOG_DIR/session-log.jsonl}"
 META_FILE="${META_ARG:-$LOG_DIR/session-meta.json}"
-SUMMARY_FILE="$LOG_DIR/pause-summary.txt"
+# The pause summary is read from beside the log, so a snapshot carries its own.
+SUMMARY_FILE="$(dirname "$SESSION_LOG")/pause-summary.txt"
 LEDGER_FILE="$LOG_DIR/knowledge.json"
 BRIEFING_DIR="$LOG_DIR/briefing"
 SESSIONS_DIR="$BRIEFING_DIR/sessions"

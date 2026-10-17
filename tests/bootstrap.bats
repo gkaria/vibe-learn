@@ -132,8 +132,13 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
   awk -v t="$elapsed" 'BEGIN { exit !(t < 1) }'
 
   wait_for "$root/briefing-args"
-  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --log "$vl/session-log.prev.jsonl" --meta "$vl/session-meta.prev.json" --lock-wait 60)" ]
+  local snap
+  snap="$(sed -n 3p "$root/briefing-args")"; snap="${snap%/session-log.jsonl}"
+  [ "$(dirname "$snap")" = "$vl/briefing/.pending" ]
+  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --log "$snap/session-log.jsonl" --meta "$snap/session-meta.json" --lock-wait 60)" ]
   [ ! -e "$root/briefing-done" ]
+  [ "$(jq -r '.session_id' "$snap/session-meta.json")" = "first" ]
+  grep -q '"build it"' "$snap/session-log.jsonl"
   [ "$(jq -r '.session_id' "$vl/session-meta.prev.json")" = "first" ]
   [ "$(jq -r '.session_id' "$vl/session-meta.json")" = "second" ]
   grep -q '"build it"' "$vl/session-log.prev.jsonl"
@@ -201,4 +206,50 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
   awk -v t="$elapsed" 'BEGIN { exit !(t < 1) }'
   wait_for "$root/briefing-args"
   [ ! -e "$root/briefing-done" ]
+}
+
+@test "two quick rotations while the lock is held each brief their own session" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" day project page_a page_b i
+  start() { echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"$1\"}" | bash "$SCRIPTS_DIR/bootstrap.sh" >/dev/null; }
+  work() {
+    printf '{"event":"user_prompt","prompt":"Build the %s module with its own tests"}\n' "$1" >> "$vl/session-log.jsonl"
+    printf '{"event":"tool_use","tool":"Write","file":"src/%s.js","action":"created"}\n' "$1" >> "$vl/session-log.jsonl"
+    printf 'Pause summary of the %s session\n' "$1" > "$vl/pause-summary.txt"
+  }
+  start sess-a; work alpha
+  mkdir -p "$vl/briefing/.lock" && echo $$ > "$vl/briefing/.lock/pid"   # a live run holds the lock
+  start sess-b; work beta     # sess-a's briefing waits on the lock
+  start sess-c                # rotates again: the .prev files now hold sess-b
+  [ "$(jq -r .session_id "$vl/session-meta.prev.json")" = sess-b ]
+  rm -rf "$vl/briefing/.lock"
+
+  day="$(date -u +%Y-%m-%d)"
+  project="$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')"
+  page_a="$vl/briefing/sessions/$day-$project-sess-a.html"
+  page_b="$vl/briefing/sessions/$day-$project-sess-b.html"
+  for i in $(seq 1 150); do
+    [ -f "$page_a" ] && [ -f "$page_b" ] && [ -z "$(ls -A "$vl/briefing/.pending" 2>/dev/null)" ] && break
+    sleep 0.1
+  done
+  grep -q 'Build the alpha module' "$page_a"
+  grep -q 'src/alpha.js' "$page_a"
+  grep -q 'Pause summary of the alpha session' "$page_a"
+  ! grep -q 'beta' "$page_a"
+  grep -q 'Build the beta module' "$page_b"
+  grep -q 'Pause summary of the beta session' "$page_b"
+  ! grep -q 'alpha' "$page_b"
+  [ -z "$(ls -A "$vl/briefing/.pending")" ]   # each run removed its snapshot
+}
+
+@test "the rotation snapshot is removed when the briefing fails, and day-old leftovers are swept" {
+  local root vl="$TEST_PROJECT_DIR/.vibe-learn"
+  root="$(stub_install)"
+  printf '#!/bin/bash\nexit 1\n' > "$root/scripts/briefing.sh"
+  mkdir -p "$vl/briefing/.pending/killed-run" "$vl/briefing/.pending/running-now"
+  touch -d '2 days ago' "$vl/briefing/.pending/killed-run"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"f1\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  echo '{"event":"user_prompt","prompt":"build it"}' >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"f2\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  for i in $(seq 1 50); do [ "$(ls "$vl/briefing/.pending")" = running-now ] && break; sleep 0.1; done
+  [ "$(ls "$vl/briefing/.pending")" = running-now ]
 }
