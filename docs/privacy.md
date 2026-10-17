@@ -24,7 +24,22 @@ Because prompts and commands are logged, the session log can contain whatever yo
 
 Nothing, from vibe-learn itself. The `/learn`, `/digest`, `/quiz`, and `/explain` commands read the log into your assistant's context so it can answer. That content is then handled by your assistant under that assistant's own privacy terms, the same as anything else in your session.
 
+A [routine](#routines) you schedule is the exception: it can send a short summary to a chat.
+
 Saving to Obsidian writes Markdown files to the vault folder you configure. Exporting a NotebookLM source pack only writes a file; uploading it anywhere is your choice.
+
+## Routines
+
+A routine is an agent bot you schedule yourself, such as the [daily learning digest](../examples/routines/daily-digest.md) in [docs/bots.md](bots.md). It is outside the hooks' promise: it is the one way vibe-learn's recipes send session content off your machine, to the chat you point the bot at, and only because you installed it. The bot's own model also reads what the routine gives it, under that bot's privacy terms.
+
+The shipped recipe follows these rules, and a routine you write yourself should too. The removals are done by the recipe's shell block before the bot sees anything; the rest are instructions in its prompt, so check the bot's first messages.
+
+- **It may read** the output of `vibe-learn briefing --json` and the saved facts in `.vibe-learn/briefing/sessions/*.json`, filtered as below, and `vibe-learn knowledge due`. It does not read `session-log.jsonl`, `pause-summary.txt`, host transcripts, the briefing HTML, or your project files.
+- **It removes before reading** the git diff and the full ledger, always, and with `capture_prompts: false` also every field that can hold prompt text: `goal`, `pause_summary`, `last_turn.prompt`, and the prompt entries of `timeline`. That holds even when an older log still contains prompts captured before you turned capture off.
+- **It may send** the project's directory name, counts (files changed, failures, how many were fixed), the paths of the digests it wrote, one concept's label with a recall question, and the session's goal only when `capture_prompts` is on. It never sends command text, diff text, or file contents.
+- **It may write** digest files under `.vibe-learn/digests/` and your quiz results through `vibe-learn knowledge record`. Nothing else.
+
+To stop a routine, remove its schedule in the bot. Nothing in vibe-learn needs to change.
 
 ## Controls
 
@@ -34,7 +49,7 @@ Set these in `.vibe-learn/config.json` (one project) or `~/.vibe-learn/config.js
 { "capture_prompts": false, "health": { "enabled": false, "global_log": false } }
 ```
 
-- `capture_prompts: false` — turns are still counted, but your prompt text is never written to the log.
+- `capture_prompts: false` — turns are still counted, but your prompt text is never written to the log, and the shipped routine sends no prompt text.
 - `health.enabled: false` — stops writing health rows.
 - `health.global_log: false` — keeps health rows in the project only.
 
