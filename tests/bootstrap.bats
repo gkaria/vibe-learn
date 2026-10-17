@@ -135,7 +135,7 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
   local snap
   snap="$(sed -n 3p "$root/briefing-args")"; snap="${snap%/session-log.jsonl}"
   [ "$(dirname "$snap")" = "$vl/briefing/.pending" ]
-  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --log "$snap/session-log.jsonl" --meta "$snap/session-meta.json" --lock-wait 60)" ]
+  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --log "$snap/session-log.jsonl" --meta "$snap/session-meta.json" --diff "$snap/repo/diff.patch" --lock-wait 60)" ]
   [ ! -e "$root/briefing-done" ]
   [ "$(jq -r '.session_id' "$snap/session-meta.json")" = "first" ]
   grep -q '"build it"' "$snap/session-log.jsonl"
@@ -229,6 +229,8 @@ rot_wait() {
   done
   return 1
 }
+# A bare `! grep` only fails a bats test as its last line; this fails anywhere.
+refute_grep() { if grep -q "$1" "$2"; then echo "unexpected '$1' in $2"; return 1; fi; }
 hold_lock() { mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" && echo $$ > "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock/pid"; }
 release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
 
@@ -246,10 +248,10 @@ release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
   grep -q 'Build the alpha module' "$page_a"
   grep -q 'src/alpha.js' "$page_a"
   grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$page_a"
-  ! grep -q 'beta' "$page_a"
+  refute_grep 'beta' "$page_a"
   grep -q 'Build the beta module' "$page_b"
   grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$page_b"
-  ! grep -q 'alpha' "$page_b"
+  refute_grep 'alpha' "$page_b"
   [ -z "$(ls -A "$vl/briefing/.pending")" ]   # each run removed its snapshot
 }
 
@@ -267,8 +269,29 @@ release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
   page_b="$(rot_page sum-b)"
   grep -q 'What does the retry helper do here' "$page_b"
   grep -q '<div class="summary-panel">No pause summary was available.' "$page_b"
-  ! grep -q 'alpha' "$page_b"
+  refute_grep 'alpha' "$page_b"
   grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$(rot_page sum-a)"
+}
+
+@test "the rotation briefing shows the finished session's diff, not edits made while it waits on the lock" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page pack
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf 'one\n' > "$TEST_PROJECT_DIR/alpha.txt"; printf 'one\n' > "$TEST_PROJECT_DIR/beta.txt"
+  git -C "$TEST_PROJECT_DIR" add alpha.txt beta.txt
+  rot_start diff-a; rot_work alpha
+  printf 'ALPHA_SESSION_EDIT\n' >> "$TEST_PROJECT_DIR/alpha.txt"
+  hold_lock
+  rot_start diff-b                                            # diff-a's briefing waits on the lock
+  printf 'BETA_SESSION_EDIT\n' >> "$TEST_PROJECT_DIR/beta.txt"  # the next session edits a tracked file
+  release_lock
+
+  rot_wait diff-a
+  page="$(rot_page diff-a)"
+  pack="$vl/briefing/exports/$(basename "$page" .html)-notebooklm-pack.md"
+  grep -q 'ALPHA_SESSION_EDIT' "$page"
+  grep -q 'ALPHA_SESSION_EDIT' "$pack"
+  refute_grep 'BETA_SESSION_EDIT' "$page"
+  refute_grep 'BETA_SESSION_EDIT' "$pack"
 }
 
 @test "the rotation snapshot is removed when the briefing fails, and day-old leftovers are swept" {

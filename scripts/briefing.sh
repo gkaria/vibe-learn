@@ -8,13 +8,15 @@ LATEST=false
 IF_STALE=false
 LOG_ARG=""
 META_ARG=""
+DIFF_ARG=""
 LOCK_WAIT=10
 
 usage() {
   cat <<EOF
 Usage:
   vibe-learn briefing [target-dir] [--latest] [--if-stale]
-                      [--log FILE --meta FILE] [--lock-wait SECONDS]
+                      [--log FILE --meta FILE] [--diff FILE]
+                      [--lock-wait SECONDS]
 
 Generates .vibe-learn/briefing/index.html plus a session page and
 NotebookLM-ready source pack for the current session log.
@@ -26,6 +28,9 @@ NotebookLM-ready source pack for the current session log.
   --log, --meta  read this session log and session-meta.json instead of the
                  live pair; pause-summary.txt is read from beside the log
                  (bootstrap.sh passes a copy of the finished session)
+  --diff         use this file as the git diff excerpt instead of running
+                 git diff on the work tree (bootstrap.sh captures it at
+                 rotation, before the next session edits the tree)
   --lock-wait    seconds to wait while another briefing run holds
                  .vibe-learn/briefing/.lock (default 10)
 EOF
@@ -38,8 +43,9 @@ while [ $# -gt 0 ]; do
     --if-stale) IF_STALE=true ;;
     --log=*) LOG_ARG="${arg#--log=}" ;;
     --meta=*) META_ARG="${arg#--meta=}" ;;
+    --diff=*) DIFF_ARG="${arg#--diff=}" ;;
     --lock-wait=*) LOCK_WAIT="${arg#--lock-wait=}" ;;
-    --log|--meta|--lock-wait)
+    --log|--meta|--diff|--lock-wait)
       if [ $# -lt 2 ]; then
         echo "ERROR: $arg needs a value." >&2
         exit 1
@@ -47,6 +53,7 @@ while [ $# -gt 0 ]; do
       case "$arg" in
         --log) LOG_ARG="$2" ;;
         --meta) META_ARG="$2" ;;
+        --diff) DIFF_ARG="$2" ;;
         --lock-wait) LOCK_WAIT="$2" ;;
       esac
       shift
@@ -966,7 +973,9 @@ EOF
 }
 
 DIFF_EXCERPT=""
-if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ -n "$DIFF_ARG" ]; then
+  [ -f "$DIFF_ARG" ] && DIFF_EXCERPT="$(head -c 12000 "$DIFF_ARG")"
+elif git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   DIFF_EXCERPT="$(git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null | head -c 12000 || true)"
 fi
 
