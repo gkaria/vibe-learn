@@ -2,6 +2,8 @@
 description: Guided code tour of a file or subsystem this session touched — entry point, the load-bearing pieces, the edges, and what connects to it
 ---
 
+<!-- vibe-learn:explain -->
+
 Read .vibe-learn/session-log.jsonl to see what this session touched and why (the `user_prompt` events carry the intent). Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
 This project prompt fallback can be used by asking Codex to read `.codex/prompts/explain.md` and follow it, or through `/prompts:explain` when custom prompts are available. Name a file or topic in the same message or as a follow-up.

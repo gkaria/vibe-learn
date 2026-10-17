@@ -3,15 +3,17 @@
 # (the second path covers installs that copy scripts into one flat directory).
 
 # A prompt that invokes a vibe-learn learning command on any host: Claude Code
-# and plugin slash commands, Codex prompt files and skill phrasing, Copilot's
-# "Use /learn", Grok and Cursor /vibe-learn. A prompt that merely starts with
-# "learn ...", "use digest auth ..." or "vibe-learn has a bug ..." is work, not a
-# learning turn.
+# and plugin slash commands, Codex prompt files (typed, or expanded: Codex sends
+# the file body, which starts with a vibe-learn marker comment) and skill
+# phrasing, Copilot's "Use /learn", Grok and Cursor /vibe-learn. The command
+# must end at whitespace or the end of the prompt, so "/learn/route.ts is
+# broken" is work, as are "learn ...", "use digest auth ...", "vibe-learn has a
+# bug ..." and "read .codex/prompts/learn.md and fix it".
 def learning_prompt:
   # One literal pattern on the lowercased prompt: jq compiles a regex on every
   # call, and the "i" flag makes this one several times slower.
   (. // "" | tostring | ascii_downcase)
-  | test("^\\s*(/(vibe-learn:)?(learn|digest|quiz|explain)|/prompts:(learn|digest|quiz|explain)|[/$]vibe-learn|use (/?vibe-learn|/(learn|digest|quiz|explain)))([^\\w-]|$)|^\\s*read \\.codex/prompts/(learn|digest|quiz|explain)\\.md");
+  | test("^\\s*(/(vibe-learn:)?(learn|digest|quiz|explain)|/prompts:(learn|digest|quiz|explain)|[/$]vibe-learn|use [/$]?vibe-learn\\s+to|use /(learn|digest|quiz|explain))(\\s|$)|^\\s*read (~/)?\\.codex/prompts/(learn|digest|quiz|explain)\\.md\\s+and\\s+follow\\b|^\\s*<!-- vibe-learn:(learn|digest|quiz|explain) -->");
 
 # A user_prompt event that starts a learning turn. capture-prompt.sh writes
 # kind at capture time (it survives capture_prompts: false); logs written

@@ -142,6 +142,8 @@ JSON
     'Use /explain src/middleware/auth.ts'                # Copilot CLI
     '/vibe-learn'                                        # Grok and Cursor skill
     'Read .codex/prompts/learn.md and follow it for obsidian:recall auth'
+    'Read ~/.codex/prompts/digest.md and follow it.'     # Codex global prompt file
+    'Use $vibe-learn to quiz me on this session'         # Codex skill, explicit
   )
   for p in "${prompts[@]}"; do
     jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg p "$p" '{cwd: $cwd, prompt: $p}' \
@@ -152,20 +154,36 @@ JSON
 
   run jq -r 'select(.kind != "learning") | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   [ -z "$output" ]
-  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 9 ]
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 11 ]
 }
 
 @test "capture-prompt leaves work prompts unmarked, including ones that start with learn" {
   local p
   for p in 'Build an Express API with two routes' 'learn the codebase and add JWT auth' \
            '/learnings page needs a route' 'use digest auth for the admin API' \
-           'vibe-learn has a bug in bootstrap; please fix it'; do
+           'vibe-learn has a bug in bootstrap; please fix it' \
+           '/learn/auth.ts needs its validation fixed' '/explain/page.tsx needs a loading state' \
+           '/digest.json is malformed, regenerate it' '$vibe-learn.config is not loaded' \
+           'use /learn/route.ts as the template' "use vibe-learn's logging format in our app" \
+           'Read .codex/prompts/learn.md and fix the broken instructions' \
+           'read .codex/prompts/explain.md and translate it to Spanish'; do
     jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg p "$p" '{cwd: $cwd, prompt: $p}' \
       | bash "$SCRIPTS_DIR/capture-prompt.sh"
   done
   run jq -r 'select(has("kind")) | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   [ -z "$output" ]
-  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 5 ]
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 13 ]
+}
+
+# Codex expands /prompts:learn and sends the prompt file's body, not the command.
+@test "capture-prompt marks the expanded body of every Codex prompt file as learning" {
+  local f
+  for f in "$ADAPTERS_DIR"/codex/prompts/*.md; do
+    awk 'n >= 2; /^---$/ { n++ }' "$f" | jq -Rsc --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: .}' \
+      | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  [ "$(jq -s 'length' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 4 ]
+  [ "$(jq -s 'map(select(.kind == "learning")) | length' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 4 ]
 }
 
 @test "capture-prompt marks a learning turn even when capture_prompts is off" {
