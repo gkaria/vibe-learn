@@ -83,7 +83,7 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
         (if ($l | sub("^\t+"; "")) == .term then .term = null else . end)
       else
         .out += [$l]
-        | .term = ([$l | match("(?<!<)<<-?\\s*[\"\u0027]?([A-Za-z_][A-Za-z0-9_]*)[\"\u0027]?") | .captures[0].string] | first // null)
+        | .term = ([$l | match("(?<!<)<<-?\\s*\\\\?[\"\u0027]?([A-Za-z_][A-Za-z0-9_]*)[\"\u0027]?") | .captures[0].string] | first // null)
       end)
     | .out | join("\n");
   def is_check:

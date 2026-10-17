@@ -165,14 +165,15 @@ boot() {
     # A test directory, the test builtin, or check commands inside heredoc text are not check runs.
     for cmd in "ls -la" "git status" "npm install" "cat testdata.txt" "echo contest" \
       "ls test" "cat >> test/app.test.js" "mkdir -p test" "test -f package.json && echo ok" "grep -rn test src" \
-      "cat > NOTES.md <<'EOF'\\nRun npm test before pushing.\\nEOF"; do
+      "cat > NOTES.md <<'EOF'\\nRun npm test before pushing.\\nEOF" \
+      "cat <<\\\\EOF\\nnpm test\\nEOF"; do
       bash_ev 1 "$cmd" 0
     done
   } | write_log
 
   run health
   [ "$(jq -r '.metrics.check_runs' <<<"$output")" = "19" ]
-  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "30" ]
+  [ "$(jq -r '.metrics.bash_runs' <<<"$output")" = "31" ]
 }
 
 @test "health.sh turns_to_green averages recoveries and counts unrecovered checks" {
