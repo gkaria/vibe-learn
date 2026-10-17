@@ -15,6 +15,7 @@ Usage:
   vibe-learn recap      [target-dir] [--days=7] [--save]
   vibe-learn health     [target-dir] [--days=14|all] [--by=harness|model] [--all] [--json] [--save] [--redact]
   vibe-learn audio-prep [target-dir]
+  vibe-learn knowledge  forget <name> | list [--status=<s>] | due [--days=14]  [--dir=<project>]
   vibe-learn help
 EOF
 }
@@ -41,6 +42,10 @@ case "$COMMAND" in
   audio-prep)
     shift
     exec "$VIBE_LEARN_DIR/scripts/audio-prep.sh" "$@"
+    ;;
+  knowledge)
+    shift
+    exec "$VIBE_LEARN_DIR/scripts/knowledge.sh" "$@"
     ;;
   help|--help|-h)
     usage

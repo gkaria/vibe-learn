@@ -50,9 +50,42 @@ TODAY="$(date +%Y-%m-%d)"
   [ "$(jq -r '.concepts[] | select(.name == "stop-hook") | .status' "$(ledger)")" = "shaky" ]
 }
 
-@test "record stores notes" {
+@test "record stores notes; shaky without --notes keeps them, solid without --notes clears them" {
   run_knowledge record jwt-auth --label="JWT" --status=shaky --notes="confused expiry semantics"
   [ "$(jq -r '.concepts[0].notes' "$(ledger)")" = "confused expiry semantics" ]
+  run_knowledge record jwt-auth --status=shaky
+  [ "$(jq -r '.concepts[0].notes' "$(ledger)")" = "confused expiry semantics" ]
+  run_knowledge record jwt-auth --status=solid
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.concepts[0].notes' "$(ledger)")" = "" ]
+  run_knowledge record jwt-auth --status=solid --notes="explained refresh rotation"
+  [ "$(jq -r '.concepts[0].notes' "$(ledger)")" = "explained refresh rotation" ]
+}
+
+@test "record --status=new never stamps last_quizzed" {
+  run_knowledge record fresh --label="Fresh" --status=new
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.concepts[0].last_quizzed' "$(ledger)")" = "null" ]
+  cat > "$(ledger)" <<EOF
+{"version":1,"concepts":[{"name":"old","label":"Old","first_seen":"2026-01-01","last_seen":"2026-01-01","sessions":1,"last_quizzed":"2026-01-02","status":"shaky","notes":""}]}
+EOF
+  run_knowledge record old --status=new
+  [ "$(jq -r '.concepts[0].last_quizzed' "$(ledger)")" = "2026-01-02" ]
+  [ "$(jq -r '.concepts[0].status' "$(ledger)")" = "new" ]
+}
+
+@test "record and touch refuse names that are not lowercase-dash slugs" {
+  local bad
+  for bad in "JWT-auth" "jwt auth" "jwt_auth" "../x" "$(printf 'a\nb')" "é"; do
+    run_knowledge record "$bad" --label="X" --status=solid
+    [ "$status" -eq 1 ] || { echo "accepted: $bad"; return 1; }
+    [[ "$output" == *"lowercase letters, digits, and dashes"* ]]
+    run_knowledge touch "$bad"
+    [ "$status" -eq 1 ]
+  done
+  [ ! -f "$(ledger)" ]
+  run_knowledge record 2fa-totp --label="TOTP" --status=solid
+  [ "$status" -eq 0 ]
 }
 
 @test "record rejects an invalid status" {
@@ -207,6 +240,64 @@ EOF
   run_knowledge record other --label="Other" --status=solid
   [ "$(jq -c '.concepts[0].files' "$(ledger)")" = '["src/app.js","src/routes.js","test/app.test.js"]' ]
   [ "$(jq -c '.concepts[1] | has("files")' "$(ledger)")" = false ]
+}
+
+@test "--files refuses paths outside the project and writes nothing" {
+  local bad
+  for bad in "../secret.txt" "src/../../x" "/etc/passwd" "~/notes.md" "$(printf 'a\nb.js')"; do
+    run_knowledge touch express-mw --label="Express" "--files=src/app.js,$bad"
+    [ "$status" -eq 1 ] || { echo "accepted: $bad"; return 1; }
+    [[ "$output" == *"must be inside the project"* ]]
+  done
+  [ ! -f "$(ledger)" ]
+}
+
+@test "--files accepts an absolute path that reaches the project through a symlink" {
+  local real link="$BATS_TEST_TMPDIR/link"
+  real="$(cd "$TEST_PROJECT_DIR" && pwd -P)"
+  ln -s "$real" "$link"
+  run bash "$SCRIPTS_DIR/knowledge.sh" touch express-mw --label="Express" "--files=$real/src/a.js,$link/src/b.js" --dir="$link"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.concepts[0].files' "$(ledger)")" = '["src/a.js","src/b.js"]' ]
+}
+
+# ---------------------------------------------------------------------------
+# forget
+# ---------------------------------------------------------------------------
+
+@test "forget removes one concept, says so, and is idempotent" {
+  run_knowledge record jwt-auth --label="JWT" --status=shaky
+  run_knowledge touch adapters --label="Adapters"
+  run_knowledge forget jwt-auth
+  [ "$status" -eq 0 ]
+  [ "$output" = "Forgot 'jwt-auth'." ]
+  [ "$(jq -c '[.concepts[].name]' "$(ledger)")" = '["adapters"]' ]
+  run_knowledge forget jwt-auth
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"not in the ledger"* ]]
+  [ "$(jq -c '[.concepts[].name]' "$(ledger)")" = '["adapters"]' ]
+}
+
+@test "forget removes a legacy name record would refuse, and never creates a ledger" {
+  run_knowledge forget anything
+  [ "$status" -eq 0 ]
+  [ ! -f "$(ledger)" ]
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"version":1,"concepts":[{"name":"JWT Auth","status":"new"},{"name":"keep","status":"new"}]}' > "$(ledger)"
+  run_knowledge forget "JWT Auth"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '[.concepts[].name]' "$(ledger)")" = '["keep"]' ]
+}
+
+@test "forget refuses a malformed ledger and a missing project" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo 'not json' > "$(ledger)"
+  run_knowledge forget jwt-auth
+  [ "$status" -eq 1 ]
+  [ "$(cat "$(ledger)")" = "not json" ]
+  run bash "$SCRIPTS_DIR/knowledge.sh" forget jwt-auth --dir="$TEST_PROJECT_DIR/nope"
+  [ "$status" -eq 1 ]
+  [ ! -e "$TEST_PROJECT_DIR/nope" ]
 }
 
 @test "every host's quiz, explain, and digest prompts pass the files a concept came from" {

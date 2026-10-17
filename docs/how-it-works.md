@@ -81,6 +81,8 @@ Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge le
 
 The ledger is updated only by the learning commands (via `scripts/knowledge.sh`) — never by hooks, never over the network.
 
+To drop a concept you no longer want quizzed on, run `vibe-learn knowledge forget <name>` (the names are in `vibe-learn knowledge list`). Marking a concept solid without a note clears the note it had while shaky.
+
 ### Share what you learned
 
 ```bash

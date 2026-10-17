@@ -273,12 +273,13 @@ These files contain plain-language instructions that the assistant follows — n
 
 `status` is `new` (never quizzed), `shaky`, or `solid`. Quizzing sets status; touching a concept in a later session never downgrades it. All reads and writes go through `scripts/knowledge.sh`:
 
-- `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=a,b]` — store a quiz result (stamps `last_quizzed`)
+- `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=a,b]` — store a quiz result (`shaky` and `solid` stamp `last_quizzed`, `new` does not; without `--notes`, `solid` clears the old note and `shaky` keeps it)
 - `touch <name> --label=... [--files=a,b]` — mark a concept seen this session (bumps `sessions` at most once per day)
+- `forget <name>` — remove a concept; exits 0 whether or not it existed and says which (`vibe-learn knowledge forget <name>`)
 - `list [--status=<s>]` — print the ledger as JSON
 - `due [--days=14]` — concepts due for review (shaky, or unquizzed past the cutoff)
 
-`--files` adds project-relative paths (absolute paths under the project are made relative) to the concept's optional `files` list, which only grows; `/quiz`, `/explain`, and `/digest` pass the files a concept came from so the briefing can link it to them. A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
+`record` and `touch` accept only names matching `^[a-z0-9][a-z0-9-]*$`; `forget` takes any name so entries written before that rule can be removed. `--files` adds project-relative paths (absolute paths under the project, with or without symlinks resolved, are made relative; a path outside the project, with a `..` segment, or with a control character fails the command) to the concept's optional `files` list, which only grows; `/quiz`, `/explain`, and `/digest` pass the files a concept came from so the briefing can link it to them. A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
 
 `scripts/recap.sh` (`vibe-learn recap [dir] [--days=7] [--save]`) is the shareable read-only view of the ledger: it groups concepts into confirmed solid / still shaky / carried over / met-not-quizzed for the window, adds activity counts from `session-log.jsonl` + `.prev.jsonl`, lists digests saved in the window (first line of "What Was Built"), and suggests the next command. `--save` writes `.vibe-learn/recaps/<date>-recap.md`. It never writes `knowledge.json`.
 

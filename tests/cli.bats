@@ -122,3 +122,12 @@ load test_helper
   echo "$output" | grep -q "2026-06-05-proj-0000-notebooklm-pack.md"
   ! echo "$output" | grep -q "ffff"
 }
+
+@test "cli knowledge dispatches to the ledger helper in the current project" {
+  cd "$TEST_PROJECT_DIR"
+  bash "$SCRIPTS_DIR/knowledge.sh" record jwt-auth --label="JWT" --status=solid
+  run bash "$SCRIPTS_DIR/cli.sh" knowledge forget jwt-auth
+  [ "$status" -eq 0 ]
+  [ "$output" = "Forgot 'jwt-auth'." ]
+  [ "$(jq '.concepts | length' .vibe-learn/knowledge.json)" = 0 ]
+}
