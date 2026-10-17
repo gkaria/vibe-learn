@@ -33,8 +33,8 @@ for arg in "$@"; do
 done
 [ -n "$NEW_VERSION" ] || usage
 # The version goes into file contents, a commit message and a tag name.
-if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
-  echo "ERROR: '$NEW_VERSION' is not a version like 1.2.3 or 1.2.3-rc.1"
+if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "ERROR: '$NEW_VERSION' is not a version like 1.2.3"
   usage
 fi
 

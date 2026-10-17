@@ -230,12 +230,12 @@ copy_repo() {
 @test "release.sh rejects a malformed version before touching anything" {
   local repo="$BATS_TEST_TMPDIR/repo" v
   copy_repo "$repo"
-  for v in v99.0.0 '1.0.0@beta' ../x 99.0; do
+  for v in v99.0.0 '1.0.0@beta' ../x 99.0 99.0.0-rc.1 1.2.3-. 1.2.3-rc..1; do
     run bash "$repo/scripts/release.sh" --dry-run "$v"
     [ "$status" -eq 1 ]
     [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
   done
-  run bash "$repo/scripts/release.sh" --dry-run 99.0.0-rc.1
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
   [ "$status" -eq 0 ]
 }
 
