@@ -181,7 +181,7 @@ write_learning_session() {
     > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
 }
 
-@test "briefing counts leave out learning turns and the timeline marks them" {
+@test "briefing goal and counts leave out learning turns and the timeline marks them" {
   write_learning_session
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
@@ -192,6 +192,8 @@ write_learning_session() {
   grep -q '<span class="tag">3 files</span>' "$index"
   grep -q '<span class="tag">4 commands</span>' "$index"
   grep -q '2 failed' "$index"
+  # The goal is the build prompt, not the trailing /learn.
+  grep -q '<p class="card-goal">Build an Express API with two routes and a test for each</p>' "$index"
   # Turn 4 (prompt, ls, digest write) and turn 6 (prompt, cat).
   [ "$(grep -c 'data-learning="true"' "$session")" -eq 5 ]
   ! grep -q 'class="command-row[^"]*"[^>]*><code class="cmd-text">ls .vibe-learn/digests' "$session"

@@ -33,7 +33,7 @@ fixture() { sed "s#__ROOT__#$ROOT#g" "$VIBE_LEARN_DIR/tests/fixtures/session-lea
 @test "session facts pair failures with the next success and keep learning-turn failures out" {
   run facts < <(fixture)
   [ "$(jq -c '.failures' <<<"$output")" = '[{"turn":2,"command":"npm test","exit_code":1,"fixed_by":{"turn":3,"command":"npm test"}},{"turn":5,"command":"npm run lint","exit_code":1,"fixed_by":null}]' ]
-  [ "$(jq -c '.last_turn' <<<"$output")" = '{"turn":5,"files":[{"path":"src/app.js","action":"edited"}],"commands":[{"first_line":"npm run lint","exit_code":1}]}' ]
+  [ "$(jq -c ".last_turn" <<<"$output")" = '{"turn":5,"prompt":"add a /health route","files":[{"path":"src/app.js","action":"edited"}],"commands":[{"first_line":"npm run lint","exit_code":1}]}' ]
 }
 
 @test "a failure pairs with the same command first, then the same program, never an unrelated success" {

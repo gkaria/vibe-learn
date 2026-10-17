@@ -103,6 +103,7 @@ def session_facts($meta; $root):
       failures: $failures,
       last_turn: {
         turn: $last_work,
+        prompt: (first($work[] | select(.event == "user_prompt" and ._turn == $last_work) | .prompt // "") // null),
         files: [$file_ops[] | select(.turn == $last_work) | {path, action}],
         commands: [$commands[] | select(.turn == $last_work) | {first_line, exit_code}]
       }

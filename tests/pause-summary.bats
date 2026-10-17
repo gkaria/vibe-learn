@@ -28,7 +28,7 @@ JSONL
   echo "$output" | jq -e 'has("hookSpecificOutput") | not' >/dev/null
 }
 
-@test "pause-summary includes goal from last user prompt" {
+@test "pause-summary includes the session goal" {
   seed_session_log
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
   echo "$output" | grep -q "Build an API"
@@ -172,7 +172,7 @@ JSONL
   [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
 }
 
-@test "pause-summary only shows events after last prompt" {
+@test "pause-summary covers the whole session; the last turn lists only its own actions" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   cat > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" <<'JSONL'
 {"timestamp":"2026-03-17T14:00:00Z","event":"user_prompt","prompt":"First task"}
@@ -181,9 +181,80 @@ JSONL
 {"timestamp":"2026-03-17T14:01:05Z","event":"tool_use","tool":"Write","file":"new.ts","action":"created","context":{"new_file":true}}
 JSONL
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
-  echo "$output" | grep -q "Created new.ts"
-  ! echo "$output" | grep -q "Created old.ts"
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  grep -q "Created new.ts" "$summary"
+  ! grep -q "Created old.ts" "$summary"
+  grep -qx "  old.ts — created" "$summary"
+  grep -qx "  new.ts — created" "$summary"
+}
+
+write_fixture_log() {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  sed "s#__ROOT__#$TEST_PROJECT_DIR#g" "$VIBE_LEARN_DIR/tests/fixtures/session-learning.jsonl" \
+    | head -n "${1:-100}" > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+}
+
+stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null; }
+
+@test "pause-summary: real goal, each file once with relative paths, only open failures" {
+  write_fixture_log 20   # through turn 5, before the trailing /learn turn
+  stop
+  local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  cat "$summary"
+  grep -qx "Goal: Build an Express API with two routes and a test for each" "$summary"
+  [ "$(grep -c 'src/app.js — ' "$summary")" -eq 1 ]
+  grep -qx "  src/app.js — created, edited ×2" "$summary"
+  ! grep -q "$TEST_PROJECT_DIR" "$summary"
+  grep -qx "  ✗ npm run lint (exit 1)" "$summary"
+  # npm test failed in turn 2 and passed in turn 3: not open. The /digest
+  # turn's failing ls is a learning turn: not listed at all.
+  ! grep -q "✗ npm test" "$summary"
+  ! grep -q "digests" "$summary"
+  grep -qx "Last turn: add a /health route" "$summary"
+}
+
+@test "pause-summary keeps the last work summary when the turn that ended was a learning turn" {
+  write_fixture_log 20
+  stop
+  local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" before
+  before="$(cat "$summary")"
+  write_fixture_log   # adds the trailing /learn turn
+  stop
+  [ "$(cat "$summary")" = "$before" ]
+}
+
+@test "pause-summary honours pause_summary_max_lines, project over global" {
+  write_fixture_log 20
+  mkdir -p "$HOME/.vibe-learn"
+  echo '{"pause_summary_max_lines": 6}' > "$HOME/.vibe-learn/config.json"
+  stop
+  local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  [ "$(wc -l < "$summary")" -eq 6 ]
+  grep -q "more in /learn" "$summary"
+  [ "$(tail -n 1 "$summary")" = " /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep" ]
+
+  echo '{"pause_summary_max_lines": 9}' > "$TEST_PROJECT_DIR/.vibe-learn/config.json"
+  stop
+  [ "$(wc -l < "$summary")" -eq 9 ]
+
+  # The default (20) fits this session whole.
+  rm "$HOME/.vibe-learn/config.json" "$TEST_PROJECT_DIR/.vibe-learn/config.json"
+  stop
+  [ "$(wc -l < "$summary")" -eq 15 ]
+  ! grep -q "more in /learn" "$summary"
+}
+
+@test "pause-summary reads the goal from the first prompts of a log longer than its tail window" {
+  write_fixture_log 20
+  local i
+  for i in $(seq 1 1100); do
+    printf '{"event":"user_prompt","prompt":"next %s"}\n{"event":"tool_use","tool":"Bash","command":"ls","context":{"exit_code":0}}\n{"event":"tool_use","tool":"Edit","file":"%s/src/f.js","action":"edited"}\n{"event":"turn_end"}\n{"event":"turn_end"}\n' "$i" "$TEST_PROJECT_DIR"
+  done >> "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -gt 5000 ]
+  stop
+  grep -qx "Goal: Build an Express API with two routes and a test for each" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  grep -qx "Last turn: next 1100" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
 }
 
 @test "pause-summary footer uses namespaced commands under a Claude Code plugin install" {

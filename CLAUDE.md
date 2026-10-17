@@ -39,7 +39,7 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   health.sh       ← session log + meta → one assistant-health row per session segment (read-only)
   usage.sh        ← sourced helper: tool families and skills per session from the host's own session record
   health-report.sh ← `vibe-learn health`: before/after-change comparison of health rows (read-only)
-  lib/session.jq  ← shared jq module: learning turns (`learning_prompt`, `work_events`) and `session_facts`
+  lib/session.jq  ← shared jq module: learning turns (`learning_prompt`, `work_events`) and `session_facts` (goal, files, failures) for the pause summary and briefing
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -155,7 +155,7 @@ Requires: `bash`, `jq`
 Key options:
 - `log_dir` — where session data is stored (default: `.vibe-learn`)
 - `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh` from `~/.vibe-learn/config.json`, overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`)
-- `pause_summary_max_lines` — max lines in the stop-hook summary
+- `pause_summary_max_lines` — max lines in `pause-summary.txt` (default 20, minimum 4). Read by `pause-summary.sh` from `~/.vibe-learn/config.json`, overridden by `.vibe-learn/config.json`
 - `rotate_on_session_start` — keeps previous log as `.prev.jsonl`
 - `health` — assistant-health settings. `enabled` and `global_log` are read today, from `~/.vibe-learn/config.json` overridden by `.vibe-learn/config.json` (not from `.claude/settings.local.json`); the thresholds (`min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions`) are read by `health-report.sh` from the same two files
 

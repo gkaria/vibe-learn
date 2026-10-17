@@ -273,7 +273,7 @@ JSON
   local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   [ -f "$summary" ]
   grep -q "wire up the login route" "$summary"
-  grep -q "Created $TEST_PROJECT_DIR/src/login.ts" "$summary"
+  grep -q "Created src/login.ts" "$summary"
   grep -q "Ran: npm test" "$summary"
   grep -q "/learn" "$summary"
 }

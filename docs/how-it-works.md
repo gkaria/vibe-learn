@@ -14,17 +14,24 @@ After every AI response that touches files or runs commands, vibe-learn:
 - Regenerates the session briefing in the background
 - When the next session starts, saves one row of [assistant health](health.md) counts for the one that just ended
 
-The summary looks like this (the last line switches to `/vibe-learn:…` under the plugin install):
+The summary covers the whole session so far: the goal (the first substantial prompt), commands that failed and have not passed since, the last turn's actions, and every file touched, with paths relative to the project. Learning commands (`/learn`, `/digest`, `/quiz`, `/explain`) are left out, and a turn that only ran one of them keeps the previous summary. It is capped at `pause_summary_max_lines` (default 20; set it in `~/.vibe-learn/config.json` or the project's `.vibe-learn/config.json`). The last line switches to `/vibe-learn:…` under the plugin install:
 
 ```
-⏸ vibe-learn — what just happened:
-Goal: add JWT auth middleware
+⏸ vibe-learn — this session so far:
+Goal: add JWT auth middleware to the user routes
 
-  ✦ Created src/middleware/auth.ts
+⚠ 1 command(s) still failing — worth checking before continuing:
+  ✗ npm test (exit 1)
+
+Last turn: wire the middleware into /profile
   ✦ Edited src/routes/user.ts
-  ✦ Ran: npm install jsonwebtoken
+  ✦ Ran: npm test [failed ✗]
 
- /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+Files this session (2):
+  src/middleware/auth.ts — created, edited ×2
+  src/routes/user.ts — edited
+
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 ---

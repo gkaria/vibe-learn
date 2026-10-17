@@ -152,7 +152,10 @@ SESSION_SLUG="$(slugify "$SESSION_DATE-$PROJECT_NAME-$SESSION_TOKEN")"
 SESSION_FILE="$SESSIONS_DIR/$SESSION_SLUG.html"
 PACK_FILE="$EXPORTS_DIR/$SESSION_SLUG-notebooklm-pack.md"
 
-GOAL="$(jq -r 'select(.event=="user_prompt") | .prompt' "$SESSION_LOG" 2>/dev/null | tail -1)"
+# The goal is the session's first substantial work prompt (session_facts in
+# lib/session.jq), not the last prompt, which is often /digest or "thanks".
+GOAL="$(jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" --arg root "$TARGET_DIR" 'include "session";
+  [inputs | fromjson? | objects] | session_facts({}; $root) | .goal // empty' "$SESSION_LOG" 2>/dev/null || true)"
 GOAL="${GOAL:-No prompt captured for this session.}"
 
 PAUSE_SUMMARY=""
