@@ -177,37 +177,56 @@ teardown() {
   [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
 }
 
-@test "a flat techpack-style copy finds session.jq next to every script that includes it" {
-  local flat="$FAKE_HOME/hooks" vl="$TEST_PROJECT_DIR/.vibe-learn" src dst f ts row
-  mkdir -p "$flat"
-  # Copy every script the techpack ships, side by side, as techpack.yaml maps them.
-  while read -r src dst; do
-    cp "$VIBE_LEARN_DIR/$src" "$flat/$dst"
-  done < <(awk '$1 == "source:" { s = $2 } $1 == "destination:" && s ~ /^scripts\// && $2 !~ /\// { print s, $2 }' "$VIBE_LEARN_DIR/techpack.yaml")
-  [ -f "$flat/session.jq" ]
-  # Every script that includes session.jq must be in the copy and exercised below.
-  for f in $(grep -l 'include "session"' "$SCRIPTS_DIR"/*.sh); do
-    f="$(basename "$f")"
-    [ "$f" = briefing.sh ] && continue   # not in the techpack
-    [ -f "$flat/$f" ] || { echo "techpack does not ship $f"; return 1; }
-    case "$f" in capture-prompt.sh|pause-summary.sh|health.sh|recap.sh) ;; *) echo "untested: $f"; return 1 ;; esac
+# mcs installs a techpack's hook scripts and `fileType: hook` files into
+# .claude/hooks/<pack>/, `fileType: generic` files into .claude/, and commands
+# into .claude/commands/ (mcs Component.swift, DestinationCollisionResolver).
+@test "a techpack install runs every script from the hooks directory, briefing included" {
+  local claude="$FAKE_HOME/.claude" hooks vl="$TEST_PROJECT_DIR/.vibe-learn" kind src dst f ts row i
+  hooks="$claude/hooks/vibe-learn"
+  mkdir -p "$hooks" "$claude/commands"
+  while read -r kind src dst; do
+    case "$kind" in
+      hook) cp "$VIBE_LEARN_DIR/$src" "$hooks/$dst" ;;
+      command) cp "$VIBE_LEARN_DIR/$src" "$claude/commands/$dst" ;;
+      *) mkdir -p "$(dirname "$claude/$dst")"; cp "$VIBE_LEARN_DIR/$src" "$claude/$dst" ;;
+    esac
+  done < <(awk '
+    function flush() { if (src != "") print kind, src, dst; src = ""; kind = "generic" }
+    /^  - id:/ { flush() }
+    /^    hook:/ { kind = "hook" } /^    command:/ { kind = "command" }
+    /fileType: hook/ { kind = "hook" }
+    $1 == "source:" { src = $2 } $1 == "destination:" { dst = $2 }
+    END { flush() }' "$VIBE_LEARN_DIR/techpack.yaml")
+  # Every script that includes session.jq, and briefing.sh, sits beside the hooks.
+  for f in session.jq identity.sh briefing.sh $(grep -l 'include "session"' "$SCRIPTS_DIR"/*.sh | xargs -n 1 basename); do
+    [ -f "$hooks/$f" ] || { echo "not in the hooks directory: $f"; return 1; }
   done
 
-  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"flat-1\"}" | bash "$flat/bootstrap.sh" >/dev/null
-  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "Build the alpha module with its own tests"}' | bash "$flat/capture-prompt.sh"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"tp-1\"}" | bash "$hooks/bootstrap.sh" >/dev/null
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "Build the alpha module with its own tests"}' | bash "$hooks/capture-prompt.sh"
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf '{"timestamp":"%s","event":"tool_use","tool":"Write","file":"%s/src/alpha.js","action":"created"}\n' "$ts" "$TEST_PROJECT_DIR" >> "$vl/session-log.jsonl"
-  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$flat/pause-summary.sh" >/dev/null
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$hooks/pause-summary.sh" >/dev/null
   grep -q 'Goal: Build the alpha module with its own tests' "$vl/pause-summary.txt"
   grep -q 'src/alpha.js' "$vl/pause-summary.txt"
 
-  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$flat/capture-prompt.sh"
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$hooks/capture-prompt.sh"
   [ "$(tail -n 1 "$vl/session-log.jsonl" | jq -r '.kind')" = "learning" ]
-
-  # The learning turn is left out: one work prompt.
-  row="$(bash "$flat/health.sh" "$vl")"
+  row="$(bash "$hooks/health.sh" "$vl")"
   [ "$(jq -r '.metrics.prompts' <<<"$row")" = 1 ]
-  bash "$flat/recap.sh" "$TEST_PROJECT_DIR" | grep -q '1 prompt(s) · 1 file(s) touched'
+  bash "$hooks/recap.sh" "$TEST_PROJECT_DIR" | grep -q '1 prompt(s) · 1 file(s) touched'
+
+  # /learn's fallback: briefing.sh beside knowledge.sh.
+  run bash "$(dirname "$(ls "$hooks/knowledge.sh")")/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Session briefing:"* ]]
+  grep -q "directory that holds vibe-learn's \`knowledge.sh\` (\`scripts/\` in a full install, the hooks directory in a techpack install)" "$claude/commands/learn.md"
+
+  # Rotation: health row and the finished session's page.
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"tp-2\"}" | bash "$hooks/bootstrap.sh" >/dev/null
+  wait_rotation
+  [ "$(jq -r .session_id "$vl/health.jsonl")" = tp-1 ]
+  ls "$vl/briefing/sessions" | grep -q -- '-tp-1.html$'
 }
 
 @test "config/defaults.json lists only keys some script reads" {

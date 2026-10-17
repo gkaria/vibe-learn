@@ -6,7 +6,7 @@ description: Generate a structured learning report from the current session — 
 
 Read .vibe-learn/session-log.jsonl (the full log). Read any relevant source files to understand what was built.
 
-**Briefing (all modes):** before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the `scripts/` directory that holds vibe-learn's `knowledge.sh` (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+**Briefing (all modes):** before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
 
 This project prompt fallback can be used by asking Codex to read `.codex/prompts/digest.md` and follow it, or through `/prompts:digest` when custom prompts are available. Include `obsidian` or `obsidian:recall` in the same message or as a follow-up when you want that mode.
 
@@ -160,7 +160,7 @@ If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, mak
 
 Keep the tone warm and encouraging. Plain language. If the session was short, keep the digest short.
 
-**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` your vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
+**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` your vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
 
 After generating, offer to save it: ask the user if they want it written to .vibe-learn/digests/ as a markdown file.
 

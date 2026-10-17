@@ -16,7 +16,7 @@ Use this skill when the user asks to learn from the current coding session, unde
 
 ## Briefing
 
-In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the `scripts/` directory that holds vibe-learn's `knowledge.sh` (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
 
 ## Learn Mode
 
@@ -48,7 +48,7 @@ When the user asks to be quizzed ("Use vibe-learn to quiz me", "check my underst
 1. Follow `.codex/prompts/quiz.md` when the project has it; otherwise apply the same flow from this skill.
 2. Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" questions over trivia. For a review quiz, select from `knowledge.sh due` output instead.
 3. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam.
-4. Record results in the knowledge ledger via the helper — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. If that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` the vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
+4. Record results in the knowledge ledger via the helper — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. If that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` the vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
 5. Close with a recap: solid concepts, shaky concepts, and what to revisit.
 
 ## Explain Mode
