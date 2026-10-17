@@ -38,7 +38,7 @@ Screenshots of the index and session page live on the README under [What it look
 The page, the pack, and the index card are all rendered from one JSON document per session, saved as `.vibe-learn/briefing/sessions/<session>.json`. To use it from a script:
 
 ```bash
-vibe-learn briefing --json                  # the current session; rebuilds only if stale
+vibe-learn briefing --json                  # the current session; rebuilds it first
 vibe-learn briefing --json --session <id>   # an earlier session that has a page
 ```
 

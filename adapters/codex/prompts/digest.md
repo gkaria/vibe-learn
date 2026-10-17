@@ -160,7 +160,7 @@ If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, mak
 
 Keep the tone warm and encouraging. Plain language. If the session was short, keep the digest short.
 
-**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>" --files=<path,path>` (if that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` your vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Pass `--files=<path,path>` with the project-relative files where the concept shows up in this session, so the briefing links the concept to them. Skip silently if the helper is missing.
+**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper, one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>" "--files=<path,path>"` (if that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` your vibe-learn hooks point at in `.codex/config.toml` or `~/.codex/config.toml`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Pass `"--files=<path,path>"` with the project-relative files where the concept shows up in this session, so the briefing links the concept to them. Skip silently if the helper is missing.
 
 After generating, offer to save it: ask the user if they want it written to .vibe-learn/digests/ as a markdown file.
 

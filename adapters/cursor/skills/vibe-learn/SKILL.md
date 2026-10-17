@@ -27,7 +27,7 @@ All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) 
 3. `scripts/knowledge.sh` under an installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/` or the marketplace install)
 4. `scripts/knowledge.sh` when working in the vibe-learn repo itself
 
-Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=<path,path>]`, `touch <name> --label=... [--files=<path,path>]`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
+Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...] ["--files=<path,path>"]`, `touch <name> --label=... ["--files=<path,path>"]`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
 
 ## Briefing
 

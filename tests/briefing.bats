@@ -621,12 +621,19 @@ first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_pr
 
 # --- vibe-learn briefing --json (S17) -----------------------------------------
 
-@test "briefing --json reuses an up-to-date build, and fails with nothing on stdout when there is no session" {
+@test "briefing --json counts a learning turn the page cache skips, and fails with nothing on stdout when there is no session" {
   write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" before
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  before="$(jq '.turns.learning' "$vl"/briefing/sessions/*.json)"
+  echo '{"event":"user_prompt","prompt":"/vibe-learn:quiz","kind":"learning"}' >> "$vl/session-log.jsonl"
+  # The page stays cached: a learning turn changes nothing it shows.
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale | grep -q "up to date"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json > "$BATS_TEST_TMPDIR/out" 2> "$BATS_TEST_TMPDIR/err"
-  grep -q "up to date" "$BATS_TEST_TMPDIR/err"
   [ "$(jq -r .goal "$BATS_TEST_TMPDIR/out")" = "Build an Express API with two routes and a test for each" ]
+  [ "$(jq '.turns.learning' "$BATS_TEST_TMPDIR/out")" -eq $((before + 1)) ]
+  [ "$(jq '.turns.last_is_learning' "$BATS_TEST_TMPDIR/out")" = true ]
+  [ "$(jq -r '.timeline[-1].text' "$BATS_TEST_TMPDIR/out")" = /vibe-learn:quiz ]
 
   : > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json

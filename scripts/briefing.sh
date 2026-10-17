@@ -23,8 +23,8 @@ NotebookLM-ready source pack for the current session log.
                   unchanged since its last complete build (what /learn and
                   /digest run)
   --json          print the session's facts (schema_version 1, see
-                  docs/briefing.md) instead of the file paths; builds first
-                  when stale, and prints status messages to stderr
+                  docs/briefing.md) instead of the file paths; always
+                  rebuilds first, and prints status messages to stderr
   --session <id>  with --json: print a session already built, by session id
 USAGE
 }
@@ -106,8 +106,8 @@ if [ -n "$SESSION_ID_ARG" ]; then
   exit 1
 fi
 
-# --json: stdout carries only the facts; everything else goes to stderr. A
-# build is skipped when the session's page is up to date.
+# --json: stdout carries only the facts; everything else goes to stderr. Like
+# --if-stale, an empty log prints nothing and writes no placeholder.
 if [ "$JSON" = true ]; then
   exec 3>&1 1>&2
   IF_STALE=true
@@ -186,7 +186,8 @@ if [ "$IF_STALE" = true ]; then
     nothing_to_brief
   fi
   derive_session "$LOG_DIR/session-meta.json"
-  if [ -f "$SESSION_FILE" ] && [ -f "$JSON_FILE" ] \
+  # --json always rebuilds: the stamp leaves learning turns out, the facts do not.
+  if [ "$JSON" = false ] && [ -f "$SESSION_FILE" ] && [ -f "$JSON_FILE" ] \
     && [ "$(cat "$STAMP_FILE" 2>/dev/null)" = "$(work_fingerprint "$LOG_DIR/session-log.jsonl")" ]; then
     echo "Session briefing is up to date: $SESSION_FILE"
     print_json

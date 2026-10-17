@@ -28,7 +28,7 @@ All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) 
 2. Read `.github/hooks/vibe-learn.json` (then `${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json`) and extract the first non-empty `.hooks[][] | .env.VIBE_LEARN_INSTALL_DIR` value, then append `/scripts/knowledge.sh`
 3. `scripts/knowledge.sh` when working in the vibe-learn repo itself
 
-Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=<path,path>]`, `touch <name> --label=... [--files=<path,path>]`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
+Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...] ["--files=<path,path>"]`, `touch <name> --label=... ["--files=<path,path>"]`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
 
 ## Briefing
 
