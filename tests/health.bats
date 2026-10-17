@@ -104,6 +104,32 @@ boot() {
   [ "$(jq -c '.metrics | [.prompts, .bash_runs, .bash_failures]' <<<"$output")" = '[1,1,0]' ]
 }
 
+@test "health.sh counts recovery distance in work turns, skipping learning turns in between" {
+  {
+    prompt 1; bash_ev 1 "npm test" 1
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn why did it fail?"}' \
+      '{"event":"user_prompt","prompt":"/quiz"}' '{"event":"user_prompt","prompt":"/explain src/app.js"}'
+    printf '%s\n' '{"event":"user_prompt","prompt":"fix the failing test now"}' \
+      '{"event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":0}}'
+  } | write_log
+
+  run health
+  [ "$(jq -c '.metrics | [.prompts, .check_recoveries, .turns_to_green]' <<<"$output")" = '[2,1,1]' ]
+}
+
+@test "health.sh applies a model switch recorded in a learning turn to the work after it" {
+  {
+    prompt 1; bash_ev 1 "ls" 0; turn_end 1 '"model-a"' '"high"'
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn what changed?"}' \
+      '{"event":"turn_end","model":"model-b","effort":"low"}'
+    printf '%s\n' '{"event":"user_prompt","prompt":"now add the delete route"}' \
+      '{"event":"tool_use","tool":"Bash","command":"pwd","action":"ran","context":{"exit_code":0}}'
+  } | write_log
+
+  run health
+  [ "$(jq -sc 'map([.model, .effort, .segment.first_turn])' <<<"$output")" = '[["model-a","high",1],["model-b","low",3]]' ]
+}
+
 @test "health.sh uses null rates for small denominators" {
   write_meta '{"session_id":"s1"}'
   { prompt 1; bash_ev 1 "ls" 1; edit_ev 1 a.ts; } | write_log

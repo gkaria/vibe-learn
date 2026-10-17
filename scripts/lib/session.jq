@@ -20,11 +20,12 @@ def learning_event: .event == "user_prompt" and (.kind == "learning" or (.prompt
 
 # Log events in order (an array) → the same events with `_turn`, numbered by
 # counting prompts. Stored `turn` fields come from session-meta.json, which
-# stops counting if it is emptied. Events before the first prompt are turn 1.
+# stops counting if it is emptied. Events before the first prompt are turn 0,
+# which is never a learning turn.
 def number_turns:
   [foreach .[] as $e (0;
      if $e.event == "user_prompt" then . + 1 else . end;
-     $e + {_turn: ([., 1] | max)})];
+     $e + {_turn: .})];
 
 # Numbered events → {"<turn>": true} for every learning turn.
 def learning_turns:

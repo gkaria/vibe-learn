@@ -92,7 +92,9 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
   | ($events | map(select(.event == "user_prompt" or .event == "tool_use"))) as $work
   | if ($work | length) == 0 then empty else
 
-  ($events | map(select(.event == "turn_end"))) as $ends
+  # Model and effort are resolved over every turn, learning turns included: a
+  # switch recorded in the turn_end of a learning turn still applies to later work.
+  ($all | map(select(.event == "turn_end"))) as $ends
   | ($ends | map(select(.model != null)) | first | .model) as $first_model
   | ($ends | map(select(.effort != null)) | first | .effort) as $first_effort
   | {
@@ -101,14 +103,19 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
     } as $initial
 
   # Configuration per turn: a turn_end sets it for its turn; turns without one
-  # (or with a null field) carry the previous value forward.
+  # (or with a null field) carry the previous value forward. Only work turns
+  # then form segments.
   | ($events | map(._turn) | unique) as $turns
+  | ($turns | map({key: tostring, value: true}) | from_entries) as $is_work
   | ($ends | map({key: (._turn | tostring), value: .}) | from_entries) as $end_by_turn
-  | [foreach $turns[] as $t ($initial;
+  | [foreach ($all | map(._turn) | unique)[] as $t ($initial;
       ($end_by_turn[$t | tostring] // {}) as $te
       | {model: ($te.model // .model), effort: ($te.effort // .effort)};
       {turn: $t, cfg: .}
-    )] as $turn_cfg
+    ) | select($is_work[.turn | tostring])] as $turn_cfg
+  # Recovery distance counts work turns only: learning turns in between do not
+  # make a fix look slower.
+  | ($turns | to_entries | map({key: (.value | tostring), value: .key}) | from_entries) as $work_ordinal
 
   | (reduce $turn_cfg[] as $tc ([];
       if length > 0 and .[-1].cfg == $tc.cfg then .[-1].turns += [$tc.turn]
@@ -131,9 +138,9 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
       sort_by(._turn) as $runs
       | (reduce $runs[] as $r ({pending: null, gaps: []};
           if ($r.context.exit_code // 0) != 0 then
-            (if .pending == null then .pending = $r._turn else . end)
+            (if .pending == null then .pending = $work_ordinal[$r._turn | tostring] else . end)
           elif .pending != null then
-            .gaps += [$r._turn - .pending] | .pending = null
+            .gaps += [$work_ordinal[$r._turn | tostring] - .pending] | .pending = null
           else . end
         )) + {last_failed: (($runs[-1].context.exit_code // 0) != 0)}
     )) as $check_keys

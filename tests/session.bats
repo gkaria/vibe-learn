@@ -94,3 +94,13 @@ fixture() { sed "s#__ROOT__#$ROOT#g" "$VIBE_LEARN_DIR/tests/fixtures/session-lea
   [ "$status" -eq 0 ]
   [ "$(jq -c '[.goal, .turns.work, (.files | length), (.failures | length), .last_turn.turn]' <<<"$output")" = '[null,0,0,0,null]' ]
 }
+
+@test "work before the first prompt stays work when that prompt is a learning command" {
+  run facts <<'JSONL'
+{"event":"tool_use","tool":"Write","file":"/work/proj/src/early.js","action":"created"}
+{"event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":1}}
+{"event":"user_prompt","prompt":"/digest"}
+{"event":"tool_use","tool":"Bash","command":"ls .vibe-learn/digests","action":"ran","context":{"exit_code":2}}
+JSONL
+  [ "$(jq -c '[.files[].path, (.failures | map(.command))]' <<<"$output")" = '["src/early.js",["npm test"]]' ]
+}
