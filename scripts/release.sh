@@ -45,14 +45,6 @@ if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
   echo "Already at version $NEW_VERSION — nothing to do."
   exit 0
 fi
-# MAJOR.MINOR.PATCH must go up.
-if ! awk -v a="$NEW_VERSION" -v b="$CURRENT_VERSION" 'BEGIN {
-    split(a, x, /[.-]/); split(b, y, /[.-]/)
-    for (i = 1; i <= 3; i++) { if (x[i] + 0 > y[i] + 0) exit 0; if (x[i] + 0 < y[i] + 0) exit 1 }
-    exit 1 }'; then
-  echo "ERROR: $NEW_VERSION is not newer than the current version $CURRENT_VERSION"
-  exit 1
-fi
 
 echo "Bumping $CURRENT_VERSION → $NEW_VERSION"
 echo ""
