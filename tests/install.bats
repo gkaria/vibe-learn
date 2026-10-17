@@ -60,24 +60,27 @@ load test_helper
   echo "$output" | grep -q "already has hooks"
 }
 
-# A settings.local.json that predates PostToolUseFailure: a fresh install with that
-# one event removed, so the observer command is exactly what the installer writes.
+# A settings.local.json that predates PostToolUseFailure and NotebookEdit: a fresh
+# install with that event removed and the old matcher, so the observer command is
+# exactly what the installer writes.
 legacy_settings() {
   bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code >/dev/null
   LEGACY_FILE="$TEST_PROJECT_DIR/.claude/settings.local.json"
-  jq 'del(.hooks.PostToolUseFailure)' "$LEGACY_FILE" > "$LEGACY_FILE.tmp" && mv "$LEGACY_FILE.tmp" "$LEGACY_FILE"
+  jq 'del(.hooks.PostToolUseFailure) | .hooks.PostToolUse[0].matcher = "Write|Edit|MultiEdit|Bash"' \
+    "$LEGACY_FILE" > "$LEGACY_FILE.tmp" && mv "$LEGACY_FILE.tmp" "$LEGACY_FILE"
 }
 
-@test "install adds PostToolUseFailure to a pre-existing vibe-learn install and keeps other hooks" {
+@test "install brings a pre-existing vibe-learn install up to date and keeps other hooks" {
   legacy_settings
   local f="$LEGACY_FILE"
   jq '.hooks.PreToolUse = [{"hooks":[{"type":"command","command":"/usr/bin/true"}]}]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
   run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
-  echo "$output" | grep -q "Added the PostToolUseFailure hook"
-  ! echo "$output" | grep -q "skipping hook merge"
+  echo "$output" | grep -q "Updated the existing vibe-learn hooks"
+  refute_grep "skipping hook merge" <<<"$output"
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
-  jq -e '.hooks.PostToolUseFailure[0].matcher == "Write|Edit|MultiEdit|Bash"' "$f" >/dev/null
+  jq -e '.hooks.PostToolUse[0].matcher == "Write|Edit|MultiEdit|NotebookEdit|Bash"' "$f" >/dev/null
+  jq -e '.hooks.PostToolUseFailure[0].matcher == "Write|Edit|MultiEdit|NotebookEdit|Bash"' "$f" >/dev/null
   [ "$(jq '.hooks.PostToolUseFailure[0].hooks[0].timeout' "$f")" = "2" ]
   jq -e '.hooks.PreToolUse[0].hooks[0].command == "/usr/bin/true"' "$f" >/dev/null
 
@@ -94,6 +97,18 @@ legacy_settings() {
   [ "$(jq '.hooks.PostToolUseFailure[0].hooks | length' "$f")" = "1" ]
   jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | endswith("/scripts/observe.sh")' "$f" >/dev/null
   [ "$(jq '.hooks.PostToolUse[0].hooks | length' "$f")" = "2" ]
+  # Widening the shared group would run /usr/bin/true on NotebookEdit too.
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Write|Edit|MultiEdit|Bash" ]
+  [[ "$output" == *"observe.sh shares a hook group with other hooks"* ]]
+}
+
+@test "install migration keeps a matcher the user changed on our observe.sh group" {
+  legacy_settings
+  local f="$LEGACY_FILE"
+  jq '.hooks.PostToolUse[0].matcher = "Write|Bash"' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+
+  run bash "$SCRIPTS_DIR/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Write|Bash" ]
 }
 
 @test "install migration ignores a foreign observe.sh and still migrates ours" {

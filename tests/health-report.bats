@@ -67,6 +67,32 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   [[ "$output" == *"effort medium"* ]]
 }
 
+@test "a period's effort label is its latest row's own effort, and unknown when that is null" {
+  seed_history
+  # The latest claude-code row has no effort; the earlier rows' "high" must not stand in for it.
+  local f="$TEST_PROJECT_DIR/.vibe-learn/health.jsonl"
+  jq -c -s '(map(select(.harness == "claude-code")) | max_by(.started_at) | .session_id) as $id
+    | .[] | if .session_id == $id then .effort = null elif .harness == "codex" then .effort = "medium" else . end' \
+    "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"claude-code 2.5.0 · claude-opus-5.5 · effort unknown"* ]]
+  [[ "$output" == *"claude-code 2.4.1 · claude-opus-5.5 · effort high"* ]]
+  [[ "$output" != *"claude-code 2.5.0 · claude-opus-5.5 · effort high"* ]]
+}
+
+@test "health names a missing directory or a non-project instead of a raw cd error" {
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR/nope"
+  [ "$status" -eq 1 ]
+  [ "$output" = "ERROR: no such directory: $TEST_PROJECT_DIR/nope" ]
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == "ERROR: not a vibe-learn project: $TEST_PROJECT_DIR "* ]]
+  run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"all projects"* ]]
+}
+
 @test "--json exposes series, flags, and the control" {
   seed_history
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --json
@@ -162,6 +188,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
 }
 
 @test "no history: says so and exits 0" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"No finished sessions in this window yet."* ]]

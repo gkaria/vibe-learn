@@ -63,14 +63,15 @@ teardown() {
   echo "$output" | grep -q "already has hooks"
 }
 
-@test "setup adds PostToolUseFailure to a pre-existing global vibe-learn install" {
+@test "setup brings a pre-existing global vibe-learn install up to date" {
   bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
   local f="$FAKE_HOME/.claude/settings.json"
-  jq 'del(.hooks.PostToolUseFailure)' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  jq 'del(.hooks.PostToolUseFailure) | .hooks.PostToolUse[0].matcher = "Write|Edit|MultiEdit|Bash"' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
   run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
-  echo "$output" | grep -q "Added the PostToolUseFailure hook"
+  echo "$output" | grep -q "Updated the existing vibe-learn hooks"
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Write|Edit|MultiEdit|NotebookEdit|Bash" ]
 
   run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
@@ -169,8 +170,10 @@ teardown() {
   [ -f "$FAKE_INSTALL_DIR/scripts/briefing.sh" ]
 }
 
-@test "setup ships scripts/lib so the installed capture hook marks learning turns" {
+@test "setup ships every script and scripts/lib so the installed capture hook marks learning turns" {
   bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code >/dev/null
+  # FILES lists every script but the maintainer-only release.sh.
+  [ "$(cd "$FAKE_INSTALL_DIR/scripts" && ls -- *.sh)" = "$(cd "$SCRIPTS_DIR" && ls -- *.sh | grep -vx release.sh)" ]
   [ "$(ls "$FAKE_INSTALL_DIR/scripts/lib")" = "$(ls "$SCRIPTS_DIR/lib")" ]
   jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/digest"}' \
     | bash "$FAKE_INSTALL_DIR/scripts/capture-prompt.sh"
@@ -234,7 +237,7 @@ teardown() {
 
 @test "config/defaults.json lists only keys some script reads" {
   local key
-  jq -e '._comment | test("never reads this file")' "$VIBE_LEARN_DIR/config/defaults.json" >/dev/null
+  jq -e '._comment | test("no setting is taken from this file")' "$VIBE_LEARN_DIR/config/defaults.json" >/dev/null
   for key in $(jq -r 'del(._comment) | paths(scalars) | last' "$VIBE_LEARN_DIR/config/defaults.json"); do
     grep -rqE "\.$key\b" "$SCRIPTS_DIR" || { echo "no script reads $key"; return 1; }
   done

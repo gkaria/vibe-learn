@@ -154,13 +154,13 @@ HOOKS_JSON=$(cat <<EOF
   ],
   "PostToolUse": [
     {
-      "matcher": "Write|Edit|MultiEdit|Bash",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
     }
   ],
   "PostToolUseFailure": [
     {
-      "matcher": "Write|Edit|MultiEdit|Bash",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
       "hooks": [{"type": "command", "command": "$HOOK_BASE/scripts/observe.sh", "timeout": 2}]
     }
   ],
@@ -181,18 +181,30 @@ if [ ! -f "$SETTINGS_FILE" ]; then
     echo "✓ Created .claude/settings.local.json"
   fi
 elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
-  # Upgrade path: installs from before PostToolUseFailure existed registered our
-  # observe.sh under PostToolUse only. Ownership is the exact command this installer
-  # writes ($HOOK_BASE/scripts/observe.sh), never a basename guess, and what gets
-  # added is this installer's own template entry, never a copy of the user's config.
+  # Upgrade path for our own entries in an existing hooks block: installs from
+  # before PostToolUseFailure existed registered observe.sh under PostToolUse
+  # only, and installs from before NotebookEdit used the old matcher. Ownership
+  # is the exact command this installer writes ($HOOK_BASE/scripts/observe.sh),
+  # never a basename guess; a matcher is widened only when it is still exactly
+  # the old default and every hook in its group is ours (widening a shared
+  # group would start running the other hooks on NotebookEdit), and what gets
+  # added is this installer's own template entry, never a copy of the user's
+  # config.
   MIGRATED=false
   TMP=$(mktemp)
-  if jq --arg cmd "$HOOK_BASE/scripts/observe.sh" --argjson hooks "$HOOKS_JSON" '
+  if jq --arg cmd "$HOOK_BASE/scripts/observe.sh" --arg old "Write|Edit|MultiEdit|Bash" --argjson hooks "$HOOKS_JSON" '
     def ours: any(.hooks[]?; .command == $cmd);
-    if ((.hooks.PostToolUse // []) | any(ours))
-       and (((.hooks.PostToolUseFailure // []) | any(ours)) | not)
-    then .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + $hooks.PostToolUseFailure)
-    else empty end
+    def only_ours: (.hooks | length) > 0 and all(.hooks[]; .command == $cmd);
+    . as $orig
+    | reduce ("PostToolUse", "PostToolUseFailure") as $e (.;
+        if (.hooks[$e] | type) == "array" then
+          .hooks[$e] |= map(if only_ours and .matcher == $old then .matcher = $hooks.PostToolUse[0].matcher else . end)
+        else . end)
+    | if ((.hooks.PostToolUse // []) | any(ours))
+         and (((.hooks.PostToolUseFailure // []) | any(ours)) | not)
+      then .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + $hooks.PostToolUseFailure)
+      else . end
+    | if . == $orig then empty else . end
   ' "$SETTINGS_FILE" > "$TMP" 2>/dev/null && [ -s "$TMP" ]; then
     mv "$TMP" "$SETTINGS_FILE"
     MIGRATED=true
@@ -200,13 +212,20 @@ elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
     rm -f "$TMP"
   fi
   if [ "$MIGRATED" = true ]; then
-    echo "✓ Added the PostToolUseFailure hook to the existing vibe-learn hooks in $SETTINGS_FILE (other hooks untouched)."
+    echo "✓ Updated the existing vibe-learn hooks in $SETTINGS_FILE (other hooks untouched)."
   elif [ "$MODE" = "global" ]; then
     echo "⚠ ~/.claude/settings.json already has hooks — skipping global hook merge."
     echo "  To re-register: remove the \"hooks\" key from ~/.claude/settings.json and re-run setup."
   else
     echo "⚠ .claude/settings.local.json already has hooks — skipping hook merge."
     echo "  Add the hooks manually or remove existing hooks first, then re-run."
+  fi
+  if jq -e --arg cmd "$HOOK_BASE/scripts/observe.sh" --arg old "Write|Edit|MultiEdit|Bash" '
+    [.hooks.PostToolUse, .hooks.PostToolUseFailure | arrays[]
+     | select(.matcher == $old and any(.hooks[]?; .command == $cmd) and any(.hooks[]?; .command != $cmd))] | length > 0
+  ' "$SETTINGS_FILE" >/dev/null 2>&1; then
+    echo "⚠ observe.sh shares a hook group with other hooks in $SETTINGS_FILE, so its matcher was left as is."
+    echo "  To log NotebookEdit, give observe.sh its own group with the matcher \"Write|Edit|MultiEdit|NotebookEdit|Bash\"."
   fi
 else
   TMP=$(mktemp)

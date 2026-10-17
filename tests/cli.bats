@@ -122,3 +122,100 @@ load test_helper
   echo "$output" | grep -q "2026-06-05-proj-0000-notebooklm-pack.md"
   ! echo "$output" | grep -q "ffff"
 }
+
+@test "cli knowledge dispatches to the ledger helper in the current project" {
+  cd "$TEST_PROJECT_DIR"
+  bash "$SCRIPTS_DIR/knowledge.sh" record jwt-auth --label="JWT" --status=solid
+  run bash "$SCRIPTS_DIR/cli.sh" knowledge forget jwt-auth
+  [ "$status" -eq 0 ]
+  [ "$output" = "Forgot 'jwt-auth'." ]
+  [ "$(jq '.concepts | length' .vibe-learn/knowledge.json)" = 0 ]
+}
+
+@test "cli usage lists every host install accepts, and --create" {
+  run bash "$SCRIPTS_DIR/cli.sh" help
+  local hosts host usage_line
+  hosts="$(sed -n 's/^ *\(claude-code|[a-z|-]*\))$/\1/p' "$SCRIPTS_DIR/install.sh")"
+  [ "$(echo "$hosts" | tr '|' '\n' | wc -l)" -eq 6 ]
+  usage_line="$(echo "$output" | grep 'vibe-learn install')"
+  for host in ${hosts//|/ }; do
+    [[ "$usage_line" == *"$host"* ]] || { echo "usage misses $host"; return 1; }
+  done
+  [[ "$usage_line" == *"--create"* ]]
+}
+
+@test "cli install refuses a missing directory unless --create is given" {
+  run bash "$SCRIPTS_DIR/cli.sh" install "$TEST_PROJECT_DIR/typo" --assistant=opencode
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no such directory: $TEST_PROJECT_DIR/typo"*"--create"* ]]
+  [ ! -e "$TEST_PROJECT_DIR/typo" ]
+  run bash "$SCRIPTS_DIR/cli.sh" install "$TEST_PROJECT_DIR/new app" --assistant=opencode --create
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_PROJECT_DIR/new app/.opencode/plugins/vibe-learn.js" ]
+}
+
+@test "cli dashboard points at briefing" {
+  run bash "$SCRIPTS_DIR/cli.sh" dashboard
+  [ "$status" -eq 1 ]
+  [ "$output" = "ERROR: 'vibe-learn dashboard' is now 'vibe-learn briefing'" ]
+}
+
+@test "commands that take a target directory name a missing one instead of a raw cd error" {
+  local cmd
+  for cmd in briefing recap health audio-prep; do
+    run bash "$SCRIPTS_DIR/cli.sh" "$cmd" "$TEST_PROJECT_DIR/nope"
+    [ "$status" -eq 1 ]
+    [ "$output" = "ERROR: no such directory: $TEST_PROJECT_DIR/nope" ] || { echo "$cmd: $output"; return 1; }
+  done
+  [ ! -e "$TEST_PROJECT_DIR/nope" ]
+}
+
+@test "completion lists every dispatched subcommand, and each one dispatches" {
+  local shell cmd
+  for shell in bash zsh; do
+    run bash "$SCRIPTS_DIR/cli.sh" completion "$shell"
+    [ "$status" -eq 0 ]
+    for cmd in install briefing recap health audio-prep doctor knowledge completion help; do
+      [[ "$output" == *" $cmd"[\ \)]* ]] || { echo "$shell completion misses $cmd"; return 1; }
+    done
+    refute_grep dashboard <<<"$output"
+  done
+  # The reverse: nothing is completed that cli.sh would call unknown.
+  for cmd in $(bash -c 'eval "$(bash "$1" completion bash)"; COMP_WORDS=(vibe-learn ""); COMP_CWORD=1; _vibe_learn; echo "${COMPREPLY[@]}"' _ "$SCRIPTS_DIR/cli.sh"); do
+    run bash "$SCRIPTS_DIR/cli.sh" "$cmd" --help
+    refute_grep "Unknown command" <<<"$output"
+  done
+  run bash "$SCRIPTS_DIR/cli.sh" completion fish
+  [ "$status" -eq 1 ]
+}
+
+@test "bash completion: subcommands, then that subcommand's flags from its usage line" {
+  complete_bash() {
+    bash -c 'eval "$(bash "$1" completion bash)"; shift; COMP_WORDS=("$@"); COMP_CWORD=$(($# - 1)); _vibe_learn; echo "${COMPREPLY[*]}"' _ "$SCRIPTS_DIR/cli.sh" "$@"
+  }
+  [ "$(complete_bash vibe-learn he)" = "health help" ]
+  [ "$(complete_bash vibe-learn recap --)" = "--days= --save" ]
+  [ "$(complete_bash vibe-learn install --a)" = "--assistant=" ]
+  [ "$(complete_bash vibe-learn health --re)" = "--redact" ]
+  # A plain word is left to -o dirnames.
+  [ "$(complete_bash vibe-learn install sr)" = "" ]
+  bash -c 'eval "$(bash "$1" completion bash)"; complete -p vibe-learn' _ "$SCRIPTS_DIR/cli.sh" | grep -q -- "-o dirnames -F _vibe_learn vibe-learn"
+}
+
+@test "zsh completion: subcommands, flags with and without a value, directories" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  run zsh -f -c '
+    compdef() { :; }
+    compadd() { local s=""; [[ $1 == -S ]] && { s="(nospace)"; shift 2; }; shift; (( $# )) && print -r -- "$s$*"; }
+    _files() { print -r -- "files $*"; }
+    eval "$(bash "$1" completion zsh)"
+    words=(vibe-learn he); CURRENT=2; _vibe_learn
+    words=(vibe-learn recap --); CURRENT=3; PREFIX=--; _vibe_learn
+    words=(vibe-learn install sr); CURRENT=3; PREFIX=sr; _vibe_learn
+  ' _ "$SCRIPTS_DIR/cli.sh"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "install briefing recap health audio-prep doctor knowledge completion help" ]
+  [ "${lines[1]}" = "(nospace)--days=" ]
+  [ "${lines[2]}" = "--save" ]
+  [ "${lines[3]}" = "files -/" ]
+}

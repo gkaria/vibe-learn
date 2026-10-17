@@ -77,6 +77,18 @@ Results land in a small local knowledge ledger. Concepts you answer shakily come
 
 Install details, caveats, and per-project setup: [docs/assistants.md](docs/assistants.md).
 
+### From the shell
+
+```bash
+vibe-learn briefing                 # static HTML briefing of the session
+vibe-learn recap                    # what you learned this week, as markdown
+vibe-learn health                   # did the assistant get worse after an update?
+vibe-learn doctor                   # is vibe-learn installed and working here?
+vibe-learn knowledge forget <name>  # drop a concept from the ledger
+```
+
+Tab completion: add `eval "$(vibe-learn completion bash)"` to `~/.bashrc`, or `eval "$(vibe-learn completion zsh)"` to `~/.zshrc` after `compinit`.
+
 ## What it looks like
 
 Continuing a JWT session. `/learn` is a plain-language recap; `/digest`, `/quiz`, and `/explain` go deeper. The session briefing is a local HTML page you can open any time.
@@ -178,7 +190,7 @@ skips the check entirely.
 
 ## Contributing
 
-Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Looking for a first task? [docs/community/good-first-issues.md](docs/community/good-first-issues.md).
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Looking for a first task? See the [good first issue](https://github.com/gkaria/vibe-learn/labels/good%20first%20issue) label.
 
 ## License
 

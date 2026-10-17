@@ -34,7 +34,7 @@ cd your-project
 vibe-learn install
 ```
 
-Detects which assistants the project already uses (including `.github/` for Copilot CLI) and installs only those. Adds `.vibe-learn/` to `.gitignore`.
+Detects which assistants the project already uses (including `.github/` for Copilot CLI) and installs only those. Adds `.vibe-learn/` to `.gitignore`. `vibe-learn install <dir>` installs into another project; the directory must exist, or pass `--create` to make it.
 
 ---
 

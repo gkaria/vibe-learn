@@ -73,8 +73,14 @@ case "$BY" in
 esac
 
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+ABS_DIR="$(CDPATH='' cd -- "$TARGET_DIR" 2>/dev/null && pwd)" || { echo "ERROR: no such directory: $TARGET_DIR" >&2; exit 1; }
+TARGET_DIR="$ABS_DIR"
 LOG_DIR="$TARGET_DIR/.vibe-learn"
+# --all reads only the global log, so any directory will do.
+if [ "$ALL" = false ] && [ ! -d "$LOG_DIR" ]; then
+  echo "ERROR: not a vibe-learn project: $TARGET_DIR (no .vibe-learn/ yet; work a session there first, or use --all)" >&2
+  exit 1
+fi
 GLOBAL_HOME="$HOME/.vibe-learn"
 PROJECT_NAME="$(basename "$TARGET_DIR")"
 TODAY="$(date +%Y-%m-%d)"
@@ -172,7 +178,7 @@ render() {
     def changed($a; $b; $by): any(cfg_fields($by)[]; $a[.] != null and $b[.] != $a[.]);
     def period_label($by; $key): if $by == "harness" then ([$key, ._cfg.harness_version] | map(select(. != null)) | join(" ")) else $key end;
     def period_sub($by; $eff): (if $by == "harness" then [._cfg.model] else [([._cfg.harness, ._cfg.harness_version] | map(select(. != null)) | join(" "))] end)
-      + [(._cfg.effort | if . and $eff then "effort \(.)" else null end)]
+      + [if $eff then "effort \(.effort // "unknown")" else null end]
       | map(select(. != null and . != "")) | join(" · ");
     def change_text($a; $b; $by): [cfg_fields($by)[] as $k | select($a[$k] != null and $b[$k] != $a[$k])
       | if $k == "effort" then "effort \($a[$k]) → \($b[$k])" else "\($a[$k]) → \($b[$k])" end] | join(", ");

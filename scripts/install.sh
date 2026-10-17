@@ -1,7 +1,9 @@
 #!/bin/bash
 # install.sh — Wire vibe-learn into any project
 # Run from the root of the project you want to install vibe-learn into:
-#   bash /path/to/vibe-learn/scripts/install.sh [target-dir] [--assistant=<name>]
+#   bash /path/to/vibe-learn/scripts/install.sh [target-dir] [--assistant=<name>] [--create]
+#
+# The target directory must exist; --create makes it first.
 #
 # Supported assistants: claude-code, codex, opencode, grok, cursor, copilot-cli, all
 # Default: install all relevant assistants detected for the project or machine,
@@ -12,6 +14,7 @@ set -euo pipefail
 VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR=""
 ASSISTANT=""
+CREATE=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -21,6 +24,9 @@ for arg in "$@"; do
     --assistant)
       echo "ERROR: --assistant requires a value, e.g. --assistant=codex" >&2
       exit 1
+      ;;
+    --create)
+      CREATE=true
       ;;
     -*)
       echo "ERROR: Unknown flag: $arg" >&2
@@ -35,6 +41,14 @@ for arg in "$@"; do
 done
 
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+if [ ! -d "$TARGET_DIR" ]; then
+  if [ "$CREATE" = true ]; then
+    mkdir -p -- "$TARGET_DIR"
+  else
+    echo "ERROR: no such directory: $TARGET_DIR (pass --create to make it)" >&2
+    exit 1
+  fi
+fi
 
 detect_assistants() {
   local detected=()

@@ -17,7 +17,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Bash",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/observe.sh\"", "timeout": 2}
         ]
@@ -25,7 +25,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Write|Edit|MultiEdit|Bash",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/observe.sh\"", "timeout": 2}
         ]

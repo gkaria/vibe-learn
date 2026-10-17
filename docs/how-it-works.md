@@ -69,7 +69,7 @@ vibe-learn reads two optional files: `~/.vibe-learn/config.json` for every proje
 | `health.enabled`, `health.global_log` | `true` | Turn [assistant health](health.md) rows off, or keep them per project |
 | `health.min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions` | see `config/defaults.json` | Thresholds for `vibe-learn health` |
 
-`config/defaults.json` in the install lists every key with its default. It is a reference; editing it has no effect.
+`config/defaults.json` in the install lists every key with its default. It is a reference; editing it has no effect. `vibe-learn doctor` flags any key in your config files that is not in it.
 
 ---
 
@@ -80,6 +80,8 @@ Reading a digest feels like learning; answering questions proves it. `/quiz` ask
 Results go into `.vibe-learn/knowledge.json`, a small cross-session knowledge ledger. Concepts you answered shakily come back: `/quiz review` re-quizzes anything shaky or unreviewed for two weeks, `/learn` gives you a one-line heads-up when a shaky concept resurfaces in a new session, and `/digest`'s "Things to Study" accumulates across sessions instead of resetting.
 
 The ledger is updated only by the learning commands (via `scripts/knowledge.sh`) — never by hooks, never over the network.
+
+To drop a concept you no longer want quizzed on, run `vibe-learn knowledge forget <name>` (the names are in `vibe-learn knowledge list`). Marking a concept solid without a note clears the note it had while shaky.
 
 ### Share what you learned
 

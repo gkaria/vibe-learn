@@ -17,7 +17,7 @@ bats tests/observe.bats          # one file
 Try your changes against a scratch project without touching your real global install:
 
 ```bash
-bash scripts/install.sh /tmp/scratch-project --assistant=claude-code
+bash scripts/install.sh /tmp/scratch-project --assistant=claude-code --create
 # or drive a script directly with a hook payload:
 echo '{"cwd":"/tmp/scratch-project","tool_name":"Write","tool_input":{"file_path":"src/index.ts"},"tool_response":{}}' | bash scripts/observe.sh
 ```

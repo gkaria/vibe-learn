@@ -34,10 +34,10 @@ components:
       destination: capture-prompt.sh
 
   - id: hook-observe
-    description: Record Write/Edit/Bash events to session log
+    description: Record Write/Edit/NotebookEdit/Bash events to session log
     dependencies: [jq]
     hookEvent: PostToolUse
-    hookMatcher: "Write|Edit|MultiEdit|Bash"
+    hookMatcher: "Write|Edit|MultiEdit|NotebookEdit|Bash"
     hook:
       source: scripts/observe.sh
       destination: observe.sh

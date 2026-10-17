@@ -31,7 +31,7 @@ for arg in "$@"; do
     --days=*) DAYS="${arg#--days=}" ;;
     --save) SAVE=true ;;
     --help|-h)
-      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     -*)
@@ -57,13 +57,17 @@ case "$DAYS" in
 esac
 
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+ABS_DIR="$(CDPATH='' cd -- "$TARGET_DIR" 2>/dev/null && pwd)" || { echo "ERROR: no such directory: $TARGET_DIR" >&2; exit 1; }
+TARGET_DIR="$ABS_DIR"
 LOG_DIR="$TARGET_DIR/.vibe-learn"
 LEDGER="$LOG_DIR/knowledge.json"
 DIGESTS_DIR="$LOG_DIR/digests"
 PROJECT_NAME="$(basename "$TARGET_DIR")"
 
 TODAY="$(date +%Y-%m-%d)"
+# Headings name the window the recap covers.
+PERIOD="this week"
+[ "$DAYS" -eq 7 ] || PERIOD="in the last $DAYS days"
 # GNU date first, BSD/macOS date as fallback. Window is the last DAYS days inclusive of today.
 CUTOFF="$(date -d "-$((DAYS - 1)) days" +%Y-%m-%d 2>/dev/null || date -v "-$((DAYS - 1))d" +%Y-%m-%d)"
 
@@ -151,7 +155,7 @@ if [ -d "$DIGESTS_DIR" ]; then
 fi
 
 # --- Assemble ---
-OUT="# What I learned this week — $PROJECT_NAME"$'\n'
+OUT="# What I learned $PERIOD — $PROJECT_NAME"$'\n'
 OUT+="$CUTOFF → $TODAY"$'\n\n'
 
 if [ "$LEDGER_TOTAL" -eq 0 ] && [ "$ACTIVE_DAYS" -eq 0 ] && [ -z "$DIGEST_LINES" ]; then
@@ -170,10 +174,10 @@ else
     OUT+="## Carried over from earlier ($CARRIED_COUNT)"$'\n\n'"$CARRIED"$'\n\n'
   fi
   if [ "$MET_COUNT" -gt 0 ]; then
-    OUT+="## Met this week, not quizzed yet ($MET_COUNT)"$'\n\n'"$MET"$'\n\n'
+    OUT+="## Met $PERIOD, not quizzed yet ($MET_COUNT)"$'\n\n'"$MET"$'\n\n'
   fi
   if [ "$SOLID_COUNT" -eq 0 ] && [ "$SHAKY_COUNT" -eq 0 ] && [ "$MET_COUNT" -eq 0 ] && [ "$CARRIED_COUNT" -eq 0 ]; then
-    OUT+="## Knowledge ledger"$'\n\n'"No concepts were quizzed or introduced this week. Run /quiz after your next session."$'\n\n'
+    OUT+="## Knowledge ledger"$'\n\n'"No concepts were quizzed or introduced $PERIOD. Run /quiz after your next session."$'\n\n'
   fi
   if [ -n "$DIGEST_LINES" ]; then
     OUT+="## From the digests"$'\n\n'"${DIGEST_LINES%$'\n'}"$'\n\n'
@@ -183,7 +187,7 @@ else
   if [ "$SHAKY_COUNT" -gt 0 ] || [ "$CARRIED_COUNT" -gt 0 ]; then
     NEXT="/quiz review — re-ask the shaky ones until they stick."
   elif [ "$MET_COUNT" -gt 0 ]; then
-    NEXT="/quiz — turn the concepts you met this week into ones you can explain."
+    NEXT="/quiz — turn the concepts you met $PERIOD into ones you can explain."
   else
     NEXT="/digest at the end of your next session, then /quiz."
   fi

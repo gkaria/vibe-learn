@@ -31,9 +31,11 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   pause-summary.sh ← Stop hook
   setup.sh        ← global installer
   install.sh      ← per-project installer
-  cli.sh          ← command dispatcher for install/dashboard
-  dashboard.sh    ← static session briefing generator
-  knowledge.sh    ← knowledge ledger helper (record/touch/list/due)
+  cli.sh          ← `vibe-learn` command dispatcher; `vibe-learn completion bash|zsh` is generated from its dispatch case labels and usage lines
+  doctor.sh       ← `vibe-learn doctor`: read-only checks of jq, the install, each host's hooks, config keys, and the last session
+  briefing.sh     ← `vibe-learn briefing`: static HTML session briefing + NotebookLM pack
+  audio-prep.sh   ← `vibe-learn audio-prep`: finds the pack and walks through the NotebookLM upload
+  knowledge.sh    ← knowledge ledger helper (record/touch/forget/list/due)
   recap.sh        ← `vibe-learn recap`: weekly "what I learned" markdown (read-only)
   identity.sh     ← sourced helper: harness, model, effort, version from payloads and host files
   health.sh       ← session log + meta → one assistant-health row per session segment (read-only)
@@ -89,7 +91,7 @@ The plugin registers four lifecycle hooks:
 |------|--------|---------|
 | `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
-| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
+| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/NotebookEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
 | `Stop` | `scripts/pause-summary.sh` | After AI finishes responding (writes `pause-summary.txt`, nothing heavier) |
 
 Hook registration format differs per assistant:
@@ -154,7 +156,7 @@ Requires: `bash`, `jq`
 
 ## Configuration
 
-The hooks and scripts read two files: `~/.vibe-learn/config.json` (every project) and the project's `.vibe-learn/config.json`, which wins key by key. Neither exists until you create it. `config/defaults.json` is a reference copy of every key with its default; nothing reads it (its `_comment` says so), and `tests/setup.bats` fails if it lists a key no script reads. Session data always lives in `.vibe-learn/`.
+The hooks and scripts read two files: `~/.vibe-learn/config.json` (every project) and the project's `.vibe-learn/config.json`, which wins key by key. Neither exists until you create it. `config/defaults.json` is a reference copy of every key with its default; no setting is taken from it (its `_comment` says so). `vibe-learn doctor` reads it as the list of known keys and fails on any other key in either config file, and `tests/setup.bats` fails if it lists a key no script reads, so adding a key means adding it there. Session data always lives in `.vibe-learn/`.
 
 Keys:
 - `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh`
@@ -184,7 +186,7 @@ Each adapter's `install.sh` handles:
 - Copying command, prompt, or skill files to the assistant's supported directory
 - Adding `.vibe-learn/` to `.gitignore` (project-level only)
 
-The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same hooks (the four lifecycle events plus `PostToolUseFailure`) with absolute paths. Keep the two in sync. When settings already has a `hooks` block the installer never rewrites it; it only adds its own `PostToolUseFailure` entry when the exact `$HOOK_BASE/scripts/observe.sh` command is already under `PostToolUse` (ownership is that exact command, never a basename match). CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
+The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same hooks (the four lifecycle events plus `PostToolUseFailure`) with absolute paths. Keep the two in sync. When settings already has a `hooks` block the installer never rewrites it; it only updates its own entries, the ones whose command is exactly `$HOOK_BASE/scripts/observe.sh` (never a basename match): it widens their matcher when it is still the pre-NotebookEdit default `Write|Edit|MultiEdit|Bash` and the group holds no other hook (a shared group is left as is, with a note in the install output), and adds its own `PostToolUseFailure` entry when that command is under `PostToolUse` only. The plugin hooks, the settings installer, and `techpack.yaml` share one observe matcher (`tests/plugin.bats`). CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
 
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
@@ -195,6 +197,8 @@ The `adapters/grok/` adapter writes a dedicated `vibe-learn.json` hook file (nev
 The `adapters/cursor/` adapter renders `hooks/vibe-learn.sh` with `awk` (so `&`, `|`, and `/` in the install path stay literal), merges `hooks.json` with `jq`, and copies the five skills. Timeouts: `sessionStart` and `beforeSubmitPrompt` at 5 seconds, `afterFileEdit` / `postToolUse` / `postToolUseFailure` at 2 seconds, and `stop` at 10 seconds.
 
 The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim without editing `settings.json`, preserving unrelated hooks and settings. It refuses collisions with non-vibe-learn files before writing, honors `COPILOT_HOME`, and copies the five official Agent Skills. Copilot also loads repository `.claude/settings.json` and `.claude/settings.local.json` hooks; avoid installing vibe-learn in both those files and `.github/hooks/` for the same project. Copilot's documented repository-settings `disableAllHooks` opt-out pauses every non-policy hook source, including vibe-learn, so it is suitable only when the user wants all hooks paused; the installer does not set it automatically. Timeouts: `sessionStart` and `userPromptSubmitted` at 5 seconds, `postToolUse` / `postToolUseFailure` at 2 seconds, and `agentStop` at 10 seconds.
+
+`scripts/doctor.sh` (`vibe-learn doctor [dir]`) is the read-only check of all of the above. It fails (exit 1) when jq is missing or older than 1.6, a file in `setup.sh`'s `FILES` is missing from its own install (so the briefing templates are covered), a core hook script is not executable, a host hook file points at a script or shim that does not exist, no host has vibe-learn hooks, either `config.json` is not a JSON object or holds a key not in `config/defaults.json`, or the knowledge ledger is malformed. It warns, without failing, when the Claude Code plugin and settings hooks are both active, when the session log has tool events but no `turn_end` yet (no Stop hook has run), and when log lines are not JSON. It finds hook paths with one quoted-path scan that works on every host's file format (JSON, TOML, the OpenCode plugin, the Cursor shim), so a new host needs only its candidate files added. A referenced core script counts as vibe-learn's only when `knowledge.sh` sits beside it (true in every layout: full install, clone or plugin, techpack hooks directory), so another tool's `…/scripts/observe.sh` is not mistaken for it; a referenced path that does not exist fails either way. It is not in the techpack, which has no CLI.
 
 ## Session Briefing
 
@@ -273,12 +277,13 @@ These files contain plain-language instructions that the assistant follows — n
 
 `status` is `new` (never quizzed), `shaky`, or `solid`. Quizzing sets status; touching a concept in a later session never downgrades it. All reads and writes go through `scripts/knowledge.sh`:
 
-- `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=a,b]` — store a quiz result (stamps `last_quizzed`)
+- `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=a,b]` — store a quiz result (`shaky` and `solid` stamp `last_quizzed`, `new` does not; without `--notes`, `solid` clears the old note and `shaky` keeps it)
 - `touch <name> --label=... [--files=a,b]` — mark a concept seen this session (bumps `sessions` at most once per day)
+- `forget <name>` — remove a concept; exits 0 whether or not it existed and says which (`vibe-learn knowledge forget <name>`)
 - `list [--status=<s>]` — print the ledger as JSON
 - `due [--days=14]` — concepts due for review (shaky, or unquizzed past the cutoff)
 
-`--files` adds project-relative paths (absolute paths under the project are made relative) to the concept's optional `files` list, which only grows; `/quiz`, `/explain`, and `/digest` pass the files a concept came from so the briefing can link it to them. A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
+`record` and `touch` accept only names matching `^[a-z0-9][a-z0-9-]*$`; `forget` takes any name so entries written before that rule can be removed. `--files` adds project-relative paths (absolute paths under the project, with or without symlinks resolved, are made relative; a path outside the project, with a `..` segment, or with a control character fails the command) to the concept's optional `files` list, which only grows; `/quiz`, `/explain`, and `/digest` pass the files a concept came from so the briefing can link it to them. A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
 
 `scripts/recap.sh` (`vibe-learn recap [dir] [--days=7] [--save]`) is the shareable read-only view of the ledger: it groups concepts into confirmed solid / still shaky / carried over / met-not-quizzed for the window, adds activity counts from `session-log.jsonl` + `.prev.jsonl`, lists digests saved in the window (first line of "What Was Built"), and suggests the next command. `--save` writes `.vibe-learn/recaps/<date>-recap.md`. It never writes `knowledge.json`.
 
@@ -295,6 +300,7 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 {"timestamp":"...","event":"user_prompt","prompt":"/digest","turn":8,"kind":"learning"}
 {"timestamp":"...","event":"tool_use","tool":"Write","file":"src/index.ts","action":"created","context":{"new_file":true}}
 {"timestamp":"...","event":"tool_use","tool":"Edit","file":"src/routes.ts","action":"edited","context":{}}
+{"timestamp":"...","event":"tool_use","tool":"NotebookEdit","file":"/abs/path/analysis.ipynb","action":"edited","context":{}}
 {"timestamp":"...","event":"tool_use","tool":"Bash","command":"npm install","action":"ran","context":{"exit_code":0}}
 ```
 
@@ -306,7 +312,7 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 {"timestamp":"...","event":"turn_end","turn":7,"model":"claude-opus-5.5","effort":"high"}
 ```
 
-Every reader filters by `event`, so older readers ignore `turn_end`.
+Every reader filters by `event`, so older readers ignore `turn_end`. Readers special-case only `tool == "Bash"` and classify every other event by `action`, so a new edit-like tool such as `NotebookEdit` (its `file` is `tool_input.notebook_path`) needs only the observe.sh mapping and the matcher.
 
 At rotation `bootstrap.sh` keeps the finished session as `session-log.prev.jsonl`, and drops `pause-summary.txt` unless `pause-summary.session` names the finished session (a chat-only session leaves an older summary that must not be injected). Session metadata is tracked separately in `.vibe-learn/session-meta.json`: `session_id`, `started_at`, `event_count`, `current_turn`, plus identity fields written by `bootstrap.sh` — `harness` (`claude-code`, `copilot-cli`, `codex`, `cursor`, `opencode`, `grok`, or `unknown`), `harness_version`, `model`, `effort`, `transcript_path`, `git_head`, `git_dirty` (each `null` when unknown).
 

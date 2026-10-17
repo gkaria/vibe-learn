@@ -1,5 +1,5 @@
 {
-  "_comment": "Reference only: vibe-learn never reads this file. To change a setting, put the key in ~/.vibe-learn/config.json (every project) or <project>/.vibe-learn/config.json (this project; it wins). The values below are the defaults.",
+  "_comment": "Reference only: no setting is taken from this file (vibe-learn doctor reads it only to flag unknown keys). To change a setting, put the key in ~/.vibe-learn/config.json (every project) or <project>/.vibe-learn/config.json (this project; it wins). The values below are the defaults.",
   "capture_prompts": true,
   "pause_summary_max_lines": 20,
   "health": {

@@ -80,6 +80,13 @@ EOF
   echo "$output" | grep -q "^/quiz review"
 }
 
+@test "recap headings name a window other than a week" {
+  run bash "$SCRIPTS_DIR/recap.sh" "$TEST_PROJECT_DIR" --days=30
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "^# What I learned in the last 30 days — "
+  refute_grep "this week" <<<"$output"
+}
+
 @test "recap --days widens the window" {
   seed_project
   run bash "$SCRIPTS_DIR/recap.sh" "$TEST_PROJECT_DIR" --days=30
