@@ -133,9 +133,9 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
 
   wait_for "$root/briefing-args"
   local snap
-  snap="$(sed -n 3p "$root/briefing-args")"; snap="${snap%/session-log.jsonl}"
+  snap="$(sed -n 3p "$root/briefing-args")"
   [ "$(dirname "$snap")" = "$vl/briefing/.pending" ]
-  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --log "$snap/session-log.jsonl" --meta "$snap/session-meta.json" --diff "$snap/repo/diff.patch" --lock-wait 60)" ]
+  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --snapshot "$snap" --lock-wait 60)" ]
   [ ! -e "$root/briefing-done" ]
   [ "$(jq -r '.session_id' "$snap/session-meta.json")" = "first" ]
   grep -q '"build it"' "$snap/session-log.jsonl"

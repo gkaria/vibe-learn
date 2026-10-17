@@ -298,13 +298,14 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   seed_history
   seed_session
   local vl="$TEST_PROJECT_DIR/.vibe-learn"
-  mv "$vl/session-log.jsonl" "$vl/session-log.prev.jsonl"
-  cp "$vl/session-meta.json" "$vl/session-meta.prev.json"
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --log "$vl/session-log.prev.jsonl" --meta "$vl/session-meta.prev.json"
+  mkdir -p "$BATS_TEST_TMPDIR/snap"
+  mv "$vl/session-log.jsonl" "$BATS_TEST_TMPDIR/snap/session-log.jsonl"
+  cp "$vl/session-meta.json" "$BATS_TEST_TMPDIR/snap/session-meta.json"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$BATS_TEST_TMPDIR/snap"
   [ "$status" -eq 0 ]
   [ -f "$vl/briefing/health.html" ]
-  ! grep -q 'id="health"' "$(session_file)"
-  ! grep -q 'No tool activity in this session yet' "$(session_file)"
+  refute_grep 'id="health"' "$(session_file)"
+  refute_grep 'No tool activity in this session yet' "$(session_file)"
   grep -q '<a href="health.html">Assistant health</a>' "$vl/briefing/index.html"
 }
 

@@ -181,6 +181,7 @@ if [ "$ROTATED" = true ] && [ -s "$PREV_LOG" ] && [ -f "$BRIEFING" ]; then
     [ -f "$PREV_META" ] && cp "$PREV_META" "$SNAP/session-meta.json" 2>/dev/null
     [ -f "$PAUSE_SUMMARY" ] && cp "$PAUSE_SUMMARY" "$SNAP/pause-summary.txt" 2>/dev/null
     [ -f "$LOG_DIR/pause-summary.session" ] && cp "$LOG_DIR/pause-summary.session" "$SNAP/" 2>/dev/null
+    [ -f "$LOG_DIR/knowledge.json" ] && cp "$LOG_DIR/knowledge.json" "$SNAP/" 2>/dev/null
     # From now on the work tree belongs to the next session, so the diff is
     # taken here, capped as briefing.sh caps it; head closing the pipe stops
     # git early. diff.autoRefreshIndex=false skips re-reading every
@@ -191,7 +192,7 @@ if [ "$ROTATED" = true ] && [ -s "$PREV_LOG" ] && [ -f "$BRIEFING" ]; then
     git -C "$CWD" -c diff.autoRefreshIndex=false --no-optional-locks \
       diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null \
       | head -c 12000 > "$SNAP/repo/diff.patch"
-    RUN='bash "$1" "$2" --log "$3/session-log.jsonl" --meta "$3/session-meta.json" --diff "$3/repo/diff.patch" --lock-wait 60; rm -rf "$3"'
+    RUN='bash "$1" "$2" --snapshot "$3" --lock-wait 60; rm -rf "$3"'
     if command -v setsid >/dev/null 2>&1; then
       setsid bash -c "$RUN" _ "$BRIEFING" "$CWD" "$SNAP" </dev/null >/dev/null 2>&1 &
     else

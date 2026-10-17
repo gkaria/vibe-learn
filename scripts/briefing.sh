@@ -6,31 +6,27 @@ set -euo pipefail
 TARGET_DIR=""
 LATEST=false
 IF_STALE=false
-LOG_ARG=""
-META_ARG=""
-DIFF_ARG=""
+SNAPSHOT_ARG=""
 LOCK_WAIT=10
 
 usage() {
   cat <<EOF
 Usage:
   vibe-learn briefing [target-dir] [--latest] [--if-stale]
-                      [--log FILE --meta FILE] [--diff FILE]
-                      [--lock-wait SECONDS]
+                      [--snapshot DIR] [--lock-wait SECONDS]
 
 Generates .vibe-learn/briefing/index.html plus a session page and
 NotebookLM-ready source pack for the current session log.
 
   --latest       the index shows only this session, skipping previously
                  generated session cards
-  --if-stale     do nothing when this session's page is newer than the
-                 session log and knowledge.json (what /learn and /digest run)
-  --log, --meta  read this session log and session-meta.json instead of the
-                 live pair; pause-summary.txt is read from beside the log
-                 (bootstrap.sh passes a copy of the finished session)
-  --diff         use this file as the git diff excerpt instead of running
-                 git diff on the work tree (bootstrap.sh captures it at
-                 rotation, before the next session edits the tree)
+  --if-stale     do nothing when the session's work and knowledge.json are
+                 unchanged since its last complete build (what /learn and
+                 /digest run)
+  --snapshot     build from this copy of a session instead of a copy of the
+                 live one: session-log.jsonl, session-meta.json,
+                 pause-summary.txt and .session, knowledge.json, and
+                 repo/diff.patch (bootstrap.sh passes the finished session)
   --lock-wait    seconds to wait while another briefing run holds
                  .vibe-learn/briefing/.lock (default 10)
 EOF
@@ -41,19 +37,17 @@ while [ $# -gt 0 ]; do
   case "$arg" in
     --latest) LATEST=true ;;
     --if-stale) IF_STALE=true ;;
-    --log=*) LOG_ARG="${arg#--log=}" ;;
-    --meta=*) META_ARG="${arg#--meta=}" ;;
-    --diff=*) DIFF_ARG="${arg#--diff=}" ;;
+    --snapshot=*) SNAPSHOT_ARG="${arg#--snapshot=}" ;;
     --lock-wait=*) LOCK_WAIT="${arg#--lock-wait=}" ;;
-    --log|--meta|--diff|--lock-wait)
-      if [ $# -lt 2 ]; then
-        echo "ERROR: $arg needs a value." >&2
-        exit 1
-      fi
+    --snapshot|--lock-wait)
+      case "${2:-}" in
+        ''|-*)
+          echo "ERROR: $arg needs a value." >&2
+          exit 1
+          ;;
+      esac
       case "$arg" in
-        --log) LOG_ARG="$2" ;;
-        --meta) META_ARG="$2" ;;
-        --diff) DIFF_ARG="$2" ;;
+        --snapshot) SNAPSHOT_ARG="$2" ;;
         --lock-wait) LOCK_WAIT="$2" ;;
       esac
       shift
@@ -84,101 +78,24 @@ case "$LOCK_WAIT" in
     exit 1
     ;;
 esac
+LOCK_WAIT=$((10#$LOCK_WAIT))
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+if [ -n "$SNAPSHOT_ARG" ] && [ ! -d "$SNAPSHOT_ARG" ]; then
+  echo "ERROR: --snapshot is not a directory: $SNAPSHOT_ARG" >&2
+  exit 1
+fi
 
 LOG_DIR="$TARGET_DIR/.vibe-learn"
-SESSION_LOG="${LOG_ARG:-$LOG_DIR/session-log.jsonl}"
-META_FILE="${META_ARG:-$LOG_DIR/session-meta.json}"
-# The pause summary is read from beside the log, so a snapshot carries its own.
-SUMMARY_FILE="$(dirname "$SESSION_LOG")/pause-summary.txt"
-SUMMARY_OWNER_FILE="$(dirname "$SESSION_LOG")/pause-summary.session"
-LEDGER_FILE="$LOG_DIR/knowledge.json"
 BRIEFING_DIR="$LOG_DIR/briefing"
 SESSIONS_DIR="$BRIEFING_DIR/sessions"
 EXPORTS_DIR="$BRIEFING_DIR/exports"
 INDEX_FILE="$BRIEFING_DIR/index.html"
 LOCK_DIR="$BRIEFING_DIR/.lock"
-
-PROJECT_NAME="$(basename "$TARGET_DIR")"
-NOW_DATE="$(date -u +"%Y-%m-%d")"
-NOW_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-slugify() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//'
-}
-
-# The session's slug names its page and pack, so a rebuild of the same session
-# (on demand, --if-stale, or at rotation) overwrites the same files.
-SESSION_ID="unknown"
-STARTED_AT=""
-if [ -f "$META_FILE" ]; then
-  SESSION_ID="$(jq -r '.session_id // "unknown"' "$META_FILE" 2>/dev/null || echo "unknown")"
-  STARTED_AT="$(jq -r '.started_at // empty' "$META_FILE" 2>/dev/null || true)"
-fi
-
-SESSION_DATE="$NOW_DATE"
-SESSION_TOKEN="$(date -u +"%H%M%S")"
-if [ -n "$STARTED_AT" ]; then
-  SESSION_DATE="$(printf '%s' "$STARTED_AT" | cut -c1-10)"
-  SESSION_TOKEN="$(printf '%s' "$STARTED_AT" | sed 's/[^0-9]//g' | cut -c9-14)"
-fi
-if [ "$SESSION_ID" != "unknown" ]; then
-  SESSION_TOKEN="$(slugify "$SESSION_ID")"
-fi
-SESSION_SLUG="$(slugify "$SESSION_DATE-$PROJECT_NAME-$SESSION_TOKEN")"
-SESSION_FILE="$SESSIONS_DIR/$SESSION_SLUG.html"
-PACK_FILE="$EXPORTS_DIR/$SESSION_SLUG-notebooklm-pack.md"
-
-if [ "$IF_STALE" = true ]; then
-  # An empty log has nothing to brief; a placeholder would replace the index.
-  if [ ! -s "$SESSION_LOG" ]; then
-    echo "No session activity to brief yet."
-    exit 0
-  fi
-  if [ -f "$SESSION_FILE" ] && [ "$SESSION_FILE" -nt "$SESSION_LOG" ] \
-    && { [ ! -f "$LEDGER_FILE" ] || [ "$SESSION_FILE" -nt "$LEDGER_FILE" ]; }; then
-    echo "Session briefing is up to date: $SESSION_FILE"
-    exit 0
-  fi
-fi
-
-# One writer at a time: mkdir is atomic on Linux and macOS (flock is not on
-# macOS). The lock holds the owner's pid; a lock whose owner is gone is stale.
-lock_is_stale() {
-  local pid
-  pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
-  if [ -z "$pid" ]; then
-    # Between mkdir and the pid write, or left by a crash in that gap.
-    [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +1 2>/dev/null)" ]
-  else
-    ! ps -p "$pid" >/dev/null 2>&1
-  fi
-}
-
-acquire_lock() {
-  local deadline=$(( $(date +%s) + LOCK_WAIT ))
-  mkdir -p "$BRIEFING_DIR"
-  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
-    if lock_is_stale; then
-      rm -rf "$LOCK_DIR"
-      continue
-    fi
-    if [ "$(date +%s)" -ge "$deadline" ]; then
-      echo "ERROR: another briefing run is in progress (lock: $LOCK_DIR)." >&2
-      exit 1
-    fi
-    sleep 0.2
-  done
-  echo "$$" > "$LOCK_DIR/pid"
-  trap 'rm -rf "$LOCK_DIR"' EXIT
-  trap 'exit 1' INT TERM HUP
-}
-
-acquire_lock
-mkdir -p "$SESSIONS_DIR" "$EXPORTS_DIR"
+STAMPS_DIR="$BRIEFING_DIR/.stamps"
+PENDING_DIR="$BRIEFING_DIR/.pending"
 
 html_escape() {
   jq -Rr @html
@@ -187,6 +104,205 @@ html_escape() {
 json_string() {
   jq -Rs .
 }
+
+PROJECT_NAME="$(basename "$TARGET_DIR")"
+PROJECT_HTML="$(printf '%s' "$PROJECT_NAME" | html_escape)"
+NOW_DATE="$(date -u +"%Y-%m-%d")"
+NOW_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+slugify() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//'
+}
+
+# Every run builds from one snapshot of the session it describes: the copy
+# bootstrap.sh made at rotation (--snapshot), or a copy of the live files made
+# below once the lock is held. Nothing is read from the live log, the work
+# tree, or the ledger after that, so a rotation or the next session's edits
+# cannot leak in, and the page is named from the same meta it renders.
+# SRC is the snapshot; until the live copy exists it points at the live files.
+LIVE=true
+SRC="$LOG_DIR"
+if [ -n "$SNAPSHOT_ARG" ]; then
+  LIVE=false
+  SRC="$(cd "$SNAPSHOT_ARG" && pwd)"
+fi
+
+# Sets SESSION_ID, STARTED_AT, SESSION_DATE, SESSION_SLUG and the output paths
+# from a session-meta.json. A rebuild of the same session (on demand,
+# --if-stale, or at rotation) overwrites the same files.
+derive_session() {
+  local meta="$1" token
+  SESSION_ID="unknown"
+  STARTED_AT=""
+  if [ -f "$meta" ]; then
+    SESSION_ID="$(jq -r '.session_id // "unknown" | tostring' "$meta" 2>/dev/null | head -n 1)"
+    STARTED_AT="$(jq -r '.started_at // empty | tostring' "$meta" 2>/dev/null | head -n 1)"
+  fi
+  SESSION_ID="${SESSION_ID:-unknown}"
+  case "$STARTED_AT" in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*) ;;
+    *) STARTED_AT="" ;;
+  esac
+  SESSION_DATE="$NOW_DATE"
+  token="$(date -u +"%H%M%S")"
+  if [ -n "$STARTED_AT" ]; then
+    SESSION_DATE="$(printf '%s' "$STARTED_AT" | cut -c1-10)"
+    token="$(printf '%s' "$STARTED_AT" | sed 's/[^0-9]//g' | cut -c9-14)"
+  fi
+  if [ "$SESSION_ID" != "unknown" ]; then
+    token="$(slugify "$SESSION_ID")"
+    # An id with no slug-safe characters still needs a distinct name.
+    [ -n "$token" ] || token="$(printf '%s' "$SESSION_ID" | cksum | cut -d ' ' -f 1)"
+  fi
+  SESSION_SLUG="$(slugify "$SESSION_DATE-$PROJECT_NAME-$token")"
+  SESSION_FILE="$SESSIONS_DIR/$SESSION_SLUG.html"
+  PACK_FILE="$EXPORTS_DIR/$SESSION_SLUG-notebooklm-pack.md"
+  STAMP_FILE="$STAMPS_DIR/$SESSION_SLUG"
+}
+
+# What a page shows depends on the session's work (learning turns and
+# turn_end lines left out, so /learn itself never makes the page stale), the
+# ledger, and this script. A complete build records this as its stamp.
+work_fingerprint() {
+  {
+    jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "session";
+      [inputs | fromjson? | objects] | number_turns | work_events[]
+      | select(.event != "turn_end") | del(._turn)' "$1/session-log.jsonl" 2>/dev/null || true
+    echo "--"
+    cat "$1/knowledge.json" 2>/dev/null || true
+    echo "--"
+    cat "${BASH_SOURCE[0]}"
+  } | cksum
+}
+
+if [ "$IF_STALE" = true ]; then
+  # An empty log has nothing to brief; a placeholder would replace the index.
+  if [ ! -s "$SRC/session-log.jsonl" ]; then
+    echo "No session activity to brief yet."
+    exit 0
+  fi
+  derive_session "$SRC/session-meta.json"
+  if [ -f "$SESSION_FILE" ] && [ "$(cat "$STAMP_FILE" 2>/dev/null)" = "$(work_fingerprint "$SRC")" ]; then
+    echo "Session briefing is up to date: $SESSION_FILE"
+    exit 0
+  fi
+fi
+
+# One writer at a time: mkdir is atomic on Linux and macOS (flock is not on
+# macOS). The lock holds the owner's pid.
+lock_owner_alive() {
+  local err
+  err="$(kill -0 "$1" 2>&1)" && return 0
+  # EPERM: the process exists but belongs to someone else.
+  case "$err" in *"o such process"*) return 1 ;; esac
+  return 0
+}
+
+# A lock is stale when its owner is gone, when it has had no pid for a minute
+# (a crash between mkdir and the pid write), or when it is over 20 minutes old:
+# no run takes that long, and after a reboot its pid may belong to another
+# process.
+lock_is_stale() {
+  local dir="$1" pid
+  [ -n "$(find "$dir" -maxdepth 0 -mmin +20 2>/dev/null)" ] && return 0
+  pid="$(cat "$dir/pid" 2>/dev/null || true)"
+  if [ -z "$pid" ]; then
+    [ -n "$(find "$dir" -maxdepth 0 -mmin +1 2>/dev/null)" ]
+  else
+    ! lock_owner_alive "$pid"
+  fi
+}
+
+LOCKED=false
+WORK=""
+cleanup() {
+  # Remove the lock only while it is still ours.
+  if [ "$LOCKED" = true ] && [ "$(cat "$LOCK_DIR/pid" 2>/dev/null)" = "$$" ]; then
+    rm -rf "$LOCK_DIR"
+  fi
+  [ -n "$WORK" ] && rm -rf "$WORK"
+}
+trap cleanup EXIT
+trap 'exit 1' INT TERM HUP
+
+acquire_lock() {
+  local deadline=$(( $(date +%s) + LOCK_WAIT )) reclaimed
+  if ! mkdir -p "$BRIEFING_DIR" 2>/dev/null; then
+    echo "ERROR: cannot create $BRIEFING_DIR." >&2
+    exit 1
+  fi
+  while :; do
+    mkdir "$LOCK_DIR" 2>/dev/null && break
+    if [ ! -d "$LOCK_DIR" ]; then
+      # Released just now, or the directory is not writable.
+      mkdir "$LOCK_DIR" 2>/dev/null && break
+      if [ ! -d "$LOCK_DIR" ]; then
+        echo "ERROR: cannot create the briefing lock $LOCK_DIR." >&2
+        exit 1
+      fi
+    fi
+    if lock_is_stale "$LOCK_DIR"; then
+      # Only the holder of $LOCK_DIR.reclaim removes a stale lock, and only
+      # after checking again while holding it: two runs that saw the same dead
+      # owner would otherwise delete the fresh lock one of them just took.
+      # A reclaim lock is held for milliseconds; one over a minute old was
+      # left by a crash.
+      if mkdir "$LOCK_DIR.reclaim" 2>/dev/null; then
+        reclaimed=false
+        lock_is_stale "$LOCK_DIR" && rm -rf "$LOCK_DIR" && reclaimed=true
+        rmdir "$LOCK_DIR.reclaim"
+        [ "$reclaimed" = true ] && continue
+      elif [ -n "$(find "$LOCK_DIR.reclaim" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+        rmdir "$LOCK_DIR.reclaim" 2>/dev/null || true
+      fi
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "ERROR: another briefing run is in progress (lock: $LOCK_DIR)." >&2
+      exit 1
+    fi
+    sleep 0.2
+  done
+  echo "$$" > "$LOCK_DIR/pid"
+  LOCKED=true
+}
+
+acquire_lock
+mkdir -p "$SESSIONS_DIR" "$EXPORTS_DIR" "$STAMPS_DIR" "$PENDING_DIR"
+# Private scratch space: the live snapshot and the outputs before they are
+# renamed into place, so a killed run never leaves a half-written page.
+WORK="$(mktemp -d "$PENDING_DIR/XXXXXX")"
+
+if [ "$LIVE" = true ]; then
+  # Copy the log with the meta that describes it: if bootstrap.sh rotates
+  # while the copy is made, the meta changes and the copy is retried.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    META_TEXT="$(cat "$LOG_DIR/session-meta.json" 2>/dev/null || true)"
+    rm -f "$WORK/session-log.jsonl"
+    if [ -f "$LOG_DIR/session-log.jsonl" ] && ! cp "$LOG_DIR/session-log.jsonl" "$WORK/session-log.jsonl" 2>/dev/null; then
+      sleep 0.2
+      continue
+    fi
+    [ "$(cat "$LOG_DIR/session-meta.json" 2>/dev/null || true)" = "$META_TEXT" ] && break
+    sleep 0.2
+  done
+  [ -n "$META_TEXT" ] && printf '%s\n' "$META_TEXT" > "$WORK/session-meta.json"
+  for f in pause-summary.txt pause-summary.session knowledge.json; do
+    [ -f "$LOG_DIR/$f" ] && cp "$LOG_DIR/$f" "$WORK/$f" 2>/dev/null
+  done
+  mkdir -p "$WORK/repo"
+  if git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$TARGET_DIR" --no-optional-locks diff --no-ext-diff --no-textconv --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null \
+      | head -c 12000 > "$WORK/repo/diff.patch" || true
+  fi
+  SRC="$WORK"
+fi
+
+SESSION_LOG="$SRC/session-log.jsonl"
+META_FILE="$SRC/session-meta.json"
+SUMMARY_FILE="$SRC/pause-summary.txt"
+SUMMARY_OWNER_FILE="$SRC/pause-summary.session"
+LEDGER_FILE="$SRC/knowledge.json"
+derive_session "$META_FILE"
 
 # Render a git diff as syntax-highlighted HTML spans (one span per line, display:block).
 render_diff_as_html() {
@@ -210,14 +326,19 @@ render_diff_as_html() {
 }
 
 write_empty_briefing() {
-  local message="No vibe-learn session log was found for $PROJECT_NAME."
-  cat > "$INDEX_FILE" <<EMPTY_EOF
+  local message="No vibe-learn session log was found for $PROJECT_HTML."
+  # A briefing index from earlier sessions is worth more than a placeholder.
+  if [ -f "$INDEX_FILE" ]; then
+    echo "No session log found; kept the existing briefing index: $INDEX_FILE"
+    return
+  fi
+  cat > "$WORK/index.html" <<EMPTY_EOF
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>vibe-learn — $PROJECT_NAME</title>
+  <title>vibe-learn — $PROJECT_HTML</title>
   <style>
     :root{--bg:#faf9f5;--surface:#f1efe7;--text:#141413;--muted:#706f68;--line:#d8d4c8;--accent:#d97757;--radius:8px;}
     *{box-sizing:border-box;}
@@ -242,6 +363,7 @@ write_empty_briefing() {
 </body>
 </html>
 EMPTY_EOF
+  mv "$WORK/index.html" "$INDEX_FILE"
   echo "No session log found. Wrote briefing placeholder: $INDEX_FILE"
 }
 
@@ -287,51 +409,41 @@ FILES_TOTAL="$(( CREATED_COUNT + EDITED_COUNT + DELETED_COUNT ))"
 FAILURE_TAG=""
 [ "${FAILURE_COUNT:-0}" -gt 0 ] && FAILURE_TAG="<span class=\"tag danger\">${FAILURE_COUNT} failed</span>"
 
-infer_area() {
-  local file="$1"
-  case "$file" in
-    *test*|tests/*|*.bats|*spec*|*_test.*|*.test.*) echo "tests" ;;
-    adapters/*) echo "adapter" ;;
-    scripts/*) echo "script" ;;
-    *auth*|*login*|*password*|*token*|*secret*|*oauth*|*permission*|*cred*) echo "auth" ;;
-    *db*|*database*|*migration*|*schema*|*model.py|*model.ts) echo "database" ;;
-    config/*|*.json|*.toml|*.yaml|*.yml) echo "config" ;;
-    README.md|CLAUDE.md|CHANGELOG.md|docs/*|specs/*|*.md) echo "docs" ;;
-    *) echo "source" ;;
-  esac
-}
+# Rows are rendered in one awk pass each: a process per row made a long
+# session take minutes. he() matches jq's @html.
+AWK_HTML='function he(s,    r) {
+  r = s
+  gsub(/&/, "\\&amp;", r); gsub(/</, "\\&lt;", r); gsub(/>/, "\\&gt;", r)
+  gsub(/"/, "\\&quot;", r); gsub(/'"'"'/, "\\&#39;", r)
+  return r
+}'
 
 render_file_rows() {
-  local action="$1"
-  local files="$2"
-  local file area escaped_file
-  while IFS= read -r file; do
-    [ -z "$file" ] && continue
-    area="$(infer_area "$file")"
-    escaped_file="$(printf '%s' "$file" | html_escape)"
-    printf '<li class="file-row" data-area="%s"><span class="pill action-%s">%s</span><code class="fpath">%s</code><span class="area area-%s">%s</span></li>\n' \
-      "$area" "$action" "$action" "$escaped_file" "$area" "$area"
-  done <<EOF
-$files
-EOF
+  printf '%s\n' "$2" | awk -v action="$1" "$AWK_HTML"'
+    function area(f) {
+      if (f ~ /test|\.bats$|spec/) return "tests"
+      if (f ~ /^adapters\//) return "adapter"
+      if (f ~ /^scripts\//) return "script"
+      if (f ~ /auth|login|password|token|secret|oauth|permission|cred/) return "auth"
+      if (f ~ /db|database|migration|schema|model\.py$|model\.ts$/) return "database"
+      if (f ~ /^config\/|\.json$|\.toml$|\.yaml$|\.yml$/) return "config"
+      if (f ~ /^(README|CLAUDE|CHANGELOG)\.md$|^docs\/|^specs\/|\.md$/) return "docs"
+      return "source"
+    }
+    $0 != "" {
+      a = area($0)
+      printf "<li class=\"file-row\" data-area=\"%s\"><span class=\"pill action-%s\">%s</span><code class=\"fpath\">%s</code><span class=\"area area-%s\">%s</span></li>\n", a, action, action, he($0), a, a
+    }'
 }
 
 render_command_rows() {
-  local cmd exit_code escaped_cmd class label
-  while IFS="$(printf '\t')" read -r cmd exit_code; do
-    [ -z "${cmd:-}" ] && continue
-    escaped_cmd="$(printf '%s' "$cmd" | head -c 240 | html_escape)"
-    class="ok"
-    label="exit ${exit_code:-0}"
-    if [ "${exit_code:-0}" != "0" ]; then
-      class="fail"
-      label="failed ${exit_code:-unknown}"
-    fi
-    printf '<li class="command-row %s" data-kind="command"><code class="cmd-text">%s</code><span class="status">%s</span></li>\n' \
-      "$class" "$escaped_cmd" "$label"
-  done <<EOF
-$COMMANDS
-EOF
+  printf '%s\n' "$COMMANDS" | awk -F '\t' "$AWK_HTML"'
+    $1 != "" {
+      code = ($2 == "" ? "0" : $2)
+      cls = "ok"; label = "exit " code
+      if (code != "0") { cls = "fail"; label = "failed " code }
+      printf "<li class=\"command-row %s\" data-kind=\"command\"><code class=\"cmd-text\">%s</code><span class=\"status\">%s</span></li>\n", cls, he(substr($1, 1, 240)), label
+    }'
 }
 
 # Rows from learning turns carry a "learning" chip; they are not session work.
@@ -584,15 +696,15 @@ JQ
 write_health_page() {
   local views_json
   views_json="$(printf '%s' "$HEALTH_VIEWS" | jq -c . | sed 's#</#<\\/#g')"
-  cat > "$HEALTH_PAGE" <<EOF
+  cat > "$WORK/health.html" <<EOF
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>vibe-learn — $PROJECT_NAME — assistant health</title>
+  <title>vibe-learn — $PROJECT_HTML — assistant health</title>
 EOF
-  cat >> "$HEALTH_PAGE" <<'EOF'
+  cat >> "$WORK/health.html" <<'EOF'
   <style>
     :root{
       --bg:#faf9f5; --surface:#f1efe7; --surface-2:#e8e6dc;
@@ -669,17 +781,17 @@ EOF
 </head>
 <body>
 EOF
-  cat >> "$HEALTH_PAGE" <<EOF
+  cat >> "$WORK/health.html" <<EOF
   <header class="site-header">
     <div>
-      <div class="eyebrow"><a href="index.html">vibe-learn</a> / $PROJECT_NAME / assistant health</div>
+      <div class="eyebrow"><a href="index.html">vibe-learn</a> / $PROJECT_HTML / assistant health</div>
       <h1>Assistant health</h1>
       <p class="goal">Signals from your real sessions in this project. Session signals are hints, not proof.</p>
     </div>
     <a class="button" href="index.html">← Index</a>
   </header>
 EOF
-  cat >> "$HEALTH_PAGE" <<'EOF'
+  cat >> "$WORK/health.html" <<'EOF'
   <main class="page">
     <div id="callouts"></div>
     <div class="controls">
@@ -726,8 +838,8 @@ EOF
   </main>
   <script>
 EOF
-  printf '    const DATA = %s;\n' "$views_json" >> "$HEALTH_PAGE"
-  cat >> "$HEALTH_PAGE" <<'EOF'
+  printf '    const DATA = %s;\n' "$views_json" >> "$WORK/health.html"
+  cat >> "$WORK/health.html" <<'EOF'
     const M = {
       bash_fail_rate: { name: "Bash failure rate", title: "Bash failure rate per session", axis: "Failed commands (%)", rate: true },
       rework_rate: { name: "Rework rate", title: "Rework rate per session", axis: "Files re-edited in 3+ turns (%)", rate: true },
@@ -939,14 +1051,15 @@ EOF
 </body>
 </html>
 EOF
+  mv "$WORK/health.html" "$HEALTH_PAGE"
 }
 
 if [ -n "$HEALTH_VIEWS" ]; then
   HEALTH_FLAGS="$(printf '%s' "$HEALTH_VIEWS" | jq -r '.views["harness|14"].flags_total // 0')"
-  # The card describes the session in progress (the live log). A page built
-  # from a rotated snapshot would show the next session's numbers, so it
-  # links to the trend page from the index only.
-  if [ "$SESSION_LOG" = "$LOG_DIR/session-log.jsonl" ]; then
+  # The card describes the session in progress. A page built at rotation
+  # would show the next session's numbers, so it links to the trend page from
+  # the index only.
+  if [ "$LIVE" = true ]; then
     HEALTH_NAV="
       <a href=\"#health\">Assistant health <span class=\"nbadge\">$HEALTH_FLAGS</span></a>"
     HEALTH_SECTION="$(printf '%s' "$HEALTH_VIEWS" | jq -r "$HEALTH_CARD_JQ")"
@@ -973,11 +1086,7 @@ EOF
 }
 
 DIFF_EXCERPT=""
-if [ -n "$DIFF_ARG" ]; then
-  [ -f "$DIFF_ARG" ] && DIFF_EXCERPT="$(head -c 12000 "$DIFF_ARG")"
-elif git -C "$TARGET_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  DIFF_EXCERPT="$(git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null | head -c 12000 || true)"
-fi
+[ -f "$SRC/repo/diff.patch" ] && DIFF_EXCERPT="$(head -c 12000 "$SRC/repo/diff.patch")"
 
 if [ -n "$DIFF_EXCERPT" ]; then
   DIFF_RENDERED="$(render_diff_as_html "$DIFF_EXCERPT")"
@@ -991,7 +1100,7 @@ GOAL_HTML="$(printf '%s' "$GOAL" | html_escape)"
 SUMMARY_HTML="$(printf '%s' "${PAUSE_SUMMARY:-No pause summary was available.}" | html_escape)"
 GOAL_JSON="$(printf '%s' "$GOAL" | json_string)"
 
-cat > "$PACK_FILE" <<EOF
+cat > "$WORK/pack.md" <<EOF
 # Session Briefing Source Pack
 
 Project: $PROJECT_NAME
@@ -1016,13 +1125,17 @@ ready to debug or extend.
 
 ## Timeline
 
-$(jq -r '
-  if .event == "user_prompt" then
-    "- Prompt: \(.prompt)"
+$(jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "session";
+  [inputs | fromjson? | objects] | number_turns
+  | learning_turns as $l
+  | .[]
+  | (if $l[._turn | tostring] then " (learning)" else "" end) as $mark
+  | if .event == "user_prompt" then
+    "- Prompt\($mark): \(.prompt)"
   elif .event == "tool_use" and .tool == "Bash" then
-    "- Command: \(.command // "") (exit \(.context.exit_code // 0))"
+    "- Command\($mark): \(.command // "") (exit \(.context.exit_code // 0))"
   elif .event == "tool_use" then
-    "- File \(.action // "changed"): \(.file // "file")"
+    "- File \(.action // "changed")\($mark): \(.file // "file")"
   else empty end
 ' "$SESSION_LOG" 2>/dev/null)
 
@@ -1061,7 +1174,7 @@ matters, what to inspect first, and what could break. Assume the listener owns
 this codebase and needs enough technical depth to support it.$AUDIO_EXTRA
 EOF
 
-PACK_TEXT_JSON="$(cat "$PACK_FILE" | json_string)"
+PACK_TEXT_JSON="$(json_string < "$WORK/pack.md")"
 
 FILE_ROWS="$(
   render_file_rows "created" "$FILES_CREATED"
@@ -1116,7 +1229,7 @@ CARD
   done
 }
 
-cat > "$SESSION_FILE" <<'STYLE_BLOCK'
+cat > "$WORK/session.html" <<'STYLE_BLOCK'
 <!doctype html>
 <html lang="en">
 <head>
@@ -1124,11 +1237,11 @@ cat > "$SESSION_FILE" <<'STYLE_BLOCK'
   <meta name="viewport" content="width=device-width, initial-scale=1">
 STYLE_BLOCK
 
-cat >> "$SESSION_FILE" <<EOF
-  <title>vibe-learn — $PROJECT_NAME — $SESSION_DATE</title>
+cat >> "$WORK/session.html" <<EOF
+  <title>vibe-learn — $PROJECT_HTML — $SESSION_DATE</title>
 EOF
 
-cat >> "$SESSION_FILE" <<'STYLE_BLOCK'
+cat >> "$WORK/session.html" <<'STYLE_BLOCK'
   <style>
     :root{
       --bg:#faf9f5; --surface:#f1efe7; --surface-2:#e8e6dc;
@@ -1267,11 +1380,11 @@ cat >> "$SESSION_FILE" <<'STYLE_BLOCK'
 </head>
 STYLE_BLOCK
 
-cat >> "$SESSION_FILE" <<EOF
+cat >> "$WORK/session.html" <<EOF
 <body>
   <header class="site-header">
     <div class="header-left">
-      <div class="eyebrow"><a href="../index.html">vibe-learn</a> / $PROJECT_NAME / $SESSION_DATE</div>
+      <div class="eyebrow"><a href="../index.html">vibe-learn</a> / $PROJECT_HTML / $SESSION_DATE</div>
       <h1>Session briefing</h1>
       <p class="goal">$GOAL_HTML</p>
     </div>
@@ -1363,7 +1476,7 @@ cat >> "$SESSION_FILE" <<EOF
           <button type="button" data-copy-pack>Copy source pack</button>
           <button type="button" data-copy-prompt>Copy audio prompt</button>
         </div>
-        <pre class="pack-preview">$(cat "$PACK_FILE" | html_escape)</pre>
+        <pre class="pack-preview">$(html_escape < "$WORK/pack.md")</pre>
       </section>
 
     </main>
@@ -1422,15 +1535,18 @@ cat >> "$SESSION_FILE" <<EOF
 </html>
 EOF
 
+# The page and pack go into place first: the index lists sessions/*.html.
+mv "$WORK/pack.md" "$PACK_FILE"
+mv "$WORK/session.html" "$SESSION_FILE"
 INDEX_CARDS="$(render_index_cards)"
 
-cat > "$INDEX_FILE" <<EOF
+cat > "$WORK/index.html" <<EOF
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>vibe-learn — $PROJECT_NAME</title>
+  <title>vibe-learn — $PROJECT_HTML</title>
   <style>
     :root{--bg:#faf9f5;--surface:#f1efe7;--surface-2:#e8e6dc;--text:#141413;--muted:#706f68;--line:#d8d4c8;--accent:#d97757;--accent-blue:#6a9bcc;--danger:#9f3d32;--success:#617a4b;--radius:8px;--shadow:0 1px 3px rgba(20,20,19,.1);}
     *{box-sizing:border-box;}
@@ -1479,13 +1595,13 @@ cat > "$INDEX_FILE" <<EOF
 <body>
   <header class="site-header">
     <h1>vibe-learn</h1>
-    <p>Session briefings from your agent-built sessions &mdash; $PROJECT_NAME</p>
+    <p>Session briefings from your agent-built sessions &mdash; $PROJECT_HTML</p>
   </header>
   <div class="layout">
     <aside>
       <div class="sidebar-panel">
         <div class="sidebar-heading">This project</div>
-        <div class="stat-row"><span class="stat-label">Project</span><span class="stat-value mono">$PROJECT_NAME</span></div>
+        <div class="stat-row"><span class="stat-label">Project</span><span class="stat-value mono">$PROJECT_HTML</span></div>
         <div class="stat-row"><span class="stat-label">Latest</span><span class="stat-value mono">$SESSION_DATE</span></div>
         <div class="stat-row"><span class="stat-label">Files</span><span class="stat-value">$FILES_TOTAL</span></div>
         <div class="stat-row"><span class="stat-label">Commands</span><span class="stat-value">$COMMAND_COUNT</span></div>
@@ -1503,6 +1619,10 @@ cat > "$INDEX_FILE" <<EOF
 </body>
 </html>
 EOF
+
+mv "$WORK/index.html" "$INDEX_FILE"
+# Written last: --if-stale trusts only a build that got this far.
+work_fingerprint "$SRC" > "$STAMP_FILE"
 
 echo "Session briefing index:  $INDEX_FILE"
 echo "Session briefing:        $SESSION_FILE"
