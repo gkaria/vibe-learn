@@ -303,10 +303,15 @@ jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" --slurpfile meta "$META_SRC" --slu
 # that git does not track yet (ignored files are skipped: they may hold
 # secrets), 60 lines each, 12 KB in all.
 diff_excerpt() {
+  local root dir
   git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null || true
+  root="$(cd -P "$TARGET_DIR" && pwd -P)"
   jq -r -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "briefing";
     .files[].path | select(project_path and (startswith(".vibe-learn/") | not))' "$WORK/facts.json" | while IFS= read -r f; do
-    [ -f "$TARGET_DIR/$f" ] || continue
+    [ -f "$TARGET_DIR/$f" ] && [ ! -L "$TARGET_DIR/$f" ] || continue
+    # A symlinked directory on the way can still lead outside the project.
+    dir="$(cd -P "$(dirname "$TARGET_DIR/$f")" 2>/dev/null && pwd -P)" || continue
+    case "$dir/" in "$root"/*) ;; *) continue ;; esac
     git -C "$TARGET_DIR" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 && continue
     git -C "$TARGET_DIR" check-ignore -q -- "$f" 2>/dev/null && continue
     { git -C "$TARGET_DIR" diff --no-index -- /dev/null "$f" 2>/dev/null || true; } | head -n 60

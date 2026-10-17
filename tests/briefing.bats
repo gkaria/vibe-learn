@@ -589,6 +589,26 @@ first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_pr
   [ -z "$(awk '/^(```|~~~~)/ { fence = !fence; next } !fence && (/^EOF$/ || /^port = /)' "$pack")" ]
 }
 
+@test "the pack never follows an untracked symlink out of the project" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" outside="$BATS_TEST_TMPDIR/outside"
+  mkdir -p "$vl" "$outside" "$TEST_PROJECT_DIR/src"
+  printf 'LINKED_SECRET\n' > "$outside/secret.txt"
+  printf 'export const ok = "INSIDE_BODY";\n' > "$TEST_PROJECT_DIR/src/ok.js"
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf '.vibe-learn/\n' > "$TEST_PROJECT_DIR/.gitignore"
+  ln -s "$outside" "$TEST_PROJECT_DIR/link"
+  ln -s "$outside/secret.txt" "$TEST_PROJECT_DIR/src/alias.txt"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Read the linked config and add the ok module"}' \
+    '{"event":"tool_use","tool":"Write","file":"link/secret.txt","action":"edited"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/alias.txt","action":"edited"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/ok.js","action":"created"}' > "$vl/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local pack; pack="$(pack_file_for_test_project)"
+  grep -qF '+export const ok = "INSIDE_BODY";' "$pack"
+  refute_grep 'LINKED_SECRET' "$pack"
+  refute_grep 'LINKED_SECRET' "$(session_file_for_test_project)"
+}
+
 @test "the pack and page show files git does not track yet, but never ignored ones" {
   local vl="$TEST_PROJECT_DIR/.vibe-learn"
   mkdir -p "$vl" "$TEST_PROJECT_DIR/src"
