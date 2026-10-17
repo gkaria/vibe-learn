@@ -151,8 +151,7 @@ JSON
 
 @test "cursor shim sessionStart relays the previous pause summary as additional_context" {
   run_cursor_install
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  printf 'Prior summary line\n' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Prior summary line'
 
   run run_shim sessionStart '"session_id":"sess-42","is_background_agent":false'
 

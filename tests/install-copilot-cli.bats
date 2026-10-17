@@ -141,8 +141,7 @@ run_hook() {
 
 @test "copilot-cli sessionStart converts prior summary output to native additionalContext" {
   run_copilot_install
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo 'Prior Copilot summary' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Prior Copilot summary'
 
   run run_hook sessionStart session-start.json
 
@@ -150,10 +149,19 @@ run_hook() {
   [ "$(jq -r '.additionalContext' <<<"$output")" = $'Prior session summary:\nPrior Copilot summary ' ]
 }
 
+@test "copilot-cli sessionStart does not offer a summary left by an earlier session" {
+  run_copilot_install
+  seed_prior_summary 'Summary from two sessions ago'
+  echo '["older","2025-12-31T00:00:00Z"]' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.session"
+
+  run run_hook sessionStart session-start.json
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "copilot-cli preserves the prompt and defers context to sessionStart when the prompt arrives first" {
   run_copilot_install
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo 'Prior Copilot summary' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Prior Copilot summary'
 
   run run_hook userPromptSubmitted user-prompt-submitted.json
   [ "$status" -eq 0 ]
@@ -169,8 +177,7 @@ run_hook() {
 
 @test "copilot-cli initializes once when sessionStart precedes the prompt" {
   run_copilot_install
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo 'Prior Copilot summary' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Prior Copilot summary'
 
   run run_hook sessionStart session-start.json
   [ "$status" -eq 0 ]

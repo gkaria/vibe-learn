@@ -57,8 +57,7 @@ load test_helper
 }
 
 @test "bootstrap injects prior pause summary as additionalContext" {
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo "Prior session info" > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary "Prior session info"
 
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","session_id":"s3"}'"'"' | bash '"$SCRIPTS_DIR/bootstrap.sh"
   [ "$status" -eq 0 ]
@@ -88,8 +87,7 @@ load test_helper
 }
 
 @test "bootstrap emits valid JSON when the prior summary contains backslashes and quotes" {
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  printf 'Ran: grep "a\\.b" C:\\dir\\x\n' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Ran: grep "a\.b" C:\dir\x'
 
   run bash -c "echo '{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"s-bs\"}' | bash '$SCRIPTS_DIR/bootstrap.sh'"
   [ "$status" -eq 0 ]
@@ -118,6 +116,19 @@ STUB
 
 wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.1; done; return 1; }
 
+# A PATH of symlinks to every command except $1 (none when empty).
+hide_from_path() {
+  local dir="$BATS_TEST_TMPDIR/path-without-${1:-nothing}" f
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir"
+    for f in /usr/local/bin/* /usr/bin/* /bin/*; do
+      [ -n "$1" ] && [ "${f##*/}" = "$1" ] && continue
+      [ -e "$dir/${f##*/}" ] || ln -s "$f" "$dir/${f##*/}" 2>/dev/null || true
+    done
+  fi
+  printf '%s' "$dir"
+}
+
 @test "bootstrap snapshots the finished session and returns before its briefing finishes" {
   local root vl="$TEST_PROJECT_DIR/.vibe-learn" elapsed out
   root="$(stub_install)"
@@ -135,7 +146,7 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
   local snap
   snap="$(sed -n 3p "$root/briefing-args")"
   [ "$(dirname "$snap")" = "$vl/briefing/.pending" ]
-  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --snapshot "$snap" --lock-wait 60)" ]
+  [ "$(cat "$root/briefing-args")" = "$(printf '%s\n' "$TEST_PROJECT_DIR" --snapshot "$snap" --lock-wait 1800)" ]
   [ ! -e "$root/briefing-done" ]
   [ "$(jq -r '.session_id' "$snap/session-meta.json")" = "first" ]
   grep -q '"build it"' "$snap/session-log.jsonl"
@@ -295,7 +306,7 @@ release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
 @test "the rotation snapshot is removed when the briefing fails, and day-old leftovers are swept" {
   local root vl="$TEST_PROJECT_DIR/.vibe-learn"
   root="$(stub_install)"
-  printf '#!/bin/bash\nexit 1\n' > "$root/scripts/briefing.sh"
+  printf '#!/bin/bash\necho "briefing failed: boom" >&2\nexit 1\n' > "$root/scripts/briefing.sh"
   mkdir -p "$vl/briefing/.pending/killed-run" "$vl/briefing/.pending/running-now"
   touch -d '2 days ago' "$vl/briefing/.pending/killed-run"
   echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"f1\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
@@ -303,4 +314,98 @@ release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
   echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"f2\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
   for i in $(seq 1 50); do [ "$(ls "$vl/briefing/.pending")" = running-now ] && break; sleep 0.1; done
   [ "$(ls "$vl/briefing/.pending")" = running-now ]
+  grep -q "briefing failed: boom" "$vl/briefing/rotation.log"
+}
+
+@test "bootstrap injects only the summary of the session that just ended" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" out
+  rot_start inj-a; rot_work alpha
+  out="$(echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"inj-b\"}" | bash "$SCRIPTS_DIR/bootstrap.sh")"
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$out")" == *"Build the alpha module"* ]]
+  # A chat-only session: the Stop hook writes no summary, inj-a's stays.
+  echo '{"event":"user_prompt","prompt":"What does the retry helper do?"}' >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  out="$(echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"inj-c\"}" | bash "$SCRIPTS_DIR/bootstrap.sh")"
+  [ -z "$out" ]
+  wait_rotation
+}
+
+@test "the rotation diff runs no external diff or textconv driver and gives up after its deadline" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" root bin="$BATS_TEST_TMPDIR/bin" f elapsed snap path
+  root="$(stub_install)"
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf 'one\n' > "$TEST_PROJECT_DIR/a.txt"; git -C "$TEST_PROJECT_DIR" add a.txt
+  printf '#!/bin/sh\ntouch "%s/driver-ran"\nsleep 10\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/driver"
+  chmod +x "$BATS_TEST_TMPDIR/driver"
+  git -C "$TEST_PROJECT_DIR" config diff.external "$BATS_TEST_TMPDIR/driver"
+  git -C "$TEST_PROJECT_DIR" config diff.slow.textconv "$BATS_TEST_TMPDIR/driver"
+  echo '*.txt diff=slow' > "$TEST_PROJECT_DIR/.gitattributes"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"d1\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  echo '{"event":"user_prompt","prompt":"build it"}' >> "$vl/session-log.jsonl"
+  printf 'DRIVER_FREE_CHANGE\n' >> "$TEST_PROJECT_DIR/a.txt"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"d2\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  wait_for "$root/briefing-args"
+  snap="$(sed -n 3p "$root/briefing-args")"
+  grep -q DRIVER_FREE_CHANGE "$snap/repo/diff.patch"
+  [ ! -e "$BATS_TEST_TMPDIR/driver-ran" ]
+
+  # A git diff that hangs: with timeout, and with only perl (macOS), the hook
+  # returns within the deadline and the snapshot's diff is empty.
+  mkdir -p "$bin"
+  printf '#!/bin/bash\ncase " $* " in *" diff "*) exec sleep 10 ;; esac\nexec %s "$@"\n' "$(command -v git)" > "$bin/git"
+  chmod +x "$bin/git"
+  for f in "" timeout; do
+    rm -f "$root/briefing-args"
+    echo '{"event":"user_prompt","prompt":"build more"}' >> "$vl/session-log.jsonl"
+    path="$bin:$(hide_from_path "$f")"
+    TIMEFORMAT=%R
+    elapsed=$( { time env PATH="$path" bash "$root/scripts/bootstrap.sh" \
+      <<<"{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"d3$f\"}" >/dev/null; } 2>&1 )
+    echo "without '${f:-nothing}': ${elapsed}s"
+    awk -v t="$elapsed" 'BEGIN { exit !(t < 4) }'
+    wait_for "$root/briefing-args"
+    snap="$(sed -n 3p "$root/briefing-args")"
+    [ ! -s "$snap/repo/diff.patch" ]
+  done
+}
+
+@test "the detached run holds none of the hook's fds, so a caller reading fd 3 is not kept waiting" {
+  local root vl="$TEST_PROJECT_DIR/.vibe-learn" elapsed
+  root="$(stub_install)"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"fd-a\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  echo '{"event":"user_prompt","prompt":"build it"}' >> "$vl/session-log.jsonl"
+  TIMEFORMAT=%R
+  # $( ) on fd 3 returns only when every writer of that pipe has closed it.
+  elapsed=$( { time out=$( { echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"fd-b\"}" \
+    | bash "$root/scripts/bootstrap.sh" >/dev/null; } 3>&1 ); } 2>&1 )
+  echo "took ${elapsed}s"
+  awk -v t="$elapsed" 'BEGIN { exit !(t < 1) }'
+  wait_for "$root/briefing-args"
+}
+
+@test "health rows are computed after the hook returns, so a slow health.sh cannot time out SessionStart" {
+  local root vl="$TEST_PROJECT_DIR/.vibe-learn" elapsed i
+  root="$(stub_install)"
+  printf '#!/bin/bash\nsleep 3\necho "{\\"session_id\\":\\"$(jq -r .session_id "$1/session-meta.json")\\"}"\n' > "$root/scripts/health.sh"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"slow-a\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  echo '{"event":"user_prompt","prompt":"build it"}' >> "$vl/session-log.jsonl"
+  TIMEFORMAT=%R
+  elapsed=$( { time bash "$root/scripts/bootstrap.sh" <<<"{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"slow-b\"}" >/dev/null; } 2>&1 )
+  awk -v t="$elapsed" 'BEGIN { exit !(t < 1) }'
+  [ "$(jq -r .session_id "$vl/session-meta.json")" = slow-b ]
+  [ -f "$vl/session-log.prev.jsonl" ]
+  for i in $(seq 1 60); do [ -s "$vl/health.jsonl" ] && break; sleep 0.1; done
+  [ "$(cat "$vl/health.jsonl")" = '{"session_id":"slow-a"}' ]
+}
+
+@test "two SessionStarts at once rotate the finished session once, under its own id" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" day project
+  rot_start dup-a; rot_work alpha
+  rot_start dup-b1 & rot_start dup-b2 & wait
+  wait_rotation
+  day="$(date -u +%Y-%m-%d)"; project="$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')"
+  [ "$(wc -l < "$vl/health.jsonl" | tr -d ' ')" -eq 1 ]
+  [ "$(jq -r .session_id "$vl/health.jsonl")" = dup-a ]
+  [ "$(ls "$vl/briefing/sessions")" = "$day-$project-dup-a.html" ]
+  [ "$(jq -r .session_id "$vl/session-meta.prev.json")" = dup-a ]
 }

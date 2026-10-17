@@ -29,3 +29,23 @@ make_input() {
 # A bare `! grep` fails a bats test only as its last line (set -e ignores a
 # negated command); this fails wherever it is.
 refute_grep() { if grep -q "$1" "$2"; then echo "unexpected '$1' in $2"; return 1; fi; }
+
+# The previous session's pause summary as a finished session leaves it: the
+# summary, the file naming its session, and that session's rotated meta.
+seed_prior_summary() {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  mkdir -p "$vl"
+  printf '%s\n' "$1" > "$vl/pause-summary.txt"
+  echo '{"session_id":"prior","started_at":"2026-01-01T00:00:00Z"}' > "$vl/session-meta.prev.json"
+  echo '["prior","2026-01-01T00:00:00Z"]' > "$vl/pause-summary.session"
+}
+
+# Waits until the detached work after a rotation (health rows, briefing) is done.
+wait_rotation() {
+  local i
+  for i in $(seq 1 150); do
+    [ -z "$(ls -A "$TEST_PROJECT_DIR/.vibe-learn/briefing/.pending" 2>/dev/null)" ] && return 0
+    sleep 0.1
+  done
+  return 1
+}

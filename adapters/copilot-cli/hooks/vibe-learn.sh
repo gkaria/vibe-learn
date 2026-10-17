@@ -29,8 +29,11 @@ case "$EVENT" in
     if ! session_is_current "$CWD" "$SESSION_ID"; then
       printf '%s\n' "$PAYLOAD" | bash "$SCRIPTS/bootstrap.sh" >/dev/null 2>&1 || true
     fi
+    # Only the summary of the session that just ended: pause-summary.session
+    # names its session, and session-meta.prev.json is the session rotated last.
     SUMMARY="$CWD/.vibe-learn/pause-summary.txt"
-    if [ -f "$SUMMARY" ]; then
+    if [ -f "$SUMMARY" ] && [ -f "$CWD/.vibe-learn/session-meta.prev.json" ] \
+      && [ "$(cat "$CWD/.vibe-learn/pause-summary.session" 2>/dev/null)" = "$(jq -c '[.session_id, .started_at]' "$CWD/.vibe-learn/session-meta.prev.json" 2>/dev/null)" ]; then
       { printf 'Prior session summary:\n'; tr '\n' ' ' < "$SUMMARY"; } | jq -Rsc '{additionalContext: .}'
     fi
     ;;
