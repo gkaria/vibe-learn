@@ -31,7 +31,7 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   pause-summary.sh ← Stop hook
   setup.sh        ← global installer
   install.sh      ← per-project installer
-  cli.sh          ← `vibe-learn` command dispatcher
+  cli.sh          ← `vibe-learn` command dispatcher; `vibe-learn completion bash|zsh` is generated from its dispatch case labels and usage lines
   doctor.sh       ← `vibe-learn doctor`: read-only checks of jq, the install, each host's hooks, config keys, and the last session
   briefing.sh     ← `vibe-learn briefing`: static HTML session briefing + NotebookLM pack
   audio-prep.sh   ← `vibe-learn audio-prep`: finds the pack and walks through the NotebookLM upload

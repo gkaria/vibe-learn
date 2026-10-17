@@ -16,8 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install bats and jq
-        run: sudo apt-get install -y bats jq
+      - name: Install bats, jq, and zsh (for the zsh completion test)
+        run: sudo apt-get install -y bats jq zsh
 
       - name: Use jq ${{ matrix.jq }}
         if: matrix.jq != 'system'
