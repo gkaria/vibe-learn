@@ -136,8 +136,8 @@ derive_session() {
   SESSION_ID="unknown"
   STARTED_AT=""
   if [ -f "$meta" ]; then
-    SESSION_ID="$(jq -r '.session_id // "unknown" | tostring' "$meta" 2>/dev/null | head -n 1)"
-    STARTED_AT="$(jq -r '.started_at // empty | tostring' "$meta" 2>/dev/null | head -n 1)"
+    SESSION_ID="$(jq -r '.session_id // "unknown" | tostring' "$meta" 2>/dev/null | head -n 1 || true)"
+    STARTED_AT="$(jq -r '.started_at // empty | tostring' "$meta" 2>/dev/null | head -n 1 || true)"
   fi
   SESSION_ID="${SESSION_ID:-unknown}"
   case "$STARTED_AT" in
@@ -251,7 +251,7 @@ write_empty_briefing() {
     <h1>No session data yet</h1>
     <div class="panel">
       <p>$message</p>
-      <p>Run an agent session with vibe-learn installed, then run <code>vibe-learn dashboard</code> again.</p>
+      <p>Run an agent session with vibe-learn installed, then run <code>vibe-learn briefing</code> again.</p>
     </div>
   </main>
 </body>
@@ -298,13 +298,13 @@ jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" --slurpfile meta "$META_SRC" --slu
   | briefing_facts($meta[0] // {}; {root: $root, project: $project, date: $date, slug: $slug, now: $now,
                                      ledger: ($ledger[0] // null), diff: "", summary: ($summary | sub("\n+$"; ""))})' "$SESSION_LOG" > "$WORK/facts.json"
 
-# Code excerpts: the working tree's diff, then each file the session created
+# Code excerpts: the working tree's diff, then each file the session wrote
 # that git does not track yet (ignored files are skipped: they may hold
 # secrets), 60 lines each, 12 KB in all.
 diff_excerpt() {
   git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null || true
-  jq -r '.files[] | select(.created > 0 and .deleted == 0) | .path' "$WORK/facts.json" | while IFS= read -r f; do
-    case "$f" in /*|../*|.vibe-learn/*) continue ;; esac
+  jq -r '.files[].path' "$WORK/facts.json" | while IFS= read -r f; do
+    case "$f" in /*|../*|*/../*|.vibe-learn/*) continue ;; esac
     [ -f "$TARGET_DIR/$f" ] || continue
     git -C "$TARGET_DIR" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 && continue
     git -C "$TARGET_DIR" check-ignore -q -- "$f" 2>/dev/null && continue

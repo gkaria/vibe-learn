@@ -562,20 +562,30 @@ first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_pr
   [ -z "$(awk '/^(```|~~~~)/ { fence = !fence; next } !fence && (/^EOF$/ || /^port = /)' "$pack")" ]
 }
 
-@test "the pack and page show new files git does not track yet, but never ignored ones" {
+@test "the pack and page show files git does not track yet, but never ignored ones" {
   local vl="$TEST_PROJECT_DIR/.vibe-learn"
   mkdir -p "$vl" "$TEST_PROJECT_DIR/src"
   git -C "$TEST_PROJECT_DIR" init -q
   printf '.env\n.vibe-learn/\n' > "$TEST_PROJECT_DIR/.gitignore"
   printf 'export const beta = () => "BETA_BODY";\n' > "$TEST_PROJECT_DIR/src/beta.js"
+  # Written by a shell command, then edited: logged only as an edit.
+  printf 'export const gamma = "GAMMA_BODY";\n' > "$TEST_PROJECT_DIR/src/gamma.js"
   printf 'TOKEN=IGNORED_SECRET\n' > "$TEST_PROJECT_DIR/.env"
+  # A path that climbs out of the project through src/.. is not the project's.
+  local outside; outside="$(basename "$TEST_PROJECT_DIR").outside"
+  printf 'OUTSIDE_SECRET\n' > "$TEST_PROJECT_DIR/../$outside"
   printf '%s\n' '{"event":"user_prompt","prompt":"Add the beta module and its env file"}' \
     "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"$TEST_PROJECT_DIR/src/beta.js\",\"action\":\"created\"}" \
-    '{"event":"tool_use","tool":"Write","file":".env","action":"created"}' > "$vl/session-log.jsonl"
+    '{"event":"tool_use","tool":"Write","file":".env","action":"created"}' \
+    '{"event":"tool_use","tool":"Edit","file":"src/gamma.js","action":"edited"}' \
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/../../$outside\",\"action\":\"created\"}" > "$vl/session-log.jsonl"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  rm "$TEST_PROJECT_DIR/../$outside"
   local pack; pack="$(pack_file_for_test_project)"
+  refute_grep 'OUTSIDE_SECRET' "$pack"
   grep -qx '+++ b/src/beta.js' "$pack"
   grep -qF '+export const beta = () => "BETA_BODY";' "$pack"
+  grep -qF '+export const gamma = "GAMMA_BODY";' "$pack"
   grep -q 'BETA_BODY' "$(session_file_for_test_project)"
   refute_grep 'IGNORED_SECRET' "$pack"
   refute_grep 'IGNORED_SECRET' "$(session_file_for_test_project)"

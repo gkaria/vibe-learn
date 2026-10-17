@@ -215,7 +215,7 @@ def diff_html:
       (if test("^\\+\\+\\+ |^--- |^diff --git|^index [0-9a-f]") then "dh"
        elif startswith("@@") then "dk" elif startswith("+") then "da" elif startswith("-") then "dd"
        else "dc" end) as $c
-      | "<span class=\"\($c)\">\(@html)</span>") | concat("\n") end;
+      | "<span class=\"\($c)\">\(@html)</span>") | concat("") end;
 
 def study_queue:
   . as $f

@@ -17,10 +17,9 @@ def quoted: split("\n") | concat(" ") | if length > 300 then .[:300] + "…" els
 
 def pack($f):
   ($f | work_commands) as $cmds
-  # The line count of a failed command, from the timeline entry it came from.
-  | def lines_of($turn; $first):
-      first($f.timeline[] | select(.kind == "command" and .turn == $turn and (.text | split("\n")[0]) == $first)
-            | .text | split("\n") | length) // 1;
+  # The line count of a failed or fixing command, looked up by turn and first line.
+  | (reduce $f.commands[] as $c ({}; .["\($c.turn) \($c.first_line)"] //= $c.lines)) as $lines
+  | def lines_of($turn; $first): $lines["\($turn) \($first)"] // 1;
     def files_for($action): $f | paths_with($action) | map("`\(.)`");
     def turn_story($t):
       [$f.timeline[] | select(.turn == $t and .kind != "prompt")] as $ev
@@ -91,8 +90,8 @@ def pack($f):
   "## What broke and how it was fixed",
 
   (if $f.failures == [] then "Nothing failed in this session's work turns."
-   else $f.failures | group_by([.command, .fixed_by]) | sort_by(.[0].turn)
-     | map((map(.turn) | unique) as $turns | .[0] as $x
+   else ($f.failures | group_by([.command, .fixed_by]) | sort_by(.[0].turn)) as $groups
+     | ($groups[:20] | map((map(.turn) | unique) as $turns | .[0] as $x
            | ($x.command | one_line(lines_of($x.turn; $x.command)))
              + " failed \(times(length)) with exit \($x.exit_code)"
              + " (turn\(if ($turns | length) > 1 then "s \($turns[0]) to \($turns[-1])" else " \($turns[0])" end))"
@@ -100,13 +99,14 @@ def pack($f):
                   (if .[0].fixed_by.command == .[0].command then " and passed in turn \(.[0].fixed_by.turn)."
                    else " and was fixed in turn \($x.fixed_by.turn), when " + ($x.fixed_by.command | one_line(lines_of($x.fixed_by.turn; $x.fixed_by.command))) + " succeeded." end)
                 else ". It still fails: nothing later in the session ran it successfully." end))
-     | concat("\n\n") end),
+       | concat("\n\n"))
+     + (if ($groups | length) > 20 then "\n\n\(($groups | length) - 20) more failed commands are in the session page's command log." else "" end) end),
 
   "## Code excerpts",
 
   (if $f.diff == "" then "No git diff was available when this briefing was generated."
    else (if $f.diff | contains("```") then "~~~~" else "```" end) as $fence
-     | "The changes as a diff (new files the session created are shown whole, up to 60 lines each):\n\n\($fence)diff\n\($f.diff)\n\($fence)" end),
+     | "The changes as a diff (files the session wrote that git does not track yet are shown whole, up to 60 lines each):\n\n\($fence)diff\n\($f.diff)\n\($fence)" end),
 
   "## Questions to discuss",
 

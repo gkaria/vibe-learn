@@ -45,12 +45,12 @@ pack_file()    { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"  -type f 
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
 
-  ! grep -q 'id="knowledge"' "$(session_file)"
-  ! grep -q '#knowledge' "$(session_file)"
-  ! grep -q "Your knowledge state" "$(pack_file)"
-  ! grep -q "struggled with these before" "$(pack_file)"
-  ! grep -q "struggled with these before" "$(session_file)"
-  ! grep -q "is marked" "$(session_file)"
+  refute_grep 'id="knowledge"' "$(session_file)"
+  refute_grep '#knowledge' "$(session_file)"
+  refute_grep "What you struggled with" "$(pack_file)"
+  refute_grep "struggled with these before" "$(pack_file)"
+  refute_grep "struggled with these before" "$(session_file)"
+  refute_grep "is marked" "$(session_file)"
 }
 
 @test "ledger: shaky and multi-session-new concepts lead the study queue, shaky ones are priority" {
@@ -62,8 +62,8 @@ pack_file()    { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"  -type f 
   grep -q 'JWT refresh tokens&rdquo; is marked shaky (last quizzed 2026-07-11)' "$f"
   grep -q 'Express middleware ordering&rdquo; is marked shaky' "$f"
   grep -q 'Repository pattern&rdquo; is marked new (never quizzed)' "$f"
-  ! grep -q 'Seen once' "$f"
-  ! grep -q 'bcrypt password hashing&rdquo; is marked' "$f"
+  refute_grep 'Seen once &amp; unquizzed&rdquo; is marked' "$f"
+  refute_grep 'bcrypt password hashing&rdquo; is marked' "$f"
 
   # shaky items are priority; the never-quizzed one is not
   grep -q '<label class="study-item priority"><input type="checkbox"><span>&ldquo;JWT refresh tokens' "$f"
@@ -126,8 +126,8 @@ pack_file()    { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"  -type f 
 {"version":1,"concepts":[{"name":"bcrypt","label":"bcrypt","first_seen":"2026-06-20","last_seen":"2026-07-11","sessions":2,"last_quizzed":"2026-07-11","status":"solid","notes":"","files":["src/auth/refresh.ts"]}]}
 JSON
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
-  ! grep -q 'struggled with these before' "$(pack_file)"
-  ! grep -q 'struggled with these before' "$(session_file)"
+  refute_grep 'struggled with these before' "$(pack_file)"
+  refute_grep 'struggled with these before' "$(session_file)"
   grep -q '<section id="knowledge">' "$(session_file)"
   grep -qx 'Solid: bcrypt (in `src/auth/refresh.ts`).' "$(pack_file)"
   refute_grep 'struggled' "$(pack_file)"
@@ -140,15 +140,15 @@ JSON
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "not a valid knowledge ledger"
   [ -f "$(session_file)" ]
-  ! grep -q 'id="knowledge"' "$(session_file)"
+  refute_grep 'id="knowledge"' "$(session_file)"
 }
 
 @test "empty ledger: no knowledge state section" {
   write_session
   echo '{"version":1,"concepts":[]}' > "$TEST_PROJECT_DIR/.vibe-learn/knowledge.json"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
-  ! grep -q 'id="knowledge"' "$(session_file)"
-  ! grep -q "Your knowledge state" "$(pack_file)"
+  refute_grep 'id="knowledge"' "$(session_file)"
+  refute_grep "What you struggled with" "$(pack_file)"
 }
 
 @test "ledger labels are HTML-escaped in the session page" {
@@ -157,7 +157,7 @@ JSON
 {"version":1,"concepts":[{"name":"x","label":"<script>alert(1)</script> & co","first_seen":"2026-07-01","last_seen":"2026-07-11","sessions":2,"last_quizzed":"2026-07-01","status":"shaky","notes":""}]}
 JSON
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
-  ! grep -q '<script>alert(1)</script>' "$(session_file)"
+  refute_grep '<script>alert(1)</script>' "$(session_file)"
   grep -q '&lt;script&gt;alert(1)&lt;/script&gt; &amp; co' "$(session_file)"
 }
 
