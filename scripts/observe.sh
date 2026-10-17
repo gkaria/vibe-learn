@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 # observe.sh — PostToolUse hook (sync)
-# Appends JSONL entries for Write/Edit/MultiEdit/Bash/apply_patch tool use.
+# Appends JSONL entries for Write/Edit/MultiEdit/NotebookEdit/Bash/apply_patch tool use.
 # MUST complete in <50ms. No network calls. No stdout output.
 
 # Read stdin JSON
@@ -74,8 +74,8 @@ case "$TOOL" in
         '{timestamp:$ts,event:"tool_use",tool:$tool,file:$file,action:"created",turn:($turn|tonumber? // 1),context:{new_file:true}}')
     fi
     ;;
-  Edit|MultiEdit)
-    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .toolInput.file_path // .tool_input.path // .toolInput.path // empty')
+  Edit|MultiEdit|NotebookEdit)
+    FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .toolInput.file_path // .tool_input.path // .toolInput.path // .tool_input.notebook_path // empty')
     if [ "$FAILED" -eq 1 ]; then
       ENTRIES=$(jq -cn \
         --arg ts "$TS" \

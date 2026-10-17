@@ -37,6 +37,25 @@ load test_helper
   [ "$(echo "$entry" | jq -r '.action')" = "edited" ]
 }
 
+@test "observe logs NotebookEdit as an edit of the notebook, and a failed one as failed" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg nb "$TEST_PROJECT_DIR/analysis.ipynb" \
+    '{cwd: $cwd, hook_event_name: "PostToolUse", tool_name: "NotebookEdit",
+      tool_input: {notebook_path: $nb, cell_id: "c1", new_source: "df.head()", edit_mode: "replace"}, tool_response: {}}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+  [ "$(wc -l < "$log")" -eq 1 ]
+  [ "$(jq -r '.tool' "$log")" = "NotebookEdit" ]
+  [ "$(jq -r '.action' "$log")" = "edited" ]
+  [ "$(jq -r '.file' "$log")" = "$TEST_PROJECT_DIR/analysis.ipynb" ]
+
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" \
+    '{cwd: $cwd, hook_event_name: "PostToolUseFailure", tool_name: "NotebookEdit",
+      tool_input: {notebook_path: "nb.ipynb", new_source: "x", edit_mode: "insert"}, error: "no such cell"}' \
+    | bash "$SCRIPTS_DIR/observe.sh"
+  [ "$(tail -n 1 "$log" | jq -c '[.tool, .action, .file]')" = '["NotebookEdit","failed","nb.ipynb"]' ]
+}
+
 @test "observe logs apply_patch file changes" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   local patch

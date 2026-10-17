@@ -82,10 +82,15 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   [ "$(jq '.hooks.Stop[0].hooks[0].timeout' "$HOOKS_JSON")" = "10" ]
 }
 
-@test "plugin hooks.json PostToolUse matcher covers Write, Edit, MultiEdit, and Bash" {
-  local matcher
+@test "plugin hooks.json, the settings installer, and the techpack share one observe matcher" {
+  local matcher settings
   matcher=$(jq -r '.hooks.PostToolUse[0].matcher' "$HOOKS_JSON")
-  [ "$matcher" = "Write|Edit|MultiEdit|Bash" ]
+  [ "$matcher" = "Write|Edit|MultiEdit|NotebookEdit|Bash" ]
+  bash "$VIBE_LEARN_DIR/scripts/install.sh" "$TEST_PROJECT_DIR" --assistant=claude-code >/dev/null
+  settings="$TEST_PROJECT_DIR/.claude/settings.local.json"
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$settings")" = "$matcher" ]
+  [ "$(jq -r '.hooks.PostToolUseFailure[0].matcher' "$settings")" = "$matcher" ]
+  grep -qF "hookMatcher: \"$matcher\"" "$VIBE_LEARN_DIR/techpack.yaml"
 }
 
 @test "marketplace.json lists the vibe-learn plugin from the GitHub repo" {

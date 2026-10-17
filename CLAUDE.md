@@ -89,7 +89,7 @@ The plugin registers four lifecycle hooks:
 |------|--------|---------|
 | `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
-| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
+| `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/NotebookEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
 | `Stop` | `scripts/pause-summary.sh` | After AI finishes responding (writes `pause-summary.txt`, nothing heavier) |
 
 Hook registration format differs per assistant:
@@ -184,7 +184,7 @@ Each adapter's `install.sh` handles:
 - Copying command, prompt, or skill files to the assistant's supported directory
 - Adding `.vibe-learn/` to `.gitignore` (project-level only)
 
-The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same hooks (the four lifecycle events plus `PostToolUseFailure`) with absolute paths. Keep the two in sync. When settings already has a `hooks` block the installer never rewrites it; it only adds its own `PostToolUseFailure` entry when the exact `$HOOK_BASE/scripts/observe.sh` command is already under `PostToolUse` (ownership is that exact command, never a basename match). CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
+The `adapters/claude-code/hooks.json` is the live plugin hooks file (referenced from `.claude-plugin/plugin.json`); `${CLAUDE_PLUGIN_ROOT}` is substituted by Claude Code at load time. The settings-based install in `adapters/claude-code/install.sh` does not read this file — it renders the same hooks (the four lifecycle events plus `PostToolUseFailure`) with absolute paths. Keep the two in sync. When settings already has a `hooks` block the installer never rewrites it; it only updates its own entries, the ones whose command is exactly `$HOOK_BASE/scripts/observe.sh` (never a basename match): it widens their matcher when it is still the pre-NotebookEdit default `Write|Edit|MultiEdit|Bash`, and adds its own `PostToolUseFailure` entry when that command is under `PostToolUse` only. The plugin hooks, the settings installer, and `techpack.yaml` share one observe matcher (`tests/plugin.bats`). CI validates both manifests with `claude plugin validate` (`tests/plugin.bats` covers the same invariants offline).
 
 The `adapters/codex/hooks.toml` template uses `INSTALL_DIR_PLACEHOLDER` and registers explicit command-handler timeouts/status messages for Codex hooks: `SessionStart` and `UserPromptSubmit` at 5 seconds, `PostToolUse` at 2 seconds, and `Stop` at 10 seconds.
 
@@ -296,6 +296,7 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 {"timestamp":"...","event":"user_prompt","prompt":"/digest","turn":8,"kind":"learning"}
 {"timestamp":"...","event":"tool_use","tool":"Write","file":"src/index.ts","action":"created","context":{"new_file":true}}
 {"timestamp":"...","event":"tool_use","tool":"Edit","file":"src/routes.ts","action":"edited","context":{}}
+{"timestamp":"...","event":"tool_use","tool":"NotebookEdit","file":"/abs/path/analysis.ipynb","action":"edited","context":{}}
 {"timestamp":"...","event":"tool_use","tool":"Bash","command":"npm install","action":"ran","context":{"exit_code":0}}
 ```
 
@@ -307,7 +308,7 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 {"timestamp":"...","event":"turn_end","turn":7,"model":"claude-opus-5.5","effort":"high"}
 ```
 
-Every reader filters by `event`, so older readers ignore `turn_end`.
+Every reader filters by `event`, so older readers ignore `turn_end`. Readers special-case only `tool == "Bash"` and classify every other event by `action`, so a new edit-like tool such as `NotebookEdit` (its `file` is `tool_input.notebook_path`) needs only the observe.sh mapping and the matcher.
 
 At rotation `bootstrap.sh` keeps the finished session as `session-log.prev.jsonl`, and drops `pause-summary.txt` unless `pause-summary.session` names the finished session (a chat-only session leaves an older summary that must not be injected). Session metadata is tracked separately in `.vibe-learn/session-meta.json`: `session_id`, `started_at`, `event_count`, `current_turn`, plus identity fields written by `bootstrap.sh` — `harness` (`claude-code`, `copilot-cli`, `codex`, `cursor`, `opencode`, `grok`, or `unknown`), `harness_version`, `model`, `effort`, `transcript_path`, `git_head`, `git_dirty` (each `null` when unknown).
 

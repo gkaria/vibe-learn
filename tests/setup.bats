@@ -63,14 +63,15 @@ teardown() {
   echo "$output" | grep -q "already has hooks"
 }
 
-@test "setup adds PostToolUseFailure to a pre-existing global vibe-learn install" {
+@test "setup brings a pre-existing global vibe-learn install up to date" {
   bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
   local f="$FAKE_HOME/.claude/settings.json"
-  jq 'del(.hooks.PostToolUseFailure)' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  jq 'del(.hooks.PostToolUseFailure) | .hooks.PostToolUse[0].matcher = "Write|Edit|MultiEdit|Bash"' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 
   run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
-  echo "$output" | grep -q "Added the PostToolUseFailure hook"
+  echo "$output" | grep -q "Updated the existing vibe-learn hooks"
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Write|Edit|MultiEdit|NotebookEdit|Bash" ]
 
   run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
   [ "$(jq '.hooks.PostToolUseFailure | length' "$f")" = "1" ]
