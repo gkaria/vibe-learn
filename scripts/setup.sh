@@ -90,7 +90,6 @@ FILES=(
   "scripts/pause-summary.sh"
   "scripts/audio-prep.sh"
   "scripts/briefing.sh"
-  "scripts/dashboard.sh"
   "scripts/cli.sh"
   "scripts/knowledge.sh"
   "scripts/recap.sh"
@@ -333,6 +332,7 @@ fi
 
 echo ""
 echo "Any assistant:"
+echo "  vibe-learn briefing         — static HTML session briefing and NotebookLM source pack"
 echo "  vibe-learn recap            — shareable \"what I learned this week\" markdown from the knowledge ledger"
 echo "  vibe-learn health           — did your assistant get worse after a model or harness change?"
 echo ""

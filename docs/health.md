@@ -19,6 +19,8 @@ vibe-learn health --all            # pool every project (~/.vibe-learn/health.js
 vibe-learn health --save --redact  # markdown report to share, project names replaced
 ```
 
+Without `--all` it reads the current project's `.vibe-learn/` (or the directory you pass) and says so when there is none.
+
 ```
 Assistant health - my-api - last 14 days (20 sessions)
 

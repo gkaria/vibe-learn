@@ -170,8 +170,10 @@ teardown() {
   [ -f "$FAKE_INSTALL_DIR/scripts/briefing.sh" ]
 }
 
-@test "setup ships scripts/lib so the installed capture hook marks learning turns" {
+@test "setup ships every script and scripts/lib so the installed capture hook marks learning turns" {
   bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code >/dev/null
+  # FILES lists every script but the maintainer-only release.sh.
+  [ "$(cd "$FAKE_INSTALL_DIR/scripts" && ls -- *.sh)" = "$(cd "$SCRIPTS_DIR" && ls -- *.sh | grep -vx release.sh)" ]
   [ "$(ls "$FAKE_INSTALL_DIR/scripts/lib")" = "$(ls "$SCRIPTS_DIR/lib")" ]
   jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/digest"}' \
     | bash "$FAKE_INSTALL_DIR/scripts/capture-prompt.sh"

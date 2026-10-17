@@ -131,3 +131,41 @@ load test_helper
   [ "$output" = "Forgot 'jwt-auth'." ]
   [ "$(jq '.concepts | length' .vibe-learn/knowledge.json)" = 0 ]
 }
+
+@test "cli usage lists every host install accepts, and --create" {
+  run bash "$SCRIPTS_DIR/cli.sh" help
+  local hosts host usage_line
+  hosts="$(sed -n 's/^ *\(claude-code|[a-z|-]*\))$/\1/p' "$SCRIPTS_DIR/install.sh")"
+  [ "$(echo "$hosts" | tr '|' '\n' | wc -l)" -eq 6 ]
+  usage_line="$(echo "$output" | grep 'vibe-learn install')"
+  for host in ${hosts//|/ }; do
+    [[ "$usage_line" == *"$host"* ]] || { echo "usage misses $host"; return 1; }
+  done
+  [[ "$usage_line" == *"--create"* ]]
+}
+
+@test "cli install refuses a missing directory unless --create is given" {
+  run bash "$SCRIPTS_DIR/cli.sh" install "$TEST_PROJECT_DIR/typo" --assistant=opencode
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no such directory: $TEST_PROJECT_DIR/typo"*"--create"* ]]
+  [ ! -e "$TEST_PROJECT_DIR/typo" ]
+  run bash "$SCRIPTS_DIR/cli.sh" install "$TEST_PROJECT_DIR/new app" --assistant=opencode --create
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_PROJECT_DIR/new app/.opencode/plugins/vibe-learn.js" ]
+}
+
+@test "cli dashboard points at briefing" {
+  run bash "$SCRIPTS_DIR/cli.sh" dashboard
+  [ "$status" -eq 1 ]
+  [ "$output" = "ERROR: 'vibe-learn dashboard' is now 'vibe-learn briefing'" ]
+}
+
+@test "commands that take a target directory name a missing one instead of a raw cd error" {
+  local cmd
+  for cmd in briefing recap health audio-prep; do
+    run bash "$SCRIPTS_DIR/cli.sh" "$cmd" "$TEST_PROJECT_DIR/nope"
+    [ "$status" -eq 1 ]
+    [ "$output" = "ERROR: no such directory: $TEST_PROJECT_DIR/nope" ] || { echo "$cmd: $output"; return 1; }
+  done
+  [ ! -e "$TEST_PROJECT_DIR/nope" ]
+}

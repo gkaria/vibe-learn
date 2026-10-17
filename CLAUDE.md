@@ -31,9 +31,10 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   pause-summary.sh ← Stop hook
   setup.sh        ← global installer
   install.sh      ← per-project installer
-  cli.sh          ← command dispatcher for install/dashboard
-  dashboard.sh    ← static session briefing generator
-  knowledge.sh    ← knowledge ledger helper (record/touch/list/due)
+  cli.sh          ← `vibe-learn` command dispatcher
+  briefing.sh     ← `vibe-learn briefing`: static HTML session briefing + NotebookLM pack
+  audio-prep.sh   ← `vibe-learn audio-prep`: finds the pack and walks through the NotebookLM upload
+  knowledge.sh    ← knowledge ledger helper (record/touch/forget/list/due)
   recap.sh        ← `vibe-learn recap`: weekly "what I learned" markdown (read-only)
   identity.sh     ← sourced helper: harness, model, effort, version from payloads and host files
   health.sh       ← session log + meta → one assistant-health row per session segment (read-only)

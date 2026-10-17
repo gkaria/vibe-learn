@@ -82,7 +82,8 @@ for f in $BRIEFING_FILES; do
 done
 
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+ABS_DIR="$(CDPATH='' cd -- "$TARGET_DIR" 2>/dev/null && pwd)" || { echo "ERROR: no such directory: $TARGET_DIR" >&2; exit 1; }
+TARGET_DIR="$ABS_DIR"
 
 LOG_DIR="$TARGET_DIR/.vibe-learn"
 SUMMARY_FILE="$LOG_DIR/pause-summary.txt"
