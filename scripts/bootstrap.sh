@@ -1,7 +1,8 @@
 #!/bin/bash
 # bootstrap.sh — SessionStart hook
-# Initialises the .vibe-learn/ directory, rotates previous logs,
-# and injects prior session context if available.
+# Initialises the .vibe-learn/ directory, rotates previous logs, starts the
+# finished session's briefing in the background, and injects prior session
+# context if available.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=identity.sh
@@ -38,6 +39,7 @@ LOG_DIR="$CWD/.vibe-learn"
 SESSION_LOG="$LOG_DIR/session-log.jsonl"
 PREV_LOG="$LOG_DIR/session-log.prev.jsonl"
 META_FILE="$LOG_DIR/session-meta.json"
+PREV_META="$LOG_DIR/session-meta.prev.json"
 PAUSE_SUMMARY="$LOG_DIR/pause-summary.txt"
 
 # Create the .vibe-learn directory
@@ -73,6 +75,7 @@ fi
 
 # Rotate previous session log (keep one backup), first saving its health rows.
 # The old session-meta.json still describes that session at this point.
+ROTATED=false
 if [ -f "$SESSION_LOG" ]; then
   if [ "$HEALTH_ENABLED" != "false" ]; then
     ROWS=$(bash "$SCRIPT_DIR/health.sh" "$LOG_DIR" 2>/dev/null || true)
@@ -86,6 +89,11 @@ if [ -f "$SESSION_LOG" ]; then
     fi
   fi
   mv "$SESSION_LOG" "$PREV_LOG"
+  # Snapshot the finished session's metadata too: it is overwritten below,
+  # and the rotation briefing needs that session's id and start time.
+  rm -f "$PREV_META"
+  [ -f "$META_FILE" ] && cp "$META_FILE" "$PREV_META" 2>/dev/null
+  ROTATED=true
 fi
 
 # Get current timestamp (ISO 8601)
@@ -153,6 +161,21 @@ jq -n \
     event_count: 0,
     current_turn: 0
   }' > "$META_FILE"
+
+# Build the finished session's briefing from the snapshot, once, in a fully
+# detached process: no fd may keep the host's pipe to this hook open, and the
+# hook returns at once. setsid gives it its own session; macOS has no setsid,
+# so the fallback subshell backgrounds it and exits, reparenting it to init.
+BRIEFING="$SCRIPT_DIR/briefing.sh"
+if [ "$ROTATED" = true ] && [ -s "$PREV_LOG" ] && [ -f "$BRIEFING" ]; then
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash "$BRIEFING" "$CWD" --log "$PREV_LOG" --meta "$PREV_META" --lock-wait 60 \
+      </dev/null >/dev/null 2>&1 &
+  else
+    ( bash "$BRIEFING" "$CWD" --log "$PREV_LOG" --meta "$PREV_META" --lock-wait 60 \
+      </dev/null >/dev/null 2>&1 & )
+  fi
+fi
 
 # If a prior pause summary exists, inject it as context for Claude
 if [ -f "$PAUSE_SUMMARY" ]; then
