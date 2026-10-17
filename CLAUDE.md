@@ -39,7 +39,7 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   health.sh       ← session log + meta → one assistant-health row per session segment (read-only)
   usage.sh        ← sourced helper: tool families and skills per session from the host's own session record
   health-report.sh ← `vibe-learn health`: before/after-change comparison of health rows (read-only)
-  lib/session.jq  ← shared jq module: learning-turn detection (`learning_prompt`, `learning_event`)
+  lib/session.jq  ← shared jq module: learning turns (`learning_prompt`, `work_events`) and `session_facts`
 
 adapters/
   claude-code/    ← Claude Code adapter
