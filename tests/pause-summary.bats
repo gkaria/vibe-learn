@@ -213,7 +213,6 @@ stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash 
   write_fixture_log 20   # through turn 5, before the trailing /learn turn
   stop
   local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
-  cat "$summary"
   grep -qx "Goal: Build an Express API with two routes and a test for each" "$summary"
   [ "$(grep -c 'src/app.js — ' "$summary")" -eq 1 ]
   grep -qx "  src/app.js — created, edited ×2" "$summary"
@@ -267,6 +266,31 @@ stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash 
   stop
   grep -qx "Goal: Build an Express API with two routes and a test for each" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   grep -qx "Last turn: next 1100" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+}
+
+@test "a long log keeps the tail's events in their own turn: a /digest turn stays out of the summary" {
+  local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" i summary
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  {
+    printf '{"event":"user_prompt","prompt":"Build the alpha module with its own tests"}\n'
+    printf '{"event":"tool_use","tool":"Write","file":"%s/src/alpha.js","action":"created"}\n' "$TEST_PROJECT_DIR"
+    printf '{"event":"user_prompt","prompt":"/digest","kind":"learning"}\n'
+    for i in $(seq 1 6000); do printf '{"event":"tool_use","tool":"Bash","command":"cat digest-part-%s","context":{"exit_code":0}}\n' "$i"; done
+    printf '{"event":"tool_use","tool":"Bash","command":"vibe-learn briefing --if-stale","context":{"exit_code":1}}\n'
+    printf '{"event":"tool_use","tool":"Write","file":"%s/.vibe-learn/digests/today.md","action":"created"}\n' "$TEST_PROJECT_DIR"
+    printf '{"event":"user_prompt","prompt":"now add the beta route"}\n'
+    printf '{"event":"tool_use","tool":"Write","file":"%s/src/beta.js","action":"created"}\n' "$TEST_PROJECT_DIR"
+  } > "$log"
+  stop
+  summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  cat "$summary"
+  grep -qx "Goal: Build the alpha module with its own tests" "$summary"
+  grep -q "src/beta.js" "$summary"
+  refute_grep "briefing --if-stale" "$summary"
+  refute_grep "digests/today.md" "$summary"
+  refute_grep "still failing" "$summary"
+  refute_grep "Ran:" "$summary"
+  [ "$(grep -c 'now add the beta route' "$summary")" -eq 1 ]
 }
 
 @test "pause-summary footer uses namespaced commands under a Claude Code plugin install" {

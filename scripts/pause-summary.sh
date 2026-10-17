@@ -93,25 +93,36 @@ else
   FOOTER=" /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
 fi
 
-# A Stop hook has 10 s. Very long logs are read as their last TAIL_LINES
-# events plus the session's first prompts, which the goal comes from.
+# A Stop hook has 10 s. A very long log is read as its last TAIL_LINES events,
+# preceded by the prompt that owns the first of them, so they stay in their
+# own turn (a /digest stays a learning turn). The goal comes from the
+# session's first prompts, read separately.
 TAIL_LINES=5000
+LOG_LINES=$(wc -l < "$SESSION_LOG")
+GOAL=""
 read_log() {
-  if [ "$(wc -l < "$SESSION_LOG")" -le "$TAIL_LINES" ]; then
+  if [ "$LOG_LINES" -le "$TAIL_LINES" ]; then
     cat "$SESSION_LOG"
   else
-    grep -m 20 '"event":"user_prompt"' "$SESSION_LOG"
-    tail -n "$TAIL_LINES" "$SESSION_LOG"
+    local cut=$((LOG_LINES - TAIL_LINES + 1)) owner
+    owner=$(awk -v cut="$cut" 'NR >= cut { exit } /"event": ?"user_prompt"/ { l = NR } END { print l }' "$SESSION_LOG")
+    [ -n "$owner" ] && sed -n "${owner}p" "$SESSION_LOG"
+    tail -n "+$cut" "$SESSION_LOG"
   fi
 }
+if [ "$LOG_LINES" -gt "$TAIL_LINES" ]; then
+  GOAL=$(grep -m 20 -E '"event": ?"user_prompt"' "$SESSION_LOG" | jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
+    'include "session"; [inputs | fromjson? | objects] | session_facts({}; "") | .goal // empty' 2>/dev/null)
+fi
 
 SUMMARY=$(read_log | jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
-  --argjson meta "$META" --arg root "$CWD" --arg footer "$FOOTER" --argjson max "$MAX_LINES" '
+  --argjson meta "$META" --arg root "$CWD" --arg footer "$FOOTER" --argjson max "$MAX_LINES" --arg goal "$GOAL" '
   include "session";
   def times($n): if $n > 1 then " ×\($n)" else "" end;
   def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
 
   [inputs | fromjson? | objects] | session_facts($meta; $root)
+  | if $goal != "" then .goal = $goal else . end
   | select((.turns.last_is_learning | not) and ((.files | length) + (.commands | length)) > 0)
   # Open failures, one line per command (latest exit code, how many times).
   | ([.failures | to_entries[] | .value + {i: .key} | select(.fixed_by == null)]

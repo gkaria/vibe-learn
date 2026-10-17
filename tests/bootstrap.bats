@@ -229,8 +229,6 @@ rot_wait() {
   done
   return 1
 }
-# A bare `! grep` only fails a bats test as its last line; this fails anywhere.
-refute_grep() { if grep -q "$1" "$2"; then echo "unexpected '$1' in $2"; return 1; fi; }
 hold_lock() { mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" && echo $$ > "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock/pid"; }
 release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
 

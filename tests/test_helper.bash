@@ -25,3 +25,7 @@ make_input() {
   local extra="$1"
   echo "{\"cwd\":\"$TEST_PROJECT_DIR\"${extra:+,$extra}}"
 }
+
+# A bare `! grep` fails a bats test only as its last line (set -e ignores a
+# negated command); this fails wherever it is.
+refute_grep() { if grep -q "$1" "$2"; then echo "unexpected '$1' in $2"; return 1; fi; }
