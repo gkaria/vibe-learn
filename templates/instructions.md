@@ -33,4 +33,4 @@ In GitHub Copilot CLI, invoke these as skills inside a prompt (`Use /learn`, `Us
 - `.vibe-learn/health.jsonl` — one row of assistant-health counts per finished session (counts and names only, appended at session start)
 - `.vibe-learn/health-reports/` — markdown written by `vibe-learn health --save`
 
-After each response where changes were made, a pause summary is generated showing what just happened. Suggest `/learn` or `/digest` when the user might benefit from understanding recent changes.
+After each response where changes were made, a pause summary of the session so far is written to `.vibe-learn/pause-summary.txt` and injected at the next session start. Suggest `/learn` or `/digest` when the user might benefit from understanding recent changes.

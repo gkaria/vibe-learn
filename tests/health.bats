@@ -73,6 +73,63 @@ boot() {
   [ "$(jq -c '.metrics' <<<"$row")" = '{"prompts":3,"turns":3,"tool_events":9,"events_per_prompt":3,"bash_runs":4,"bash_failures":2,"bash_fail_rate":0.5,"failed_file_ops":0,"files_touched":3,"files_reworked":1,"rework_rate":0.33,"check_runs":2,"check_recoveries":1,"check_unrecovered":0,"turns_to_green":1}' ]
 }
 
+@test "health.sh leaves learning turns out of every work metric" {
+  write_meta '{"session_id":"s1","started_at":"2026-10-16T08:59:00Z","harness":"claude-code","model":"opus"}'
+  sed "s#__ROOT__#$TEST_PROJECT_DIR#g" "$VIBE_LEARN_DIR/tests/fixtures/session-learning.jsonl" | write_log
+
+  run health
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+  # Work turns 1, 2, 3, 5. The /vibe-learn:digest turn (kind) and the /learn
+  # turn (no kind, an older log) each ran a failing command; neither counts.
+  [ "$(jq -c '.segment' <<<"$output")" = '{"index":1,"count":1,"first_turn":1,"last_turn":5}' ]
+  [ "$(jq -c '.metrics' <<<"$output")" = '{"prompts":4,"turns":4,"tool_events":8,"events_per_prompt":2,"bash_runs":4,"bash_failures":2,"bash_fail_rate":0.5,"failed_file_ops":0,"files_touched":2,"files_reworked":1,"rework_rate":null,"check_runs":3,"check_recoveries":1,"check_unrecovered":1,"turns_to_green":1}' ]
+  [ "$(jq -r '.ended_at' <<<"$output")" = "2026-10-16T09:04:20Z" ]
+  [ "$(jq -c '.usage.commands' <<<"$output")" = '{"learn":1,"vibe-learn:digest":1}' ]
+}
+
+@test "health.sh reports no failures for a session of learning turns after the work" {
+  {
+    prompt 1
+    bash_ev 1 "npm test" 0
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn what changed?"}' \
+      '{"event":"tool_use","tool":"Bash","command":"cat .vibe-learn/pause-summary.txt","action":"ran","context":{"exit_code":1}}' \
+      '{"event":"user_prompt","prompt":"/learn and the tests?"}' \
+      '{"event":"tool_use","tool":"Bash","command":"vibe-learn-knowledge due","action":"ran","context":{"exit_code":127}}' \
+      '{"event":"user_prompt","prompt":"/digest","kind":"learning"}' \
+      '{"event":"tool_use","tool":"Bash","command":"ls .vibe-learn/digests","action":"ran","context":{"exit_code":2}}'
+  } | write_log
+
+  run health
+  [ "$(jq -c '.metrics | [.prompts, .bash_runs, .bash_failures]' <<<"$output")" = '[1,1,0]' ]
+}
+
+@test "health.sh counts recovery distance in work turns, skipping learning turns in between" {
+  {
+    prompt 1; bash_ev 1 "npm test" 1
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn why did it fail?"}' \
+      '{"event":"user_prompt","prompt":"/quiz"}' '{"event":"user_prompt","prompt":"/explain src/app.js"}'
+    printf '%s\n' '{"event":"user_prompt","prompt":"fix the failing test now"}' \
+      '{"event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":0}}'
+  } | write_log
+
+  run health
+  [ "$(jq -c '.metrics | [.prompts, .check_recoveries, .turns_to_green]' <<<"$output")" = '[2,1,1]' ]
+}
+
+@test "health.sh applies a model switch recorded in a learning turn to the work after it" {
+  {
+    prompt 1; bash_ev 1 "ls" 0; turn_end 1 '"model-a"' '"high"'
+    printf '%s\n' '{"event":"user_prompt","prompt":"/learn what changed?"}' \
+      '{"event":"turn_end","model":"model-b","effort":"low"}'
+    printf '%s\n' '{"event":"user_prompt","prompt":"now add the delete route"}' \
+      '{"event":"tool_use","tool":"Bash","command":"pwd","action":"ran","context":{"exit_code":0}}'
+  } | write_log
+
+  run health
+  [ "$(jq -sc 'map([.model, .effort, .segment.first_turn])' <<<"$output")" = '[["model-a","high",1],["model-b","low",3]]' ]
+}
+
 @test "health.sh uses null rates for small denominators" {
   write_meta '{"session_id":"s1"}'
   { prompt 1; bash_ev 1 "ls" 1; edit_ev 1 a.ts; } | write_log
@@ -302,6 +359,7 @@ JSONL
   { prompt 1; bash_ev 1 "ls" 0; } >> "$(vl)/session-log.jsonl"
   mkdir -p "$(vl)/health.jsonl"
   echo "Prior summary" > "$(vl)/pause-summary.txt"
+  jq -r '.session_id' "$(vl)/session-meta.json" > "$(vl)/pause-summary.session"
 
   run boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"b\"}"
   [ "$status" -eq 0 ]
@@ -334,7 +392,7 @@ JSONL
   [ "$(jq -c '[.harness_version, .model, .effort, .transcript_path, .git_head, .git_dirty]' "$meta")" = '[null,null,null,null,null,null]' ]
   [ "$(jq -r '.event_count' "$meta")" = "0" ]
   [ "$(jq -r '.current_turn' "$meta")" = "0" ]
-  [ "$(jq -r '.config.log_dir' "$meta")" = ".vibe-learn" ]
+  [ "$(jq -r 'has("config")' "$meta")" = "false" ]
 }
 
 @test "bootstrap reads Claude Code model, effort, and harness from the payload and transcript path" {
@@ -419,7 +477,7 @@ seed_turn() {
 
 last_turn_end() { jq -c 'select(.event == "turn_end") | {turn, model, effort}' "$(vl)/session-log.jsonl" | tail -n 1; }
 
-@test "pause-summary appends turn_end with the Claude transcript model and Stop effort, stdout unchanged" {
+@test "pause-summary appends turn_end with the Claude transcript model and Stop effort, summary unchanged" {
   mkdir -p "$HOME/.claude/projects/p"
   local t="$HOME/.claude/projects/p/s.jsonl"
   echo '{"type":"assistant","version":"2.1.222","message":{"model":"claude-sonnet-5"}}' > "$t"
@@ -427,7 +485,8 @@ last_turn_end() { jq -c 'select(.event == "turn_end") | {turn, model, effort}' "
 
   run bash -c "printf '%s' '{\"cwd\":\"$TEST_PROJECT_DIR\",\"transcript_path\":\"$t\",\"effort\":{\"level\":\"low\"}}' | bash '$SCRIPTS_DIR/pause-summary.sh'"
   [ "$status" -eq 0 ]
-  printf '%s' "$output" | jq -e '.hookSpecificOutput.additionalContext | contains("Ran: ls")' >/dev/null
+  [ -z "$output" ]
+  grep -q "Ran: ls" "$(vl)/pause-summary.txt"
   [ "$(last_turn_end)" = '{"turn":1,"model":"claude-sonnet-5","effort":"low"}' ]
 }
 

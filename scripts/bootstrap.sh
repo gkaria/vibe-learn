@@ -88,6 +88,15 @@ if [ -f "$SESSION_LOG" ]; then
   mv "$SESSION_LOG" "$PREV_LOG"
 fi
 
+# A session that wrote no pause summary (chat only, or no Stop hook) leaves
+# an older one in place. Keep the summary only if pause-summary.session names
+# the session that just ended, so an older one is never offered as the prior
+# session.
+if [ -f "$PAUSE_SUMMARY" ] \
+  && [ "$(cat "$LOG_DIR/pause-summary.session" 2>/dev/null)" != "$(jq -r '.session_id // empty' "$META_FILE" 2>/dev/null)" ]; then
+  rm -f "$PAUSE_SUMMARY" "$LOG_DIR/pause-summary.session"
+fi
+
 # Get current timestamp (ISO 8601)
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -151,8 +160,7 @@ jq -n \
     git_head: ($git_head | nonempty),
     git_dirty: (if $git_dirty == "" then null else $git_dirty == "true" end),
     event_count: 0,
-    current_turn: 0,
-    config: {log_dir: ".vibe-learn"}
+    current_turn: 0
   }' > "$META_FILE"
 
 # If a prior pause summary exists, inject it as context for Claude

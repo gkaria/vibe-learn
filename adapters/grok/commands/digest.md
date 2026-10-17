@@ -4,6 +4,8 @@ description: Generate a structured learning report from the current session — 
 
 Read .vibe-learn/session-log.jsonl (the full log). Read `.vibe-learn/pause-summary.txt` when it exists — Grok cannot inject that summary via SessionStart. Read any relevant source files to understand what was built.
 
+**Briefing (all modes):** before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via `run_terminal_command`. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+
 Parse $ARGUMENTS to determine the mode:
 
 ---
@@ -156,7 +158,7 @@ If `.vibe-learn/knowledge.json` (the cross-session knowledge ledger) exists, mak
 
 Keep the tone warm and encouraging. Plain language. If the session was short, keep the digest short.
 
-**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper (`run_terminal_command`), one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if that path doesn't exist, use the `scripts/knowledge.sh` next to the `bootstrap.sh` your vibe-learn hooks point at in `.grok/hooks/vibe-learn.json` or `~/.grok/hooks/vibe-learn.json`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
+**Ledger update (all modes):** after generating the digest, record each concept this session introduced via the knowledge helper (`run_terminal_command`), one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh touch <kebab-case-name> --label="<Human label>"` (if that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` your vibe-learn hooks point at in `.grok/hooks/vibe-learn.json` or `~/.grok/hooks/vibe-learn.json`, or `bash scripts/knowledge.sh` when working in the vibe-learn repo itself). Never hand-edit the JSON. Skip silently if the helper is missing.
 
 After generating, offer to save it: ask the user if they want it written to .vibe-learn/digests/ as a markdown file.
 

@@ -2,6 +2,8 @@
 description: Check your understanding of what was built — recall questions grounded in the session log, with results tracked across sessions
 ---
 
+<!-- vibe-learn:quiz -->
+
 Read .vibe-learn/session-log.jsonl to understand what happened in this session. Read `.vibe-learn/knowledge.json` if it exists (the cross-session knowledge ledger).
 
 This project prompt fallback can be used by asking Codex to read `.codex/prompts/quiz.md` and follow it, or through `/prompts:quiz` when custom prompts are available. Include `review` or a topic in the same message or as a follow-up.

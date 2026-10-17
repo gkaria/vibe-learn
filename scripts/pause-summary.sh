@@ -1,12 +1,12 @@
 #!/bin/bash
 # pause-summary.sh — Stop hook
-# Generates a human-readable summary of what just happened this response,
-# focused on decisions and changes — not just counts.
-# Injects into Claude's context so it surfaces naturally in the next response.
+# Writes .vibe-learn/pause-summary.txt: the session so far (goal, commands
+# still failing, the last turn, files touched), capped at
+# pause_summary_max_lines. bootstrap.sh injects it into the next session.
 
-VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=identity.sh
-if ! . "$VIBE_LEARN_DIR/scripts/identity.sh" 2>/dev/null; then
+if ! . "$SCRIPT_DIR/identity.sh" 2>/dev/null; then
   # Installs that copy hook scripts one by one may lack the helper.
   VL_SEP=$'\x1f'
   vl_resolve_harness() { printf '%s' "${VIBE_LEARN_HARNESS:-${1:-unknown}}"; }
@@ -72,94 +72,104 @@ jq -cn \
   {timestamp: $ts, event: "turn_end", turn: ($turn | tonumber? // 0),
    model: ($model | nonempty), effort: ($effort | nonempty)}' >> "$SESSION_LOG" 2>/dev/null || true
 
-# --- Get the last user prompt (the intent behind this response) ---
-LAST_PROMPT=$(jq -r 'select(.event=="user_prompt") | .prompt' "$SESSION_LOG" | tail -1 | head -c 200)
+# --- Summarise the whole session from the session facts (lib/session.jq) ---
+# Learning turns are left out, and a learning turn leaves the previous summary
+# in place, so a trailing /digest never replaces the last real-work summary.
 
-# --- Get tool_use events since the last user_prompt ---
-# Find line number of last user_prompt, then take tool_use events after it
-LAST_PROMPT_LINE=$(grep -n '"event":"user_prompt"' "$SESSION_LOG" | tail -1 | cut -d: -f1)
-if [ -z "$LAST_PROMPT_LINE" ]; then
-  LAST_PROMPT_LINE=0
-fi
-
-RECENT_ACTIONS=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r '
-  select(.event=="tool_use") |
-  if .action == "failed" then
-    empty
-  elif .tool == "Write" or .action == "created" then
-    "  ✦ Created \(.file // "file")"
-  elif .tool == "Edit" or .tool == "MultiEdit" or .action == "edited" then
-    "  ✦ Edited \(.file // "file")"
-  elif .action == "deleted" then
-    "  ✦ Deleted \(.file // "file")"
-  elif .tool == "Bash" then
-    if .context.exit_code != 0 then
-      "  ✦ Ran: \(.command // "command") [failed ✗]"
-    else
-      "  ✦ Ran: \(.command // "command")"
-    end
-  else empty
-  end
-' 2>/dev/null)
-
-# --- Count files and commands in this response ---
-FILES_CREATED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action != "failed" and (.tool=="Write" or .action=="created"))' | jq -s 'length' 2>/dev/null || echo 0)
-FILES_MODIFIED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action != "failed" and (.tool=="Edit" or .tool=="MultiEdit" or .action=="edited"))' | jq -s 'length' 2>/dev/null || echo 0)
-FILES_DELETED=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .action=="deleted")' | jq -s 'length' 2>/dev/null || echo 0)
-BASH_TOTAL=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash")' | jq -s 'length' 2>/dev/null || echo 0)
-BASH_FAILURES=$(awk "NR > $LAST_PROMPT_LINE" "$SESSION_LOG" | jq -r 'select(.event=="tool_use" and .tool=="Bash" and .context.exit_code!=0)' | jq -s 'length' 2>/dev/null || echo 0)
-
-# Nothing happened this response — skip
-if [ "$FILES_CREATED" -eq 0 ] && [ "$FILES_MODIFIED" -eq 0 ] && [ "$FILES_DELETED" -eq 0 ] && [ "$BASH_TOTAL" -eq 0 ]; then
-  exit 0
-fi
-
-# --- Build summary ---
-SUMMARY="⏸ vibe-learn — what just happened:"
-
-if [ -n "$LAST_PROMPT" ]; then
-  SUMMARY+="
-Goal: $LAST_PROMPT"
-fi
-
-if [ -n "$RECENT_ACTIONS" ]; then
-  SUMMARY+="
-
-$RECENT_ACTIONS"
-fi
-
-# Failures flag
-if [ "$BASH_FAILURES" -gt 0 ]; then
-  SUMMARY+="
-
-⚠ $BASH_FAILURES command(s) failed — worth checking before continuing."
-fi
+# pause_summary_max_lines from ~/.vibe-learn/config.json, overridden by the
+# project's .vibe-learn/config.json. Default 20; anything under 4 counts as 4.
+MAX_LINES=20
+for f in "$HOME/.vibe-learn/config.json" "$LOG_DIR/config.json"; do
+  [ -f "$f" ] || continue
+  v=$(jq -r '.pause_summary_max_lines | numbers | floor' "$f" 2>/dev/null || true)
+  [ -n "$v" ] && MAX_LINES="$v"
+done
+[ "$MAX_LINES" -lt 4 ] 2>/dev/null && MAX_LINES=4
 
 # Claude Code plugin installs namespace the commands under the plugin name.
 if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-  SUMMARY+="
-
- /vibe-learn:learn [question]  ·  /vibe-learn:digest  ·  /vibe-learn:quiz  ·  vibe-learn briefing"
+  FOOTER=" /vibe-learn:learn [question]  ·  /vibe-learn:digest  ·  /vibe-learn:quiz  ·  vibe-learn briefing"
 else
-  SUMMARY+="
+  FOOTER=" /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
+fi
 
- /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep"
+# A Stop hook has 10 s. A very long log is read as its last TAIL_LINES events,
+# preceded by the prompt that owns the first of them, so they stay in their
+# own turn (a /digest stays a learning turn). The goal comes from the
+# session's first prompts, read separately.
+TAIL_LINES=5000
+LOG_LINES=$(wc -l < "$SESSION_LOG")
+GOAL=""
+read_log() {
+  if [ "$LOG_LINES" -le "$TAIL_LINES" ]; then
+    cat "$SESSION_LOG"
+  else
+    local cut=$((LOG_LINES - TAIL_LINES + 1)) owner
+    owner=$(awk -v cut="$cut" 'NR >= cut { exit } /"event": ?"user_prompt"/ { l = NR } END { print l }' "$SESSION_LOG")
+    [ -n "$owner" ] && sed -n "${owner}p" "$SESSION_LOG"
+    tail -n "+$cut" "$SESSION_LOG"
+  fi
+}
+if [ "$LOG_LINES" -gt "$TAIL_LINES" ]; then
+  GOAL=$(grep -m 20 -E '"event": ?"user_prompt"' "$SESSION_LOG" | jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
+    'include "session"; [inputs | fromjson? | objects] | session_facts({}; "") | .goal // empty' 2>/dev/null)
+fi
+
+SUMMARY=$(read_log | jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
+  --argjson meta "$META" --arg root "$CWD" --arg footer "$FOOTER" --argjson max "$MAX_LINES" --arg goal "$GOAL" '
+  include "session";
+  def times($n): if $n > 1 then " ×\($n)" else "" end;
+  def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
+
+  [inputs | fromjson? | objects] | session_facts($meta; $root)
+  | if $goal != "" then .goal = $goal else . end
+  | select((.turns.last_is_learning | not) and ((.files | length) + (.commands | length)) > 0)
+  # Open failures, one line per command (latest exit code, how many times).
+  | ([.failures | to_entries[] | .value + {i: .key} | select(.fixed_by == null)]
+     | group_by(.command) | map(last + {times: length}) | sort_by(.i)) as $open
+  | [ "⏸ vibe-learn — this session so far:",
+      (if .goal then "Goal: \(.goal | gsub("\\s+"; " ") | clip(200))" else empty end),
+      (if ($open | length) > 0 then
+         "", "⚠ \($open | length) command(s) still failing — worth checking before continuing:",
+         ($open[:5][] | "  ✗ \(.command | clip(120)) (exit \(.exit_code))\(times(.times))"),
+         (if ($open | length) > 5 then "  … and \(($open | length) - 5) more" else empty end)
+       else empty end),
+      (.last_turn as $t
+       | if (($t.files | length) + ($t.commands | length)) > 0 then
+           "", "Last turn\(if ($t.prompt // "") != "" then ": \($t.prompt | gsub("\\s+"; " ") | clip(120))" else "" end)",
+           ($t.files[] | "  ✦ \({created: "Created", edited: "Edited", deleted: "Deleted"}[.action]) \(.path)"),
+           ($t.commands[] | "  ✦ Ran: \(.first_line | clip(120))\(if .exit_code != 0 then " [failed ✗]" else "" end)")
+         else empty end),
+      (if (.files | length) > 0 then
+         "", "Files this session (\(.files | length)):",
+         (.files[:10][] | "  \(.path) — \([(if .created > 0 then "created" + times(.created) else empty end),
+                                         (if .edited > 0 then "edited" + times(.edited) else empty end),
+                                         (if .deleted > 0 then "deleted" + times(.deleted) else empty end)] | join(", "))"),
+         (if (.files | length) > 10 then "  … and \((.files | length) - 10) more" else empty end)
+       else empty end)
+    ] as $body
+  # The footer always fits; the body is cut to the cap with a pointer to /learn.
+  | (if ($body | length) + 2 <= $max then $body
+     else $body[:$max - 3] + ["  … more in /learn and vibe-learn briefing"] end)
+    + ["", $footer]
+  | join("\n")' 2>/dev/null)
+
+# Nothing to report: no work yet, or the turn that just ended was a learning turn.
+if [ -z "$SUMMARY" ]; then
+  exit 0
 fi
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
+# Names the session that wrote the summary: bootstrap.sh drops a summary left
+# by an older session, and briefing.sh shows it only on this session's page.
+printf '%s' "$META" | jq -r '.session_id // empty' > "$LOG_DIR/pause-summary.session" 2>/dev/null || true
 
-# Auto-generate dashboard in background — keeps the learning layer passive.
-# Stdout is suppressed so hooks never see noise from dashboard generation.
-bash "$VIBE_LEARN_DIR/scripts/briefing.sh" "$CWD" >/dev/null 2>&1 &
-
-# Output JSON for host-specific Stop semantics.
-# Grok treats additionalContext as a keep-working gate — write the file and emit nothing.
-# Codex Stop expects {"continue":true}. Claude uses additionalContext.
-if [ -n "${GROK_HOOK_EVENT:-}" ] || [ "$HOOK_EVENT_NAME" = "stop" ]; then
-  exit 0
-elif [ "$HOOK_EVENT_NAME" = "Stop" ]; then
+# The summary reaches the assistant only through the file. A Stop hook's
+# additionalContext is not passive on Claude Code (it keeps the turn going,
+# like decision: block) and Grok treats it as a keep-working gate, so Stop
+# never emits it. Claude Code and Codex send "Stop" and get {"continue":true};
+# Grok, Cursor and Copilot ("stop") and a payload without an event get nothing.
+if [ -z "${GROK_HOOK_EVENT:-}" ] && [ "$HOOK_EVENT_NAME" = "Stop" ]; then
   printf '{"continue":true}\n'
-else
-  printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'
 fi

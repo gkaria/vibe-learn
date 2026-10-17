@@ -101,7 +101,7 @@ All scripts use bash + jq only. No external dependencies. No API calls.
 - Read .vibe-learn/session-log.jsonl
 - Generate a mechanical summary (no AI): count of events, files created/modified, bash commands run, failures, last 5 actions
 - Write summary to .vibe-learn/pause-summary.txt (human-readable, max 20 lines)
-- Also output the summary via hookSpecificOutput.additionalContext so Claude is aware
+- Do not output it via additionalContext (on Claude Code a Stop hook's additionalContext keeps the turn going); bootstrap.sh injects the file at the next session start
 - If session-log.jsonl doesn't exist or is empty, exit 0 silently
 
 ### 4. Data format
@@ -121,10 +121,7 @@ Session metadata:
 {
   "session_id": "from-stdin-json",
   "started_at": "2026-03-17T14:32:00Z",
-  "event_count": 47,
-  "config": {
-    "log_dir": ".vibe-learn"
-  }
+  "event_count": 47
 }
 ```
 
@@ -154,16 +151,10 @@ MIT, copyright Gaurang Karia 2026.
 
 ```json
 {
-  "log_dir": ".vibe-learn",
-  "max_log_size_mb": 10,
-  "rotate_on_session_start": true,
   "pause_summary_max_lines": 20,
-  "capture_prompts": true,
-  "digest_min_events": 3
+  "capture_prompts": true
 }
 ```
-
-digest_min_events controls when `/digest` will generate a report (avoids trivially small sessions).
 
 ### 8. Example files
 

@@ -99,8 +99,7 @@ The person using vibe-learn, in three roles:
   "git_head": "3f2c1ab",
   "git_dirty": false,
   "event_count": 0,
-  "current_turn": 0,
-  "config": { "log_dir": ".vibe-learn" }
+  "current_turn": 0
 }
 ```
 
@@ -307,9 +306,9 @@ bash "$SCRIPT_DIR/health.sh" "$LOG_DIR" >> "$LOG_DIR/health.jsonl" 2>/dev/null |
 ```
 
 `health.jsonl` is append-only, like the session log. Failures are swallowed;
-bootstrap's behavior and output are otherwise unchanged. Cost is bounded by
-`max_log_size_mb` (10 MB) and stays well inside the 5 s `SessionStart`
-timeout.
+bootstrap's behavior and output are otherwise unchanged. health.sh takes
+about 5–6 s on a 10 MB log, which can exceed the 5 s `SessionStart` timeout
+(a known follow-up).
 
 **Cross-project global log.** By default (`health.global_log: true`) the same
 row, plus `"project": "<basename of cwd>"`, is also appended to

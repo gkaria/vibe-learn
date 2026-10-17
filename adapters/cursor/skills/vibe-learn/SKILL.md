@@ -24,9 +24,14 @@ All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) 
 
 1. `~/.vibe-learn/scripts/knowledge.sh` (global install)
 2. `scripts/knowledge.sh` under the `VIBE_LEARN_DIR` baked into `.cursor/hooks/vibe-learn.sh` or `~/.cursor/hooks/vibe-learn.sh`
-3. `scripts/knowledge.sh` when working in the vibe-learn repo itself
+3. `scripts/knowledge.sh` under an installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/` or the marketplace install)
+4. `scripts/knowledge.sh` when working in the vibe-learn repo itself
 
 Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...]`, `touch <name> --label=...`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
+
+## Briefing
+
+In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
 
 ## Learn Mode
 

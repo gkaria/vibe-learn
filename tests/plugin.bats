@@ -172,7 +172,7 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
 @test "cursor plugin hooks have no placeholders and match the install template events" {
   local hooks
   hooks="$VIBE_LEARN_DIR/$(jq -r '.hooks' "$CURSOR_PLUGIN_JSON")"
-  ! grep -q PLACEHOLDER "$hooks"
+  refute_grep PLACEHOLDER "$hooks"
   [ "$(jq -c '.hooks | keys' "$hooks")" = "$(jq -c '.hooks | keys' "$VIBE_LEARN_DIR/adapters/cursor/hooks.json")" ]
 }
 
@@ -187,4 +187,64 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
   printf '{"hook_event_name":"sessionStart","workspace_roots":["%s"],"session_id":"t1"}' "$proj" \
     | CURSOR_PLUGIN_ROOT="$VIBE_LEARN_DIR" bash "$VIBE_LEARN_DIR/adapters/cursor/hooks/vibe-learn.sh" >/dev/null
   [ -d "$proj/.vibe-learn" ]
+}
+
+# A copy of the repo without .git, so release.sh's scan sees only tracked content.
+copy_repo() {
+  local dest="$1"
+  mkdir -p "$dest"
+  tar -C "$VIBE_LEARN_DIR" --exclude=./.git --exclude=./.vibe-learn -cf - . | tar -C "$dest" -xf -
+}
+
+@test "release.sh --dry-run accepts every manifest that carries the version (#49)" {
+  local repo="$BATS_TEST_TMPDIR/repo"
+  copy_repo "$repo"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 0 ]
+  [[ "$output" == *".cursor-plugin/plugin.json"* ]]
+  [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+}
+
+@test "release.sh names the file and line of an unlisted version string" {
+  local repo="$BATS_TEST_TMPDIR/repo" v
+  copy_repo "$repo"
+  v=$(cat "$repo/VERSION")
+  printf '{\n  "name": "x",\n  "version": "%s"\n}\n' "$v" > "$repo/adapters/new-host.json"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"adapters/new-host.json:3"* ]]
+}
+
+@test "release.sh rejects a second version or an unknown flag before touching anything" {
+  local repo="$BATS_TEST_TMPDIR/repo" args
+  copy_repo "$repo"
+  for args in "99.0.0 notes" "--dry-run 99.0.0 99.0.1" "99.0.0 --force" "--bogus 99.0.0"; do
+    # shellcheck disable=SC2086
+    run bash "$repo/scripts/release.sh" $args
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Usage:"* ]]
+    [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+  done
+}
+
+@test "release.sh rejects a malformed version before touching anything" {
+  local repo="$BATS_TEST_TMPDIR/repo" v
+  copy_repo "$repo"
+  for v in v99.0.0 '1.0.0@beta' ../x 99.0 99.0.0-rc.1 1.2.3-. 1.2.3-rc..1; do
+    run bash "$repo/scripts/release.sh" --dry-run "$v"
+    [ "$status" -eq 1 ]
+    [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+  done
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 0 ]
+}
+
+@test "release.sh stops when a listed manifest no longer carries the current version" {
+  local repo="$BATS_TEST_TMPDIR/repo"
+  copy_repo "$repo"
+  jq '.version = "0.0.0-edited"' "$repo/.cursor-plugin/plugin.json" > "$repo/m" && mv "$repo/m" "$repo/.cursor-plugin/plugin.json"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not found in:"* ]]
+  [[ "$output" == *".cursor-plugin/plugin.json"* ]]
 }

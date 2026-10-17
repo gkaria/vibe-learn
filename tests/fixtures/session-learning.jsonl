@@ -1,0 +1,23 @@
+{"timestamp":"2026-10-16T09:00:00Z","event":"user_prompt","prompt":"ok","turn":1}
+{"timestamp":"2026-10-16T09:00:05Z","event":"turn_end","turn":1,"model":"claude-opus-5-5","effort":"high"}
+{"timestamp":"2026-10-16T09:01:00Z","event":"user_prompt","prompt":"Build an Express API with two routes and a test for each","turn":2}
+{"timestamp":"2026-10-16T09:01:10Z","event":"tool_use","tool":"Write","file":"__ROOT__/src/app.js","action":"created","turn":2,"context":{"new_file":true}}
+{"timestamp":"2026-10-16T09:01:20Z","event":"tool_use","tool":"Write","file":"__ROOT__/test/app.test.js","action":"created","turn":2,"context":{"new_file":true}}
+{"timestamp":"2026-10-16T09:01:30Z","event":"tool_use","tool":"Bash","command":"npm install express","action":"ran","turn":2,"context":{"exit_code":0}}
+{"timestamp":"2026-10-16T09:01:40Z","event":"tool_use","tool":"Bash","command":"npm test","action":"ran","turn":2,"context":{"exit_code":1}}
+{"timestamp":"2026-10-16T09:01:50Z","event":"turn_end","turn":2,"model":"claude-opus-5-5","effort":"high"}
+{"timestamp":"2026-10-16T09:02:00Z","event":"user_prompt","prompt":"fix the failing test","turn":3}
+{"timestamp":"2026-10-16T09:02:10Z","event":"tool_use","tool":"Edit","file":"__ROOT__/src/app.js","action":"edited","turn":3,"context":{}}
+{"timestamp":"2026-10-16T09:02:20Z","event":"tool_use","tool":"Bash","command":"npm test","action":"ran","turn":3,"context":{"exit_code":0}}
+{"timestamp":"2026-10-16T09:02:30Z","event":"turn_end","turn":3,"model":"claude-opus-5-5","effort":"high"}
+{"timestamp":"2026-10-16T09:03:00Z","event":"user_prompt","prompt":"/vibe-learn:digest","turn":4,"kind":"learning"}
+{"timestamp":"2026-10-16T09:03:10Z","event":"tool_use","tool":"Bash","command":"ls .vibe-learn/digests","action":"ran","turn":4,"context":{"exit_code":2}}
+{"timestamp":"2026-10-16T09:03:20Z","event":"tool_use","tool":"Write","file":"__ROOT__/.vibe-learn/digests/2026-10-16-demo.md","action":"created","turn":4,"context":{"new_file":true}}
+{"timestamp":"2026-10-16T09:03:30Z","event":"turn_end","turn":4,"model":"claude-opus-5-5","effort":"high"}
+{"timestamp":"2026-10-16T09:04:00Z","event":"user_prompt","prompt":"add a /health route","turn":5}
+{"timestamp":"2026-10-16T09:04:10Z","event":"tool_use","tool":"Edit","file":"__ROOT__/src/app.js","action":"edited","turn":5,"context":{}}
+{"timestamp":"2026-10-16T09:04:20Z","event":"tool_use","tool":"Bash","command":"npm run lint","action":"ran","turn":5,"context":{"exit_code":1}}
+{"timestamp":"2026-10-16T09:04:30Z","event":"turn_end","turn":5,"model":"claude-opus-5-5","effort":"high"}
+{"timestamp":"2026-10-16T09:05:00Z","event":"user_prompt","prompt":"/learn why express?","turn":6}
+{"timestamp":"2026-10-16T09:05:10Z","event":"tool_use","tool":"Bash","command":"cat .vibe-learn/knowledge.json","action":"ran","turn":6,"context":{"exit_code":1}}
+{"timestamp":"2026-10-16T09:05:20Z","event":"turn_end","turn":6,"model":"claude-opus-5-5","effort":"high"}

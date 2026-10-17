@@ -100,6 +100,7 @@ FILES=(
   "scripts/health-report.sh"
   "scripts/install.sh"
   "scripts/setup.sh"
+  "scripts/lib/session.jq"
   "config/defaults.json"
   "config/obsidian-defaults.json"
   "config/knowledge-defaults.json"

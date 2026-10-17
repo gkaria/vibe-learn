@@ -63,15 +63,20 @@ You don't need to do anything differently. vibe-learn runs silently in the backg
 After Claude or GitHub Copilot CLI finishes a response that touched files or ran commands, vibe-learn writes a pause summary to `.vibe-learn/pause-summary.txt` and injects it into the assistant's context when your next session starts. Open the file, or ask the assistant "what did you just do?" — the log is right there. The summary looks like this:
 
 ```
-⏸ vibe-learn — what just happened:
+⏸ vibe-learn — this session so far:
 Goal: Build a simple Express API with a /health endpoint
 
+Last turn: Build a simple Express API with a /health endpoint
   ✦ Created src/index.ts
   ✦ Created src/routes/health.ts
   ✦ Ran: npm install express
   ✦ Ran: tsc --noEmit
 
- /learn [question]  ·  /digest  ·  /quiz  ·  /explain [file|topic]  ·  vibe-learn briefing  ·  vibe-learn audio-prep
+Files this session (2):
+  src/index.ts — created
+  src/routes/health.ts — created
+
+ /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 ```
 
 That last line is your menu. You can type any of those commands right now.
@@ -183,7 +188,7 @@ Claude walks it top-down — entry point, the load-bearing pieces in order (with
 
 ## 8. Open the session briefing
 
-The session briefing was already generated automatically in the background. Open it:
+`/learn` and `/digest` already refreshed the session briefing. To rebuild it now and get its path:
 
 ```bash
 vibe-learn briefing
@@ -246,7 +251,7 @@ Once installed, this is your normal workflow:
 | You open a project | Session starts, previous pause summary injected into context, one health row saved for the last session |
 | Claude writes or edits a file | Logged silently in <50ms |
 | Claude runs a command | Logged with exit code |
-| Claude finishes a response | Pause summary written, session briefing regenerated in background |
+| Claude finishes a response | Pause summary written (nothing heavier) |
 | You type `/learn` | Claude explains the session grounded in the real log |
 | You type `/quiz` | Claude checks your understanding and tracks it across sessions |
 | You run `vibe-learn audio-prep` | Pack ready, NotebookLM opens |

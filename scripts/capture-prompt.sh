@@ -4,6 +4,8 @@ set -euo pipefail
 # Logs the user's prompt to the session log so we have intent context.
 # Must exit quickly — do not block the prompt.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Read stdin JSON
 INPUT=$(cat)
 
@@ -23,6 +25,12 @@ META_FILE="$LOG_DIR/session-meta.json"
 
 # Ensure log directory exists
 mkdir -p "$LOG_DIR"
+
+# A learning command's turn (/learn, /digest, "Use /quiz", ...) is marked at
+# capture time, from the full prompt, so readers can leave it out of work
+# metrics even when the prompt text itself is not kept.
+KIND=$(printf '%s' "$PROMPT" | jq -Rrs -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
+  'include "session"; if learning_prompt then "learning" else "" end' 2>/dev/null || true)
 
 # Truncate prompt to 500 chars
 PROMPT="${PROMPT:0:500}"
@@ -46,6 +54,8 @@ CURRENT_TURN=0
 if [ -f "$META_FILE" ]; then
   CURRENT_TURN="$(jq -r '.current_turn // 0' "$META_FILE" 2>/dev/null || echo 0)"
 fi
+# A damaged meta must not cost the prompt: bash arithmetic fails on 1.5 or "x".
+case "$CURRENT_TURN" in ''|*[!0-9]*) CURRENT_TURN=0 ;; esac
 NEW_TURN=$((CURRENT_TURN + 1))
 
 # Build and append JSONL entry with turn number
@@ -53,7 +63,9 @@ ENTRY=$(jq -cn \
   --arg ts "$TS" \
   --arg prompt "$PROMPT" \
   --arg turn "$NEW_TURN" \
-  '{timestamp:$ts,event:"user_prompt",prompt:$prompt,turn:($turn|tonumber? // 1)}')
+  --arg kind "$KIND" \
+  '{timestamp:$ts,event:"user_prompt",prompt:$prompt,turn:($turn|tonumber? // 1)}
+   + (if $kind == "" then {} else {kind:$kind} end)')
 
 echo "$ENTRY" >> "$SESSION_LOG"
 

@@ -45,6 +45,39 @@ load test_helper
   echo "$output" | grep -qi "briefing"
 }
 
+@test "cli audio-prep builds the briefing when a session log exists but no pack does" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"session_id":"ap-1","started_at":"2026-10-16T09:00:00Z"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  echo '{"event":"user_prompt","prompt":"Build an Express API with two routes and tests"}' \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  local fake_bin="$BATS_TEST_TMPDIR/bin" tool
+  mkdir -p "$fake_bin"
+  for tool in pbcopy xclip open xdg-open; do printf '#!/bin/sh\nexit 1\n' > "$fake_bin/$tool"; chmod +x "$fake_bin/$tool"; done
+
+  run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "NotebookLM pack: .*-ap-1-notebooklm-pack.md"
+  [ -n "$(ls "$TEST_PROJECT_DIR"/.vibe-learn/briefing/exports/*-ap-1-notebooklm-pack.md)" ]
+}
+
+@test "cli audio-prep reports a failed briefing as a failure, and checks its arguments" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"event":"user_prompt","prompt":"build it"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  local copy="$BATS_TEST_TMPDIR/vl"
+  cp -R "$SCRIPTS_DIR" "$copy"
+  printf '#!/bin/bash\necho "ERROR: briefing failed" >&2\nexit 1\n' > "$copy/briefing.sh"
+  run bash "$copy/audio-prep.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The briefing failed"* ]]
+  [[ "$output" != *"No session log found"* ]]
+
+  run bash "$SCRIPTS_DIR/audio-prep.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == "Usage: vibe-learn audio-prep [target-dir]"* ]]
+  run bash "$SCRIPTS_DIR/audio-prep.sh" "$TEST_PROJECT_DIR" extra
+  [ "$status" -eq 1 ]
+}
+
 @test "cli audio-prep finds and reports the latest NotebookLM pack" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"
   echo "# pack" > "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports/2026-06-05-proj-abc-notebooklm-pack.md"
@@ -61,7 +94,7 @@ load test_helper
   echo "$output" | grep -q "notebooklm-pack.md"
   echo "$output" | grep -qi "notebooklm"
   echo "$output" | grep -q "Path:"
-  ! echo "$output" | grep -q "copied to clipboard"
+  ! echo "$output" | grep -q "copied to clipboard" || false
 
   rm -rf "$fake_bin"
 }

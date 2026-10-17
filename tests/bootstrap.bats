@@ -57,8 +57,7 @@ load test_helper
 }
 
 @test "bootstrap injects prior pause summary as additionalContext" {
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  echo "Prior session info" > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary "Prior session info"
 
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","session_id":"s3"}'"'"' | bash '"$SCRIPTS_DIR/bootstrap.sh"
   [ "$status" -eq 0 ]
@@ -88,12 +87,50 @@ load test_helper
 }
 
 @test "bootstrap emits valid JSON when the prior summary contains backslashes and quotes" {
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  printf 'Ran: grep "a\\.b" C:\\dir\\x\n' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Ran: grep "a\.b" C:\dir\x'
 
   run bash -c "echo '{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"s-bs\"}' | bash '$SCRIPTS_DIR/bootstrap.sh'"
   [ "$status" -eq 0 ]
   local ctx
   ctx=$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')
   [[ "$ctx" == *'grep "a\.b" C:\dir\x'* ]]
+}
+
+
+# rot_start begins a session; rot_work logs a prompt and a file write, then
+# runs the Stop hook, as a finished turn leaves them.
+rot_start() { echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"$1\"}" | bash "$SCRIPTS_DIR/bootstrap.sh" >/dev/null; }
+rot_work() {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  printf '{"event":"user_prompt","prompt":"Build the %s module with its own tests"}\n' "$1" >> "$vl/session-log.jsonl"
+  printf '{"event":"tool_use","tool":"Write","file":"src/%s.js","action":"created"}\n' "$1" >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+}
+
+@test "bootstrap injects only the summary of the session that just ended" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" out
+  rot_start inj-a; rot_work alpha
+  out="$(echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"inj-b\"}" | bash "$SCRIPTS_DIR/bootstrap.sh")"
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$out")" == *"Build the alpha module"* ]]
+  # A chat-only session: the Stop hook writes no summary, inj-a's stays.
+  echo '{"event":"user_prompt","prompt":"What does the retry helper do?"}' >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  out="$(echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"inj-c\"}" | bash "$SCRIPTS_DIR/bootstrap.sh")"
+  [ -z "$out" ]
+  [ ! -e "$vl/pause-summary.txt" ]
+}
+
+@test "rotation writes health rows and starts no briefing" {
+  local root="$BATS_TEST_TMPDIR/vl" vl="$TEST_PROJECT_DIR/.vibe-learn"
+  mkdir -p "$root"
+  cp -R "$SCRIPTS_DIR" "$root/scripts"
+  printf '#!/bin/bash\ntouch "%s/briefing-ran"\n' "$root" > "$root/scripts/briefing.sh"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"h1\"}" | bash "$root/scripts/bootstrap.sh" >/dev/null
+  printf '{"event":"user_prompt","prompt":"Build the alpha module"}\n{"event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":0}}\n' >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"h2\"}" | HOME="$BATS_TEST_TMPDIR/home" bash "$root/scripts/bootstrap.sh" >/dev/null
+  # Written before the hook returns.
+  [ "$(jq -r '.session_id' "$vl/health.jsonl")" = "h1" ]
+  sleep 0.5
+  [ ! -e "$root/briefing-ran" ]
+  [ ! -e "$vl/briefing" ]
 }

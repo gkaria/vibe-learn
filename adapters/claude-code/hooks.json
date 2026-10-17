@@ -1,5 +1,5 @@
 {
-  "description": "vibe-learn: logs file writes, edits, and commands to .vibe-learn/session-log.jsonl and injects a pause summary after each response.",
+  "description": "vibe-learn: logs file writes, edits, and commands to .vibe-learn/session-log.jsonl and writes a pause summary after each response, injected at the next session start.",
   "hooks": {
     "SessionStart": [
       {

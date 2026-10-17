@@ -51,6 +51,9 @@ components:
       destination: pause-summary.sh
 
   # ── Support scripts ───────────────────────────────────────
+  # fileType: hook puts them in the hooks directory beside the hook scripts,
+  # which load them from their own directory (mcs puts generic files in
+  # .claude/ instead).
   - id: script-knowledge
     description: Knowledge ledger helper used by /quiz, /learn, and /digest (record/touch/list/due)
     dependencies: [jq]
@@ -59,7 +62,7 @@ components:
       type: copyPackFile
       source: scripts/knowledge.sh
       destination: knowledge.sh
-      fileType: generic
+      fileType: hook
 
   - id: script-identity
     description: Resolves the assistant, model, effort, and version for session-meta.json and turn_end lines
@@ -69,7 +72,17 @@ components:
       type: copyPackFile
       source: scripts/identity.sh
       destination: identity.sh
-      fileType: generic
+      fileType: hook
+
+  - id: script-session-lib
+    description: Shared jq definitions over the session log (learning-turn detection, session facts)
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/session.jq
+      destination: session.jq
+      fileType: hook
 
   - id: script-health
     description: Assistant health rows (one per session segment) appended to health.jsonl at log rotation
@@ -79,7 +92,7 @@ components:
       type: copyPackFile
       source: scripts/health.sh
       destination: health.sh
-      fileType: generic
+      fileType: hook
 
   - id: script-usage
     description: Counts tool calls and skills per session from the host's own session record, for health rows
@@ -89,7 +102,7 @@ components:
       type: copyPackFile
       source: scripts/usage.sh
       destination: usage.sh
-      fileType: generic
+      fileType: hook
 
   - id: script-health-report
     description: vibe-learn health — compares session signals before and after a model or harness change
@@ -99,7 +112,17 @@ components:
       type: copyPackFile
       source: scripts/health-report.sh
       destination: health-report.sh
-      fileType: generic
+      fileType: hook
+
+  - id: script-briefing
+    description: vibe-learn briefing — static HTML session briefing and NotebookLM pack, built at rotation and by /learn and /digest
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/briefing.sh
+      destination: briefing.sh
+      fileType: hook
 
   - id: script-recap
     description: Weekly "what I learned" markdown rollup built from the knowledge ledger and session logs
@@ -109,7 +132,7 @@ components:
       type: copyPackFile
       source: scripts/recap.sh
       destination: recap.sh
-      fileType: generic
+      fileType: hook
 
   # ── Commands ──────────────────────────────────────────────
   - id: cmd-learn

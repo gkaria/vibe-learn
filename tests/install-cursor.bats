@@ -45,7 +45,7 @@ run_shim() {
   local shim="$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh"
   [ -x "$shim" ]
   grep -Fq "VIBE_LEARN_DIR=\"$VIBE_LEARN_DIR\"" "$shim"
-  ! grep -q "VIBE_LEARN_DIR_PLACEHOLDER" "$shim"
+  refute_grep "VIBE_LEARN_DIR_PLACEHOLDER" "$shim"
 }
 
 @test "cursor install renders paths containing sed replacement characters" {
@@ -70,7 +70,7 @@ run_shim() {
   for skill in learn digest quiz explain; do
     grep -q "^disable-model-invocation: true" "$TEST_PROJECT_DIR/.cursor/skills/$skill/SKILL.md"
   done
-  ! grep -q "^disable-model-invocation" "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md"
+  refute_grep "^disable-model-invocation" "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md"
   [ ! -d "$TEST_PROJECT_DIR/.cursor/commands" ]
 }
 
@@ -151,8 +151,7 @@ JSON
 
 @test "cursor shim sessionStart relays the previous pause summary as additional_context" {
   run_cursor_install
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
-  printf 'Prior summary line\n' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  seed_prior_summary 'Prior summary line'
 
   run run_shim sessionStart '"session_id":"sess-42","is_background_agent":false'
 
@@ -181,6 +180,15 @@ JSON
   [ "$output" = '{"continue":true}' ]
   grep -q '"event":"user_prompt"' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   grep -q '"prompt":"add JWT auth"' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+}
+
+@test "cursor shim marks a /quiz prompt as a learning turn" {
+  run_cursor_install
+
+  run_shim beforeSubmitPrompt '"prompt":"/quiz review","attachments":[]' >/dev/null
+  run_shim beforeSubmitPrompt '"prompt":"add a /health route","attachments":[]' >/dev/null
+
+  [ "$(jq -sc 'map(.kind)' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '["learning",null]' ]
 }
 
 @test "cursor shim afterFileEdit logs a Write for a new file and an Edit otherwise" {
@@ -264,7 +272,7 @@ JSON
   local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   [ -f "$summary" ]
   grep -q "wire up the login route" "$summary"
-  grep -q "Created $TEST_PROJECT_DIR/src/login.ts" "$summary"
+  grep -q "Created src/login.ts" "$summary"
   grep -q "Ran: npm test" "$summary"
   grep -q "/learn" "$summary"
 }

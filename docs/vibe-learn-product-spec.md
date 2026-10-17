@@ -29,11 +29,11 @@ vibe-learn adapts its depth and language based on the complexity of the codebase
 ### 1. Pause Summaries
 During natural pauses (when Claude finishes a response), a brief "here's what just happened" summary is generated. Not a full report — just enough to keep you oriented.
 
-**Implementation:** Stop hook generates a 3–5 line mechanical summary of the last batch of changes. Delivered via additionalContext (so Claude sees it too) and written to `pause-summary.txt`. No API calls — pure bash + jq.
+**Implementation:** Stop hook generates a 3–5 line mechanical summary of the last batch of changes. Written to `pause-summary.txt` and injected at the next session start (a Stop hook's additionalContext would keep the turn going). No API calls — pure bash + jq.
 
 **Example output:**
 ```
-⏸ vibe-learn — what just happened:
+⏸ vibe-learn — this session so far:
 Goal: add user authentication and PostgreSQL connection
 
   ✦ Created src/middleware/auth.ts
@@ -158,10 +158,7 @@ The intelligent learning features (`/learn` and `/digest`) are slash commands th
 {
   "session_id": "abc123",
   "started_at": "2026-03-17T14:32:00Z",
-  "event_count": 47,
-  "config": {
-    "log_dir": ".vibe-learn"
-  }
+  "event_count": 47
 }
 ```
 

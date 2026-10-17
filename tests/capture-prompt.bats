@@ -101,7 +101,7 @@ JSON
   [ "$(echo "$entry" | jq -r '.event')" = "user_prompt" ]
   [ "$(echo "$entry" | jq -r '.prompt')" = "" ]
   [ "$(echo "$entry" | jq -r '.turn')" = "1" ]
-  ! grep -q "secret plan" "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  refute_grep "secret plan" "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
 }
 
 @test "capture_prompts false in global config applies to every project" {
@@ -128,4 +128,79 @@ JSON
   echo '{"cwd":"'"$TEST_PROJECT_DIR"'","prompt":"hi"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
   run bash -c "ls '$TEST_PROJECT_DIR'/.vibe-learn/*.tmp 2>/dev/null"
   [ -z "$output" ]
+}
+
+# One payload per host phrasing of a learning command, as each host sends it to
+# capture-prompt.sh (Grok directly in camelCase; the shims as cwd + prompt).
+@test "capture-prompt marks learning commands from every host with kind learning" {
+  local p prompts=(
+    '/learn why bcrypt?'                                 # Claude Code, OpenCode, Grok, Cursor
+    '/vibe-learn:digest'                                 # Claude Code plugin
+    '/prompts:quiz'                                      # Codex prompt files
+    'Use vibe-learn to create a digest of this session.' # Codex skill
+    '$vibe-learn explain src/app.js'                     # Codex explicit skill
+    'Use /explain src/middleware/auth.ts'                # Copilot CLI
+    '/vibe-learn'                                        # Grok and Cursor skill
+    'Read .codex/prompts/learn.md and follow it for obsidian:recall auth'
+    'Read ~/.codex/prompts/digest.md and follow it.'     # Codex global prompt file
+    'Use $vibe-learn to quiz me on this session'         # Codex skill, explicit
+  )
+  for p in "${prompts[@]}"; do
+    jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg p "$p" '{cwd: $cwd, prompt: $p}' \
+      | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  jq -cn --arg root "$TEST_PROJECT_DIR" '{workspaceRoot: $root, userPrompt: "/quiz review"}' \
+    | bash "$SCRIPTS_DIR/capture-prompt.sh"
+
+  run jq -r 'select(.kind != "learning") | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  [ -z "$output" ]
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 11 ]
+}
+
+@test "capture-prompt leaves work prompts unmarked, including ones that start with learn" {
+  local p
+  for p in 'Build an Express API with two routes' 'learn the codebase and add JWT auth' \
+           '/learnings page needs a route' 'use digest auth for the admin API' \
+           'vibe-learn has a bug in bootstrap; please fix it' \
+           '/learn/auth.ts needs its validation fixed' '/explain/page.tsx needs a loading state' \
+           '/digest.json is malformed, regenerate it' '$vibe-learn.config is not loaded' \
+           'use /learn/route.ts as the template' "use vibe-learn's logging format in our app" \
+           'Read .codex/prompts/learn.md and fix the broken instructions' \
+           'read .codex/prompts/explain.md and translate it to Spanish'; do
+    jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg p "$p" '{cwd: $cwd, prompt: $p}' \
+      | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  run jq -r 'select(has("kind")) | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  [ -z "$output" ]
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 13 ]
+}
+
+# Codex expands /prompts:learn and sends the prompt file's body, not the command.
+@test "capture-prompt marks the expanded body of every Codex prompt file as learning" {
+  local f
+  for f in "$ADAPTERS_DIR"/codex/prompts/*.md; do
+    awk 'n >= 2; /^---$/ { n++ }' "$f" | jq -Rsc --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: .}' \
+      | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  [ "$(jq -s 'length' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 4 ]
+  [ "$(jq -s 'map(select(.kind == "learning")) | length' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 4 ]
+}
+
+@test "capture-prompt marks a learning turn even when capture_prompts is off" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"capture_prompts": false}' > "$TEST_PROJECT_DIR/.vibe-learn/config.json"
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/digest"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  run jq -c '{prompt, kind}' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  [ "$output" = '{"prompt":"","kind":"learning"}' ]
+}
+
+@test "capture-prompt keeps the prompt and its kind when the meta's turn counter is damaged" {
+  local t
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  for t in 1.5 '"x"'; do
+    echo "{\"session_id\":\"s\",\"current_turn\":$t}" > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+    jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  [ "$(jq -sc 'map([.turn, .kind])' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '[[1,"learning"],[1,"learning"]]' ]
+  [ "$(jq '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = 1 ]
 }

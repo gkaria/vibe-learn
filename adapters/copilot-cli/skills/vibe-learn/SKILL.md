@@ -30,6 +30,10 @@ All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) 
 
 Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...]`, `touch <name> --label=...`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
 
+## Briefing
+
+In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+
 ## Learn Mode
 
 Explain recent activity in plain language: what changed, why the assistant likely made those choices, which files, commands, or patterns matter, and what the user can study next. If the user asks a specific question, answer that first, then add only the session context needed to make it clear. If a ledger concept that is due for review also surfaced in this session, open with one heads-up line pointing to `/quiz review`.

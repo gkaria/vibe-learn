@@ -107,13 +107,21 @@ LEDGER_TOTAL="$(printf '%s' "$LEDGER_JSON" | jq -r '.concepts | length')"
 # bootstrap.sh rotates session-log.jsonl → session-log.prev.jsonl on each new
 # session and keeps only that one backup, so activity figures cannot cover a
 # full --days window when more than two sessions occurred. Label them as such.
+# Learning turns (/learn, /digest, /quiz, /explain) count toward active days but
+# not toward prompts, files, or commands: those describe the session's work.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACTIVITY_JSON="$(
   for f in "$LOG_DIR/session-log.jsonl" "$LOG_DIR/session-log.prev.jsonl"; do
-    [ -s "$f" ] && cat "$f" || true
+    [ -s "$f" ] || continue
+    jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "session";
+      [inputs | fromjson? | objects] | number_turns
+      | learning_turns as $l
+      | .[] | . + {_work: ($l[._turn | tostring] | not)}' "$f" 2>/dev/null || true
   done | jq -s --arg cutoff "$CUTOFF" '
-    [.[] | select((.timestamp // "")[0:10] >= $cutoff)] as $ev
+    [.[] | select((.timestamp // "")[0:10] >= $cutoff)] as $all
+    | [$all[] | select(._work)] as $ev
     | {
-        days:     ([$ev[] | .timestamp[0:10]] | unique | length),
+        days:     ([$all[] | .timestamp[0:10]] | unique | length),
         prompts:  ([$ev[] | select(.event == "user_prompt")] | length),
         files:    ([$ev[] | select(.event == "tool_use" and .action != "failed" and (.file // "") != "") | .file] | unique | length),
         commands: ([$ev[] | select(.event == "tool_use" and .tool == "Bash")] | length)
