@@ -21,7 +21,7 @@ Grok Build does not inject pause summaries into context. Always read `.vibe-lear
 
 ## Briefing
 
-In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via `run_terminal_command`. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via `run_terminal_command`. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the directory that holds vibe-learn's `knowledge.sh` (`scripts/` in a full install, the hooks directory in a techpack install) (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails. In Digest Mode, after the last `touch`, run that refresh once more, so the session page lists the concepts just recorded; skip it when no concept was recorded.
 
 ## Learn Mode
 

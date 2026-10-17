@@ -78,12 +78,15 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
     sub("^([A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)+"; "")
     | sub("^(env(\\s+(-u\\s+\\S+|-\\S+))*|time|npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|bundle exec|python3? -m)\\s+"; "");
   def strip_heredocs:
-    reduce split("\n")[] as $l ({out: [], term: null};
+    reduce split("\n")[] as $l ({out: [], term: null, dash: false};
       if .term != null then
-        (if ($l | sub("^\t+"; "")) == .term then .term = null else . end)
+        (if (if .dash then ($l | sub("^\t+"; "")) else $l end) == .term then .term = null else . end)
       else
         .out += [$l]
-        | .term = ([$l | match("(?<!<)<<-?\\s*\\\\?[\"\u0027]?([A-Za-z_][A-Za-z0-9_]*)[\"\u0027]?") | .captures[0].string] | first // null)
+        | ([$l | match("(?<!<)<<(-?)\\s*\\\\?(?:\u0027([^\u0027]*)\u0027|\"([^\"]*)\"|([^\\s;&|<>()\"\u0027]+))")] | first) as $m
+        | if $m == null then . else
+            .term = ([$m.captures[1:][] | .string | select(. != null)] | first) | .dash = ($m.captures[0].string == "-")
+          end
       end)
     | .out | join("\n");
   def is_check:
