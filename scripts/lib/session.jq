@@ -29,10 +29,13 @@ def number_turns:
      if $e.event == "user_prompt" then . + 1 else . end;
      $e + {_turn: .})];
 
-# A command that only runs vibe-learn's own helpers (knowledge.sh, briefing.sh).
+# A command that only runs one of vibe-learn's own helpers (knowledge.sh,
+# briefing.sh, the vibe-learn CLI): a command chained with ;, &, |, or a
+# command substitution also runs something else, so it is work.
 def own_helper:
   (. // "" | tostring)
-  | test("(^|[/\\s])(knowledge|briefing)\\.sh(\\s|$)|^\\s*vibe-learn(-knowledge)?(\\s|$)");
+  | (test("[;&|`\n]|\\$\\(") | not)
+    and test("^\\s*((bash|sh)\\s+)?\\S*/?(knowledge|briefing)\\.sh(\\s|$)|^\\s*vibe-learn(-knowledge)?(\\s|$)");
 
 # Numbered events → {"<turn>": true} for every learning turn: a turn whose
 # prompt invokes a learning command, and each turn after one that does nothing

@@ -117,6 +117,7 @@ JSONL
     '{"event":"user_prompt","prompt":"It prevents replay attacks"}' \
     '{"event":"tool_use","tool":"Bash","command":"bash ~/.vibe-learn/scripts/knowledge.sh record jwt --status=solid","action":"ran","context":{"exit_code":0}}' \
     '{"event":"user_prompt","prompt":"Because the token is signed"}' \
+    '{"event":"tool_use","tool":"Bash","command":"vibe-learn briefing --if-stale","action":"ran","context":{"exit_code":0}}' \
     '{"event":"user_prompt","prompt":"now add a /health route"}' \
     '{"event":"tool_use","tool":"Edit","file":"/work/proj/src/app.js","action":"edited"}')
   [ "$status" -eq 0 ]
@@ -124,4 +125,14 @@ JSONL
   # turn 5 edits a file, so learning ends there.
   [ "$(jq -c '.turns' <<<"$output")" = '{"work":2,"learning":3,"last":5,"last_is_learning":false}' ]
   [ "$(jq -c '[.commands[].first_line]' <<<"$output")" = '[]' ]
+}
+
+@test "a quiz follow-up that chains a helper with real work is work" {
+  run facts < <(printf '%s\n' \
+    '{"event":"user_prompt","prompt":"/quiz"}' \
+    '{"event":"user_prompt","prompt":"It prevents replay attacks, and run the tests"}' \
+    '{"event":"tool_use","tool":"Bash","command":"bash ~/.vibe-learn/scripts/knowledge.sh record jwt --status=solid && npm test","action":"ran","context":{"exit_code":1}}')
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.turns' <<<"$output")" = '{"work":1,"learning":1,"last":2,"last_is_learning":false}' ]
+  [ "$(jq -c '[.failures[].turn]' <<<"$output")" = '[2]' ]
 }
