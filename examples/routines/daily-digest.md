@@ -18,9 +18,11 @@ You run the vibe-learn daily digest for one project. Work only from the output
 of the shell block below. Do not open .vibe-learn/session-log*.jsonl,
 .vibe-learn/pause-summary.txt, host transcripts, briefing HTML, or project files.
 
-1. Run this block in a shell, unchanged except for the path:
+1. Run this block in a shell, unchanged except for the path and the commands
+   line:
 
    cd '/path/to/project' || exit 1
+   commands=keep   # set to drop if you put secrets on command lines
    since=$(date -d yesterday +%F 2>/dev/null || date -v-1d +%F)
    capture=true
    for f in "$HOME/.vibe-learn/config.json" .vibe-learn/config.json; do
@@ -32,9 +34,11 @@ of the shell block below. Do not open .vibe-learn/session-log*.jsonl,
    for f in .vibe-learn/briefing/sessions/*.json; do
      [ -f "$f" ] && [ ! -f ".vibe-learn/digests/$(basename "$f" .json)-routine.md" ] \
        && jq --arg since "$since" 'select(.date >= $since)' "$f" 2>/dev/null
-   done | jq -s --argjson capture "$capture" 'map(del(.diff, .knowledge)
+   done | jq -s --argjson capture "$capture" --arg commands "$commands" 'map(del(.diff, .knowledge)
      | if $capture then . else del(.goal, .pause_summary, .last_turn.prompt)
-       | .timeline |= map(select(.kind != "prompt")) end)'
+       | .timeline |= map(select(.kind != "prompt")) end
+     | if $commands == "drop" then del(.commands, .failures[].command, .failures[].fixed_by.command, .last_turn.commands)
+       | .timeline |= map(select(.kind != "command")) else . end)'
    echo "DUE"
    vibe-learn knowledge due --days=14
 
@@ -71,4 +75,8 @@ of the shell block below. Do not open .vibe-learn/session-log*.jsonl,
 
 ## What it sends
 
-The chat message holds the project name, counts, digest paths, one concept label and question, and the goal only when `capture_prompts` is on. With `capture_prompts: false`, the shell block removes `goal`, `pause_summary`, `last_turn.prompt`, and the prompt entries of `timeline` before the bot sees the facts, so prompt text cannot reach the message even when an older log still holds some. The diff and the full ledger are removed in both cases.
+The bot's model reads the shell block's output: for each session, the file paths it changed, the first line of each command it ran with its exit code, the failures and the commands that fixed them, counts, and the ledger concepts for that session; plus the due concepts. That output goes to the bot's model provider under the bot's terms. The block always removes the diff and the full ledger.
+
+`capture_prompts: false` covers prompt text only. The block then also removes `goal`, `pause_summary`, `last_turn.prompt`, and the prompt entries of `timeline`, including prompts an older log captured before you turned capture off. It does not remove commands: the digest needs them to explain what broke, and a command can contain text from your prompt or a secret passed on the command line. If that is a concern, set `commands=drop`. The block then also removes `commands`, `failures[].command`, `failures[].fixed_by.command`, `last_turn.commands`, and the command entries of `timeline`, and the digest reports failures by count and turn only.
+
+The chat message holds the project name, counts, digest paths, one concept label and question, and the goal only when `capture_prompts` is on. The prompt tells the bot to leave command text, diff text, and file contents out of the message; that part is an instruction, not a filter.
