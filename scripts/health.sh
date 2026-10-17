@@ -8,7 +8,7 @@
 # Prints one JSON line per session segment: a new segment starts wherever the
 # turn's (model, effort) changes, so a session with no switch prints one line.
 # Read-only; prints nothing when the log has no prompts or tool events.
-# bootstrap.sh appends the output to health.jsonl before it rotates the log.
+# After a rotation, bootstrap.sh (detached) appends the output to health.jsonl.
 # The first segment's row also carries `usage`: tool families and skills for
 # the whole session (from the host's transcript, see usage.sh) and slash
 # commands typed in prompts. Learning turns (/learn, /digest, /quiz, /explain;

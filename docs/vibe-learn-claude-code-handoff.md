@@ -101,7 +101,7 @@ All scripts use bash + jq only. No external dependencies. No API calls.
 - Read .vibe-learn/session-log.jsonl
 - Generate a mechanical summary (no AI): count of events, files created/modified, bash commands run, failures, last 5 actions
 - Write summary to .vibe-learn/pause-summary.txt (human-readable, max 20 lines)
-- Also output the summary via hookSpecificOutput.additionalContext so Claude is aware
+- Do not output it via additionalContext (on Claude Code a Stop hook's additionalContext keeps the turn going); bootstrap.sh injects the file at the next session start
 - If session-log.jsonl doesn't exist or is empty, exit 0 silently
 
 ### 4. Data format
