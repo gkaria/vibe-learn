@@ -193,6 +193,34 @@ EOF
 # safety
 # ---------------------------------------------------------------------------
 
+@test "touch and record add --files as project-relative paths and only ever grow the list" {
+  run_knowledge touch express-mw --label="Express middleware" --files=" ./src/app.js,$TEST_PROJECT_DIR/src/routes.js,,"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.concepts[0].files' "$(ledger)")" = '["src/app.js","src/routes.js"]' ]
+
+  run_knowledge record express-mw --status=shaky --files=src/app.js,test/app.test.js
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.concepts[0].files' "$(ledger)")" = '["src/app.js","src/routes.js","test/app.test.js"]' ]
+
+  # Without --files the list stays, and a new concept gets no files key.
+  run_knowledge touch express-mw
+  run_knowledge record other --label="Other" --status=solid
+  [ "$(jq -c '.concepts[0].files' "$(ledger)")" = '["src/app.js","src/routes.js","test/app.test.js"]' ]
+  [ "$(jq -c '.concepts[1] | has("files")' "$(ledger)")" = false ]
+}
+
+@test "every host's quiz, explain, and digest prompts pass the files a concept came from" {
+  local f n=0
+  for f in "$VIBE_LEARN_DIR"/adapters/claude-code/commands/{quiz,explain,digest}.md \
+           "$VIBE_LEARN_DIR"/adapters/{codex/prompts,opencode/commands,grok/commands}/{quiz,explain,digest}.md \
+           "$VIBE_LEARN_DIR"/adapters/{cursor,copilot-cli}/skills/{quiz,explain,digest}/SKILL.md \
+           "$VIBE_LEARN_DIR"/adapters/{codex,grok,cursor,copilot-cli}/skills/vibe-learn/SKILL.md; do
+    grep -q -- '--files=' "$f" || { echo "no --files in $f"; return 1; }
+    n=$((n + 1))
+  done
+  [ "$n" -eq 22 ]
+}
+
 @test "malformed ledger produces an error and is not overwritten" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   echo 'not json' > "$(ledger)"

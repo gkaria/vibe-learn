@@ -145,9 +145,10 @@ jq -r '.session_id' .vibe-learn/session-meta.json > .vibe-learn/pause-summary.se
 
 jq -n --arg d "$D" '{version: 1, concepts: [
   {name: "express-middleware-ordering", label: "Express middleware ordering", first_seen: $d, last_seen: $d,
-   sessions: 2, last_quizzed: $d, status: "shaky", notes: "had the what, not the when"},
+   sessions: 2, last_quizzed: $d, status: "shaky", notes: "had the what, not the when",
+   files: ["src/routes/user.ts", "src/middleware/auth.ts"]},
   {name: "jwt-verification", label: "JWT verification", first_seen: $d, last_seen: $d,
-   sessions: 2, last_quizzed: $d, status: "solid", notes: ""},
+   sessions: 2, last_quizzed: $d, status: "solid", notes: "", files: ["src/middleware/auth.ts"]},
   {name: "fail-closed-auth", label: "Fail-closed auth", first_seen: $d, last_seen: $d,
    sessions: 1, last_quizzed: $d, status: "solid", notes: ""}]}' > .vibe-learn/knowledge.json
 
@@ -193,5 +194,5 @@ shot() {
 }
 session="$(cd "$BRIEFING" && ls sessions/*.html | head -1)"
 shot index.html briefing-index.png 720
-shot "$session" briefing-session.png 960
+shot "$session" briefing-session.png 1340
 shot health.html briefing-health.png 1380

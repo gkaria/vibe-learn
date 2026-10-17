@@ -88,9 +88,9 @@ pack_file_for_test_project() {
   local pack
   pack="$(pack_file_for_test_project)"
 
-  grep -q "Session Briefing Source Pack" "$pack"
-  grep -q "Suggested audio framing" "$pack"
-  grep -q "maintainer-focused audio overview" "$pack"
+  # The framing is the pack's first paragraph, right under the title.
+  [ "$(sed -n 1p "$pack")" = "# $(basename "$TEST_PROJECT_DIR"): session briefing for 2026-06-05" ]
+  [[ "$(sed -n 3p "$pack")" == "Create a maintainer-focused audio overview of this session."* ]]
 }
 
 @test "briefing index lists previously generated sessions" {
@@ -188,8 +188,8 @@ write_learning_session() {
 
   local index="$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" session
   session="$(session_file_for_test_project)"
-  # app.js created + edited, app.test.js created; npm install, npm test x2, lint.
-  grep -q '<span class="tag">3 files</span>' "$index"
+  # app.js (created and edited) and app.test.js; npm install, npm test x2, lint.
+  grep -q '<span class="tag">2 files</span>' "$index"
   grep -q '<span class="tag">4 commands</span>' "$index"
   grep -q '2 failed' "$index"
   # The goal is the build prompt, not the trailing /learn.
@@ -248,7 +248,7 @@ write_learning_session() {
   wait "$a"; wait "$b"
 
   page="$(session_file_for_test_project)"
-  [ "$(ls "$vl/briefing/sessions" | wc -l | tr -d ' ')" -eq 1 ]
+  [ "$(ls "$vl/briefing/sessions"/*.html | wc -l | tr -d ' ')" -eq 1 ]
   for f in "$page" "$vl/briefing/index.html"; do
     [ "$(grep -ci '<!doctype html>' "$f")" -eq 1 ]
     [ "$(grep -c '</html>' "$f")" -eq 1 ]
@@ -308,7 +308,7 @@ STUB
   PATH="$bin:$PATH" bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
 
   [ -e "$bin/rotated" ]
-  [ "$(ls "$vl/briefing/sessions")" = "2026-10-17-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-next-two.html" ]
+  [ "$(cd "$vl/briefing/sessions" && ls *.html)" = "2026-10-17-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-next-two.html" ]
   page="$(session_file_for_test_project)"
   grep -q "Add the beta delete endpoint" "$page"
   refute_grep "Build an Express API" "$page"
@@ -322,19 +322,21 @@ STUB
   echo '{"event":"user_prompt","prompt":"Build the thing with tests"}' > "$vl/session-log.jsonl"
   run bash "$SCRIPTS_DIR/briefing.sh" "$dir"
   [ "$status" -eq 0 ]
-  [ "$(ls "$vl/briefing/sessions")" = "$(date -u +%Y-%m-%d)-x-b-y-$(printf '%s' /// | cksum | cut -d ' ' -f 1).html" ]
+  [ "$(cd "$vl/briefing/sessions" && ls *.html)" = "$(date -u +%Y-%m-%d)-x-b-y-$(printf '%s' /// | cksum | cut -d ' ' -f 1).html" ]
   grep -q 'x&lt;b&gt;y' "$vl/briefing/index.html"
   refute_grep 'x<b>y' "$vl/briefing/index.html"
 }
 
-@test "the NotebookLM pack timeline skips malformed lines and marks learning turns" {
+@test "the NotebookLM pack skips malformed lines and leaves learning turns out" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   printf '%s\n' '{"event":"user_prompt","prompt":"Build the alpha module with tests"}' '{broken' \
     '{"event":"tool_use","tool":"Write","file":"src/alpha.js","action":"created"}' \
     '{"event":"user_prompt","prompt":"/digest"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
-  grep -qx -- '- File created: src/alpha.js' "$(pack_file_for_test_project)"
-  grep -qx -- '- Prompt (learning): /digest' "$(pack_file_for_test_project)"
+  local pack; pack="$(pack_file_for_test_project)"
+  grep -qx 'Turn 1: you asked "Build the alpha module with tests". The agent created `src/alpha.js`.' "$pack"
+  grep -q '1 work turn in total, plus 1 learning turn' "$pack"
+  refute_grep '/digest"' "$pack"
 }
 
 @test "a run with no session log keeps an existing briefing index" {
@@ -370,4 +372,321 @@ STUB
   echo dash-test > "$vl/pause-summary.session"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
   grep -q "Created OpenCode adapter files" "$(session_file_for_test_project)"
+}
+
+@test "a missing page template stops the briefing with a clear error, not a blank page" {
+  write_sample_session
+  local copy="$BATS_TEST_TMPDIR/scripts"
+  cp -R "$SCRIPTS_DIR" "$copy"
+  rm "$copy/lib/briefing-health.html"
+  run bash "$copy/briefing.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"briefing-health.html is missing"*"reinstall vibe-learn"* ]]
+  [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/briefing" ]
+}
+
+@test "briefing --json prints the learning fixture's facts, matching the golden file" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" slug
+  jq '. + {harness: "claude-code", model: "claude-opus-5-5"}' "$vl/session-meta.json" > "$vl/m" && mv "$vl/m" "$vl/session-meta.json"
+  echo '{"version":1,"concepts":[{"name":"express-routing","label":"Express routing","status":"shaky","sessions":2,"last_seen":"2026-10-16","last_quizzed":"2026-10-16","files":["src/app.js"]},"junk",{"name":"old","label":"Old concept"}]}' > "$vl/knowledge.json"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json > "$BATS_TEST_TMPDIR/out" 2> "$BATS_TEST_TMPDIR/err"
+  grep -q "Session briefing:" "$BATS_TEST_TMPDIR/err"
+  local output; output="$(cat "$BATS_TEST_TMPDIR/out")"
+  slug="2026-10-16-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-learn-test"
+  # stdout is the stored facts and nothing else.
+  [ "$(jq -c . <<<"$output")" = "$(jq -c . "$vl/briefing/sessions/$slug.json")" ]
+  [ "$(jq -r '[.schema_version, .slug, .goal] | @tsv' <<<"$output")" = "$(printf '1\t%s\tBuild an Express API with two routes and a test for each' "$slug")" ]
+  diff <(jq -S . "$VIBE_LEARN_DIR/tests/fixtures/briefing-facts.json") \
+    <(jq -S 'del(.generated_at) | .project = "proj" | .slug = "SLUG"' <<<"$output")
+}
+
+@test "untrusted text from the log, ledger, summary, and diff is escaped on every page" {
+  local x='<img src=x onerror=alert(1)></script><script>alert(2)</script><!--'
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page
+  mkdir -p "$vl"
+  echo '{"session_id":"xss","started_at":"2026-10-16T09:00:00Z"}' > "$vl/session-meta.json"
+  jq -nc --arg x "$x" '
+    {event: "user_prompt", prompt: ("Build the widget service with tests " + $x)},
+    {event: "tool_use", tool: "Write", file: ("src/" + $x + ".js"), action: "created"},
+    {event: "tool_use", tool: "Edit", file: "src/a.js", action: $x},
+    {event: "tool_use", tool: "Bash", command: ("npm test " + $x), action: "ran", context: {exit_code: 1}}' > "$vl/session-log.jsonl"
+  jq -n --arg x "$x" '{version: 1, concepts: [{name: "c", label: $x, status: $x, sessions: 2, last_quizzed: $x}]}' > "$vl/knowledge.json"
+  printf 'Summary %s\n' "$x" > "$vl/pause-summary.txt"
+  echo xss > "$vl/pause-summary.session"
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf 'old\n' > "$TEST_PROJECT_DIR/tracked.txt"
+  git -C "$TEST_PROJECT_DIR" add tracked.txt
+  printf '%s\n' "$x" > "$TEST_PROJECT_DIR/tracked.txt"
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  page="$(session_file_for_test_project)"
+  for f in "$page" "$vl/briefing/index.html"; do
+    refute_grep '<img src=x' "$f"
+    refute_grep '<!--' "$f"
+    refute_grep '<script>alert' "$f"
+    [ "$(grep -c '<script>' "$f")" -eq "$(grep -c '</script>' "$f")" ]
+  done
+  grep -q 'Build the widget service with tests &lt;img src=x' "$page"
+  grep -q 'Build the widget service with tests &lt;img src=x' "$vl/briefing/index.html"
+  # The copy buttons' JSON still parses back to the original text.
+  sed -n 's/^    const packText = \(.*\);$/\1/p' "$page" | jq -r . | grep -qF "$x"
+  sed -n 's/^    const diffText = \(.*\);$/\1/p' "$page" | jq -r . | grep -qF "$x"
+}
+
+# --- The three questions (S8) -------------------------------------------------
+
+first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_project)"; }
+
+@test "the page answers what was built, what to understand, and what broke above a collapsed full record" {
+  write_learning_session
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local page top="$BATS_TEST_TMPDIR/top.html"
+  page="$(session_file_for_test_project)"
+  first_screen > "$top"
+
+  grep -q '<blockquote class="ask">Build an Express API with two routes and a test for each</blockquote>' "$top"
+  grep -q 'Turn 2 · the first substantial request' "$top"
+  grep -q 'What to understand' "$top"
+  grep -q '<details id="full-record">' "$top"
+  # Learning turns stay out of the three questions.
+  refute_grep 'vibe-learn:digest' "$top"
+  refute_grep 'digests' "$top"
+  # The open failure leads; the fixed one shows its fix.
+  [ "$(grep -o 'class="break [a-z]*"' "$top" | tr '\n' ' ')" = 'class="break open" class="break fixed" ' ]
+  grep -q '<code>npm run lint</code> failed (exit 1) · turn 5</div><div class="fix">→ still failing' "$top"
+  grep -q '<code>npm test</code> failed (exit 1) · turn 2</div><div class="fix">→ fixed in turn 3 by <code>npm test</code>' "$top"
+  grep -q '4 work turns · 2 files · 2 failed commands, 1 still failing' "$top"
+  # The old sections live inside the record, which starts closed; one stylesheet.
+  sed -n '/<details id="full-record">/,/<\/details>/p' "$page" | grep -q 'Session Timeline'
+  refute_grep '<details id="full-record" open' "$page"
+  [ "$(grep -c '<style' "$page")" -eq 1 ]
+  grep -q 'Show learning turns (5)' "$page"
+  grep -q 'ol.timeline:not(.show-learning) li\[data-learning\]{display:none;}' "$page"
+}
+
+@test "What to understand links ledger concepts to the session's files, else shows concepts seen that day" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  jq -n '{version: 1, concepts: [
+    {name: "routing", label: "Express routing", status: "shaky", last_seen: "2026-10-01", last_quizzed: "2026-10-01", files: ["src/app.js", "src/other.js"]},
+    {name: "testing", label: "Supertest", status: "new", last_seen: "2026-10-16", files: ["test/app.test.js"]},
+    {name: "elsewhere", label: "Unrelated", status: "solid", last_seen: "2026-10-16", files: ["lib/x.js"]}]}' > "$vl/knowledge.json"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local top="$BATS_TEST_TMPDIR/top.html"
+  first_screen > "$top"
+  grep -q '<strong>Express routing</strong><span class="chip status-shaky">shaky</span></div><div class="concept-files">in <a href="../../../src/app.js"><code>src/app.js</code></a></div>' "$top"
+  grep -q '<div class="concept-files">in <a href="../../../test/app.test.js"><code>test/app.test.js</code></a></div><div class="concept-meta">not quizzed yet' "$top"
+  refute_grep 'Unrelated' "$top"
+  refute_grep 'src/other.js' "$top"
+
+  # No concept names a session file: fall back to concepts seen on the session date.
+  jq -n '{version: 1, concepts: [
+    {name: "a", label: "Seen that day", status: "new", last_seen: "2026-10-16"},
+    {name: "b", label: "Seen another day", status: "new", last_seen: "2026-09-01"}]}' > "$vl/knowledge.json"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  first_screen > "$top"
+  grep -q 'seen on 2026-10-16. None are linked' "$top"
+  grep -q '<strong>Seen that day</strong>' "$top"
+  refute_grep 'Seen another day' "$top"
+
+  rm "$vl/knowledge.json"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  first_screen | grep -q 'No knowledge-ledger concepts are linked to this session yet'
+}
+
+@test "file links are URL-encoded and paths outside the project are not linked" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Build the strange file names feature"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/a b&c?.js","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"/etc/outside.conf","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/../../up.txt","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/..","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"..","action":"created"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local page; page="$(session_file_for_test_project)"
+  grep -q '<a href="../../../src/a%20b%26c%3F.js"><code>src/a b&amp;c?.js</code></a>' "$page"
+  grep -q '<li><code>/etc/outside.conf</code>' "$page"
+  # A ".." segment anywhere climbs out of the project: shown, never linked.
+  grep -q '<li><code>src/../../up.txt</code>' "$page"
+  grep -q '<li><code>src/..</code>' "$page"
+  grep -q '<li><code>..</code>' "$page"
+  refute_grep -F 'href="../../../src/..' "$page"
+  refute_grep -F 'href="../../../.."' "$page"
+}
+
+@test "failures of one command with different exit codes are reported separately" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Make the build pass on every target please"}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":1}}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":2}}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":0}}' \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local top="$BATS_TEST_TMPDIR/top.html" pack
+  first_screen > "$top"
+  pack="$(pack_file_for_test_project)"
+  grep -q '<code>make test</code> failed (exit 1) · turn 1' "$top"
+  grep -q '<code>make test</code> failed (exit 2) · turn 1' "$top"
+  refute_grep 'failed 2×' "$top"
+  grep -qx '`make test` failed once with exit 1 (turn 1) and passed in turn 1.' "$pack"
+  grep -qx '`make test` failed once with exit 2 (turn 1) and passed in turn 1.' "$pack"
+}
+
+@test "What broke shows at most five groups and points to the rest" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  {
+    echo '{"event":"user_prompt","prompt":"Build seven tools and run each one"}'
+    for i in 1 2 3 4 5 6 7; do
+      printf '{"event":"tool_use","tool":"Bash","command":"tool%s --check","action":"ran","context":{"exit_code":2}}\n' "$i"
+    done
+  } > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local top="$BATS_TEST_TMPDIR/top.html"
+  first_screen > "$top"
+  [ "$(grep -o 'class="break open"' "$top" | wc -l | tr -d ' ')" -eq 5 ]
+  grep -q '2 more in the <a href="#commands">command log</a>' "$top"
+  grep -q 'tool1 --check' "$top"
+  refute_grep 'tool6 --check' "$top"
+}
+
+@test "every briefing page follows the system dark mode" {
+  write_learning_session
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local f
+  for f in "$(session_file_for_test_project)" "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" "$SCRIPTS_DIR/lib/briefing-health.html"; do
+    grep -q '@media (prefers-color-scheme: dark)' "$f"
+    grep -q 'color-scheme:light dark' "$f"
+  done
+}
+
+# --- The NotebookLM pack as prose (S9) ----------------------------------------
+
+@test "the pack tells the session as prose: the ask, the files, and each failure with its fix" {
+  write_learning_session
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local pack; pack="$(pack_file_for_test_project)"
+  grep -q '^You asked: "Build an Express API with two routes and a test for each" (turn 2). Later you asked "fix the failing test" and "add a /health route".' "$pack"
+  grep -q 'The agent created 2 files, `src/app.js` and `test/app.test.js`; edited 1 file, `src/app.js`. It ran 4 commands, and 2 of them failed.' "$pack"
+  grep -qx '| `src/app.js` | source | created, edited 2 times |' "$pack"
+  grep -qx '`npm test` failed once with exit 1 (turn 2) and passed in turn 3.' "$pack"
+  grep -qx '`npm run lint` failed once with exit 1 (turn 5). It still fails: nothing later in the session ran it successfully.' "$pack"
+  grep -q 'What does the command that still fails mean' "$pack"
+  refute_grep 'ls .vibe-learn/digests' "$pack"
+}
+
+@test "the pack shows a multi-line command as its first line, never its body" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  jq -nc '{event: "user_prompt", prompt: "Write the config file and check it twice"},
+    {event: "tool_use", tool: "Bash", command: "cat > app.conf <<'"'"'EOF'"'"'\nport = 8080\nEOF", action: "ran", context: {exit_code: 1}},
+    {event: "tool_use", tool: "Bash", command: "cat > app.conf <<'"'"'EOF'"'"'\nport = 8080\nEOF", action: "ran", context: {exit_code: 0}}' \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local pack; pack="$(pack_file_for_test_project)"
+  grep -qF "\`cat > app.conf <<'EOF'\` (+2 lines) failed once with exit 1 (turn 1) and passed in turn 1." "$pack"
+  # Outside code fences no line is a heredoc body or terminator.
+  [ -z "$(awk '/^(```|~~~~)/ { fence = !fence; next } !fence && (/^EOF$/ || /^port = /)' "$pack")" ]
+}
+
+@test "the pack never follows an untracked symlink out of the project" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" outside="$BATS_TEST_TMPDIR/outside"
+  mkdir -p "$vl" "$outside" "$TEST_PROJECT_DIR/src"
+  printf 'LINKED_SECRET\n' > "$outside/secret.txt"
+  printf 'export const ok = "INSIDE_BODY";\n' > "$TEST_PROJECT_DIR/src/ok.js"
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf '.vibe-learn/\n' > "$TEST_PROJECT_DIR/.gitignore"
+  ln -s "$outside" "$TEST_PROJECT_DIR/link"
+  ln -s "$outside/secret.txt" "$TEST_PROJECT_DIR/src/alias.txt"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Read the linked config and add the ok module"}' \
+    '{"event":"tool_use","tool":"Write","file":"link/secret.txt","action":"edited"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/alias.txt","action":"edited"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/ok.js","action":"created"}' > "$vl/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local pack; pack="$(pack_file_for_test_project)"
+  grep -qF '+export const ok = "INSIDE_BODY";' "$pack"
+  refute_grep 'LINKED_SECRET' "$pack"
+  refute_grep 'LINKED_SECRET' "$(session_file_for_test_project)"
+}
+
+@test "the pack and page show files git does not track yet, but never ignored ones" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  mkdir -p "$vl" "$TEST_PROJECT_DIR/src"
+  git -C "$TEST_PROJECT_DIR" init -q
+  printf '.env\n.vibe-learn/\n' > "$TEST_PROJECT_DIR/.gitignore"
+  printf 'export const beta = () => "BETA_BODY";\n' > "$TEST_PROJECT_DIR/src/beta.js"
+  # Written by a shell command, then edited: logged only as an edit.
+  printf 'export const gamma = "GAMMA_BODY";\n' > "$TEST_PROJECT_DIR/src/gamma.js"
+  printf 'TOKEN=IGNORED_SECRET\n' > "$TEST_PROJECT_DIR/.env"
+  # A path that climbs out of the project through src/.. is not the project's.
+  local outside; outside="$(basename "$TEST_PROJECT_DIR").outside"
+  printf 'OUTSIDE_SECRET\n' > "$TEST_PROJECT_DIR/../$outside"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Add the beta module and its env file"}' \
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"$TEST_PROJECT_DIR/src/beta.js\",\"action\":\"created\"}" \
+    '{"event":"tool_use","tool":"Write","file":".env","action":"created"}' \
+    '{"event":"tool_use","tool":"Edit","file":"src/gamma.js","action":"edited"}' \
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/../../$outside\",\"action\":\"created\"}" \
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/x\\n../$outside\",\"action\":\"created\"}" > "$vl/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  rm "$TEST_PROJECT_DIR/../$outside"
+  local pack; pack="$(pack_file_for_test_project)"
+  refute_grep 'OUTSIDE_SECRET' "$pack"
+  grep -qx '+++ b/src/beta.js' "$pack"
+  grep -qF '+export const beta = () => "BETA_BODY";' "$pack"
+  grep -qF '+export const gamma = "GAMMA_BODY";' "$pack"
+  grep -q 'BETA_BODY' "$(session_file_for_test_project)"
+  refute_grep 'IGNORED_SECRET' "$pack"
+  refute_grep 'IGNORED_SECRET' "$(session_file_for_test_project)"
+}
+
+# --- vibe-learn briefing --json (S17) -----------------------------------------
+
+@test "briefing --json counts a learning turn the page cache skips, and fails with nothing on stdout when there is no session" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" before
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  before="$(jq '.turns.learning' "$vl"/briefing/sessions/*.json)"
+  echo '{"event":"user_prompt","prompt":"/vibe-learn:quiz","kind":"learning"}' >> "$vl/session-log.jsonl"
+  # The page stays cached: a learning turn changes nothing it shows.
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale | grep -q "up to date"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json > "$BATS_TEST_TMPDIR/out" 2> "$BATS_TEST_TMPDIR/err"
+  [ "$(jq -r .goal "$BATS_TEST_TMPDIR/out")" = "Build an Express API with two routes and a test for each" ]
+  [ "$(jq '.turns.learning' "$BATS_TEST_TMPDIR/out")" -eq $((before + 1)) ]
+  [ "$(jq '.turns.last_is_learning' "$BATS_TEST_TMPDIR/out")" = true ]
+  [ "$(jq -r '.timeline[-1].text' "$BATS_TEST_TMPDIR/out")" = /vibe-learn:quiz ]
+
+  : > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json
+  [ "$status" -eq 1 ]
+  [ "$output" = "No session activity to brief yet." ]
+}
+
+@test "briefing --json --session prints an earlier session's facts by id" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  # The next session replaces the log and meta.
+  echo '{"session_id":"next","started_at":"2026-10-17T09:00:00Z"}' > "$vl/session-meta.json"
+  echo '{"event":"user_prompt","prompt":"Add the delete endpoint with its tests"}' > "$vl/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json --session learn-test
+  [ "$status" -eq 0 ]
+  [ "$(jq -r .goal <<<"$output")" = "Build an Express API with two routes and a test for each" ]
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json --session=next
+  [ "$(jq -r .goal <<<"$output")" = "Add the delete endpoint with its tests" ]
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --json --session nope
+  [ "$status" -eq 1 ]
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --session learn-test
+  [ "$status" -eq 1 ]
+
+  # The index card of the earlier session shows its own goal and numbers.
+  grep -q '<p class="card-goal">Build an Express API with two routes and a test for each</p>' "$vl/briefing/index.html"
+  grep -q '<span class="tag danger">2 failed</span>' "$vl/briefing/index.html"
+}
+
+@test "vibe-learn briefing --json goes through the CLI" {
+  write_learning_session
+  run bash -c "bash '$SCRIPTS_DIR/cli.sh' briefing '$TEST_PROJECT_DIR' --json 2>/dev/null | jq -r .schema_version"
+  [ "$output" = 1 ]
 }

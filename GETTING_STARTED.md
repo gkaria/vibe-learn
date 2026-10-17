@@ -199,12 +199,13 @@ vibe-learn briefing
 This prints the path and regenerates if needed:
 
 ```
-Session briefing index: /your-project/.vibe-learn/briefing/index.html
-Session briefing:  /your-project/.vibe-learn/briefing/sessions/2026-06-05-myproject-abc.html
-NotebookLM pack:   /your-project/.vibe-learn/briefing/exports/2026-06-05-myproject-abc-notebooklm-pack.md
+Session briefing index:  /your-project/.vibe-learn/briefing/index.html
+Session briefing:        /your-project/.vibe-learn/briefing/sessions/2026-06-05-myproject-abc.html
+Session facts (JSON):    /your-project/.vibe-learn/briefing/sessions/2026-06-05-myproject-abc.json
+NotebookLM pack:         /your-project/.vibe-learn/briefing/exports/2026-06-05-myproject-abc-notebooklm-pack.md
 ```
 
-Open `index.html` directly in your browser — no server needed. You'll see the session index, and from there you can open the full briefing which includes the maintainer brief, file tour, command log, diff, and study queue.
+Open `index.html` directly in your browser — no server needed. You'll see the session index, and from there you can open the session page: what was built and why, what to understand (ledger concepts linked to the files they came from), and what broke and how it was fixed, with the full record (timeline, file tour, command log, diff, study queue) one click below.
 
 ---
 

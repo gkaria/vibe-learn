@@ -11,7 +11,7 @@ vibe-learn — learn from agent-built coding sessions
 
 Usage:
   vibe-learn install    [target-dir] [--assistant=claude-code|codex|opencode|grok|all]
-  vibe-learn briefing   [target-dir] [--latest] [--if-stale]
+  vibe-learn briefing   [target-dir] [--latest] [--if-stale] [--json [--session <id>]]
   vibe-learn recap      [target-dir] [--days=7] [--save]
   vibe-learn health     [target-dir] [--days=14|all] [--by=harness|model] [--all] [--json] [--save] [--redact]
   vibe-learn audio-prep [target-dir]

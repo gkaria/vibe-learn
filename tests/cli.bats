@@ -57,6 +57,8 @@ load test_helper
   run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "NotebookLM pack: .*-ap-1-notebooklm-pack.md"
+  # The prompt to paste is the pack's own opening paragraph.
+  echo "$output" | grep -qx "  Create a maintainer-focused audio overview of this session. Explain what "
   [ -n "$(ls "$TEST_PROJECT_DIR"/.vibe-learn/briefing/exports/*-ap-1-notebooklm-pack.md)" ]
 }
 

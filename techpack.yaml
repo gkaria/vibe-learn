@@ -115,13 +115,60 @@ components:
       fileType: hook
 
   - id: script-briefing
-    description: vibe-learn briefing — static HTML session briefing and NotebookLM pack, built at rotation and by /learn and /digest
+    description: vibe-learn briefing — static HTML session briefing and NotebookLM pack, built on demand and by /learn and /digest
     dependencies: [jq]
     type: generic
     installAction:
       type: copyPackFile
       source: scripts/briefing.sh
       destination: briefing.sh
+      fileType: hook
+
+  - id: script-briefing-render
+    description: jq renderer for the briefing pages
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/briefing.jq
+      destination: briefing.jq
+      fileType: hook
+
+  - id: script-briefing-health-template
+    description: Template for the briefing's assistant health page
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/briefing-health.html
+      destination: briefing-health.html
+      fileType: hook
+
+  - id: script-briefing-index-template
+    description: Template for the briefing index page
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/briefing-index.html
+      destination: briefing-index.html
+      fileType: hook
+
+  - id: script-briefing-session-template
+    description: Template for the briefing session page
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/briefing-session.html
+      destination: briefing-session.html
+      fileType: hook
+
+  - id: script-briefing-pack
+    description: jq renderer for the NotebookLM source pack
+    dependencies: [jq]
+    type: generic
+    installAction:
+      type: copyPackFile
+      source: scripts/lib/pack.jq
+      destination: pack.jq
       fileType: hook
 
   - id: script-recap

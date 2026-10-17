@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>vibe-learn — {{project}} — {{date}}</title>
+  <style>
+    :root{
+      color-scheme:light dark;
+      --bg:#faf9f5; --surface:#f1efe7; --surface-2:#e8e6dc;
+      --text:#141413; --muted:#706f68; --line:#d8d4c8;
+      --accent:#d97757; --accent-blue:#4f7fae; --accent-green:#788c5d;
+      --danger:#9f3d32; --warning:#b5792a; --success:#617a4b;
+      --ok-bg:#e8f0e1; --ok-line:#c8d8b8; --info:#4a7aa8; --info-bg:#e8eef5; --info-line:#c0d0e0;
+      --bad-bg:#fde8e4; --bad-line:#f0c8c0; --fail-row:#f8ece9;
+      --script:#8a6830; --script-bg:#f3ede0; --script-line:#ddd0b0;
+      --config:#6a4a88; --config-bg:#ece7f0; --config-line:#ccc0d8;
+      --db:#4a7a3d; --db-bg:#e4f0e8; --db-line:#b8d8c0;
+      --code-bg:#1e1c18;
+      --radius:8px; --shadow:0 1px 3px rgba(20,20,19,.1);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#1c1b19; --surface:#262522; --surface-2:#312f2b;
+        --text:#ece9e1; --muted:#a8a498; --line:#413e38;
+        --accent:#d97757; --accent-blue:#8fb8e0; --accent-green:#9db382;
+        --danger:#ec8a7a; --warning:#e0a958; --success:#9db382;
+        --ok-bg:#25301f; --ok-line:#3e5232; --info:#8fb8e0; --info-bg:#1f2a36; --info-line:#34475c;
+        --bad-bg:#3a201c; --bad-line:#5e3129; --fail-row:#2e1f1c;
+        --script:#d6b36f; --script-bg:#332a1b; --script-line:#54452b;
+        --config:#b99ad6; --config-bg:#2c2433; --config-line:#4a3d57;
+        --db:#8cc47d; --db-bg:#1e2e22; --db-line:#355440;
+        --code-bg:#141311;
+        --shadow:0 1px 3px rgba(0,0,0,.45);
+      }
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Lora,Georgia,serif;overflow-x:hidden;}
+    a{color:var(--accent-blue);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;}
+    h1,h2,h3,h4{font-family:Poppins,Arial,sans-serif;font-weight:700;line-height:1.15;margin:0 0 12px;}
+    h1{font-size:clamp(22px,3vw,36px);}
+    h2{font-size:20px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:20px;}
+    h3{font-size:15px;}
+    p{margin:0 0 10px;}
+    strong.tl-type{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+    .muted{color:var(--muted);}
+
+    /* Site header */
+    .site-header{background:var(--surface);border-bottom:1px solid var(--line);padding:20px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+    .header-left{min-width:0;flex:1 1 420px;}
+    .header-left .eyebrow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.03em;}
+    .header-left .eyebrow a{color:var(--muted);}
+    .header-left .eyebrow a:hover{color:var(--text);text-decoration:none;}
+    .header-left .goal{font-size:17px;margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .header-left .counts{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);margin:0;}
+
+    /* Two-column layout */
+    .layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px;}
+    .layout>*{min-width:0;}
+
+    /* Sticky nav */
+    nav{position:sticky;top:24px;align-self:start;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;display:grid;gap:2px;}
+    nav a{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;color:var(--muted);transition:background .1s,color .1s;}
+    nav a:hover,nav a.active{background:var(--surface-2);color:var(--text);text-decoration:none;}
+    nav .nbadge{background:var(--surface-2);border-radius:999px;padding:1px 6px;font-size:10px;min-width:18px;text-align:center;}
+    nav a.active .nbadge{background:var(--accent);color:#fff;}
+    nav .nav-group{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:14px 10px 4px;}
+
+    /* Sections */
+    section{margin-bottom:40px;scroll-margin-top:24px;}
+    .qnum{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:var(--accent);color:#fff;font-size:14px;margin-right:10px;vertical-align:2px;}
+    .lede{color:var(--muted);font-size:14px;}
+    .empty{color:var(--muted);font-size:14px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:12px 16px;}
+
+    /* 1 · What was built */
+    blockquote.ask{margin:0 0 6px;padding:12px 18px;background:var(--surface);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;font-size:17px;overflow-wrap:anywhere;}
+    .ask-meta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-bottom:18px;}
+    ol.asks{list-style:none;padding:0;margin:0 0 20px;display:grid;gap:6px;}
+    ol.asks li{display:flex;gap:10px;align-items:baseline;font-size:14px;overflow-wrap:anywhere;min-width:0;}
+    .turn{flex-shrink:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);}
+    .areas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+    .area-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;min-width:0;}
+    .area-group h4{font-size:13px;margin:0 0 8px;display:flex;gap:8px;align-items:center;}
+    ul.flist{list-style:none;padding:0;margin:0;display:grid;gap:4px;}
+    ul.flist li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;min-width:0;}
+    ul.flist code{overflow-wrap:anywhere;word-break:break-word;}
+    .ops{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted);}
+
+    /* 2 · What to understand */
+    ul.concepts{list-style:none;padding:0;margin:0;display:grid;gap:10px;}
+    .concept{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;min-width:0;}
+    .concept.shaky{border-left:3px solid var(--warning);}
+    .concept-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;}
+    .concept-files{font-size:14px;overflow-wrap:anywhere;}
+    .concept-meta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:4px;}
+    .chip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:999px;padding:2px 8px;border:1px solid;white-space:nowrap;}
+    .chip.status-new{background:var(--info-bg);color:var(--info);border-color:var(--info-line);}
+    .chip.status-shaky{background:var(--bad-bg);color:var(--danger);border-color:var(--bad-line);}
+    .chip.status-solid{background:var(--ok-bg);color:var(--success);border-color:var(--ok-line);}
+
+    /* 3 · What broke */
+    ul.breaks{list-style:none;padding:0;margin:0;display:grid;gap:8px;}
+    .break{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;font-size:14px;min-width:0;overflow-wrap:anywhere;}
+    .break.open{border-left:3px solid var(--danger);}
+    .break.fixed{border-left:3px solid var(--success);}
+    .break .fix{color:var(--muted);margin-top:2px;}
+    .break.open .fix{color:var(--danger);}
+
+    /* Full record */
+    details#full-record{border-top:1px solid var(--line);padding-top:8px;}
+    details#full-record>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:8px 0 16px;}
+    details#full-record>summary::-webkit-details-marker{display:none;}
+    details#full-record>summary h2{border:0;padding:0;margin:0;}
+    details#full-record>summary h2::before{content:"▸ ";color:var(--muted);}
+    details#full-record[open]>summary h2::before{content:"▾ ";}
+    details#full-record>summary span{color:var(--muted);font-size:14px;}
+
+    /* Buttons */
+    .actions{display:flex;gap:8px;flex-wrap:wrap;}
+    button,.button{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:var(--radius);padding:8px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;text-decoration:none;cursor:pointer;box-shadow:var(--shadow);transition:background .1s,color .1s;}
+    button:hover,.button:hover{background:var(--surface-2);text-decoration:none;}
+    button.primary,.button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+    button.primary:hover,.button.primary:hover{opacity:.9;}
+
+    /* Overview / Session brief */
+    .brief-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+    .brief-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+    .brief-card h3{font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;}
+    .brief-card .bvalue{font-size:28px;font-weight:700;font-family:Poppins,Arial,sans-serif;line-height:1;margin-bottom:6px;}
+    .brief-card .bvalue.ok{color:var(--success);}
+    .brief-card .bvalue.warn{color:var(--warning);}
+    .brief-card .bvalue.danger{color:var(--danger);}
+    .brief-card .bdetail{font-size:13px;color:var(--muted);line-height:1.4;}
+    .summary-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;max-height:320px;overflow-y:auto;}
+
+    /* Assistant health card */
+    #health .health-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:16px;}
+    #health .health-head h2{border:0;padding:0;margin:0;}
+    #health .who{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);}
+    #health .delta{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;border-radius:999px;padding:1px 7px;border:1px solid var(--line);margin-left:6px;white-space:nowrap;vertical-align:3px;}
+    #health .delta.bad{color:var(--danger);background:var(--bad-bg);border-color:var(--bad-line);}
+    #health .card-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;}
+    #health .usage{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);margin:0 0 12px;overflow-wrap:anywhere;}
+
+    /* Timeline */
+    .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+    .filters button{padding:5px 11px;font-size:11px;}
+    .filters button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .filters .toggle{margin-left:auto;}
+    ol.timeline{list-style:none;padding:0;margin:0;display:grid;gap:8px;}
+    ol.timeline li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;display:flex;gap:12px;align-items:flex-start;}
+    ol.timeline li[hidden]{display:none;}
+    ol.timeline:not(.show-learning) li[data-learning]{display:none;}
+    ol.timeline li p{margin:4px 0 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere;word-break:break-word;}
+    .dot{flex-shrink:0;width:10px;height:10px;border-radius:999px;margin-top:3px;background:var(--accent);}
+    .dot.command{background:var(--accent-blue);}
+    .dot.file{background:var(--accent-green);}
+    .tl-body{min-width:0;flex:1;}
+
+    /* File tour */
+    ul.list{list-style:none;padding:0;margin:0;display:grid;gap:6px;}
+    .file-row{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;max-width:100%;}
+    .fpath{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
+    .pill{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:999px;padding:2px 7px;border:1px solid;white-space:nowrap;}
+    .pill.action-created{background:var(--ok-bg);color:var(--success);border-color:var(--ok-line);}
+    .pill.action-edited{background:var(--info-bg);color:var(--info);border-color:var(--info-line);}
+    .pill.action-deleted{background:var(--bad-bg);color:var(--danger);border-color:var(--bad-line);}
+    .pill.learning{background:var(--surface-2);color:var(--muted);border-color:var(--line);margin-left:6px;}
+    .area{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:4px;padding:2px 6px;border:1px solid;white-space:nowrap;}
+    .area-tests{background:var(--ok-bg);color:var(--success);border-color:var(--ok-line);}
+    .area-adapter{background:var(--info-bg);color:var(--info);border-color:var(--info-line);}
+    .area-script{background:var(--script-bg);color:var(--script);border-color:var(--script-line);}
+    .area-config{background:var(--config-bg);color:var(--config);border-color:var(--config-line);}
+    .area-docs{background:var(--surface-2);color:var(--muted);border-color:var(--line);}
+    .area-auth{background:var(--bad-bg);color:var(--danger);border-color:var(--bad-line);}
+    .area-database{background:var(--db-bg);color:var(--db);border-color:var(--db-line);}
+    .area-source{background:var(--surface);color:var(--muted);border-color:var(--line);}
+
+    /* Command log */
+    .command-row{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:9px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;min-width:0;max-width:100%;}
+    .command-row.fail{border-color:var(--bad-line);background:var(--fail-row);}
+    .cmd-text{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
+    .status{flex-shrink:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;border-radius:999px;padding:2px 7px;border:1px solid var(--line);background:var(--surface-2);}
+    .fail .status{color:var(--danger);border-color:var(--bad-line);background:var(--bad-bg);}
+    .ok .status{color:var(--success);border-color:var(--ok-line);background:var(--ok-bg);}
+
+    /* Code excerpts */
+    .diff-wrapper{position:relative;}
+    .diff-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px;}
+    pre{white-space:pre;overflow-x:auto;background:var(--code-bg);color:#e8e4d8;border-radius:var(--radius);padding:18px;max-height:560px;overflow-y:auto;margin:0;font-size:12px;line-height:1.55;tab-size:2;}
+    pre .dh{color:#8a877c;display:block;}
+    pre .dk{color:#8fb8e0;display:block;font-weight:600;}
+    pre .da{color:#7db368;display:block;background:rgba(90,138,74,.13);}
+    pre .dd{color:#d07a7a;display:block;background:rgba(192,80,80,.12);}
+    pre .dc{color:#c8c4b4;display:block;}
+
+    /* Study queue */
+    .study-list{display:grid;gap:8px;}
+    .study-item{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;font-size:14px;transition:background .1s;}
+    .study-item:hover{background:var(--surface-2);}
+    .study-item input[type=checkbox]{width:15px;height:15px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);}
+    .study-item.priority{border-left:3px solid var(--warning);padding-left:13px;}
+    .study-item span{line-height:1.55;overflow-wrap:anywhere;}
+
+    /* Audio export */
+    .pack-preview{max-height:320px;font-size:11.5px;white-space:pre-wrap;overflow-wrap:anywhere;}
+    .export-intro{font-size:14px;color:var(--muted);margin-bottom:14px;}
+
+    /* Responsive */
+    @media(max-width:840px){
+      .site-header{padding:16px 20px;}
+      .layout{display:block;padding:20px;}
+      nav{position:static;display:flex;flex-wrap:wrap;gap:4px;margin-bottom:24px;}
+      nav a{flex:0 0 auto;}
+      nav .nav-group{display:none;}
+      .brief-grid{grid-template-columns:1fr 1fr;}
+    }
+    @media(max-width:520px){
+      .brief-grid{grid-template-columns:1fr;}
+      .command-row{display:block;}
+      .status{display:inline-block;margin-top:6px;}
+      .filters .toggle{margin-left:0;}
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-left">
+      <div class="eyebrow"><a href="../index.html">vibe-learn</a> / {{project}} / {{date}}</div>
+      <h1>Session briefing</h1>
+      <p class="goal">{{goal}}</p>
+      <p class="counts">{{counts}}</p>
+    </div>
+    <div class="actions">
+      <a class="button primary" href="../exports/{{pack_name}}" download>NotebookLM pack</a>
+      <button type="button" data-copy-pack>Copy source pack</button>
+      <button type="button" data-copy-prompt>Copy audio prompt</button>
+      <a class="button" href="../index.html">← Index</a>
+    </div>
+  </header>
+  <div class="layout">
+    <nav aria-label="Sections">
+      <a href="#built">What was built</a>
+      <a href="#understand">What to understand <span class="nbadge">{{concept_count}}</span></a>
+      <a href="#broke">What broke <span class="nbadge">{{failures}}</span></a>{{health_nav}}
+      <div class="nav-group">Full record</div>
+      <a href="#overview">Session brief</a>
+      <a href="#timeline">Timeline <span class="nbadge" id="tl-count"></span></a>
+      <a href="#files">Files <span class="nbadge">{{files}}</span></a>
+      <a href="#commands">Commands <span class="nbadge">{{commands}}</span></a>
+      <a href="#code">Code excerpts</a>
+      <a href="#study">Study queue</a>{{knowledge_nav}}
+      <a href="#audio">Audio export</a>
+    </nav>
+    <main>
+
+      <section id="built">
+        <h2><span class="qnum">1</span>What was built and why</h2>
+{{built}}
+      </section>
+
+      <section id="understand">
+        <h2><span class="qnum">2</span>What to understand</h2>
+{{understand}}
+      </section>
+
+      <section id="broke">
+        <h2><span class="qnum">3</span>What broke and how it was fixed</h2>
+{{broke}}
+      </section>{{health_section}}
+
+      <details id="full-record">
+        <summary><h2>Full record</h2><span>session brief, timeline, file tour, command log, code, study queue, audio export</span></summary>
+
+      <section id="overview">
+        <h2>Session brief</h2>
+        <div class="brief-grid">
+          <div class="brief-card">
+            <h3>What changed</h3>
+            <div class="bvalue">{{files}}</div>
+            <div class="bdetail">{{created}} created · {{edited}} edited · {{deleted}} deleted</div>
+          </div>
+          <div class="brief-card">
+            <h3>Why it matters</h3>
+            <div class="bdetail" style="margin-top:4px;">These files shape the parts of the system you may need to debug, extend, or support.</div>
+          </div>
+          <div class="brief-card">
+            <h3>Inspect first</h3>
+            <div class="bdetail" style="margin-top:4px;">Adapter, script, config, auth, db, and test files — in that order.</div>
+          </div>
+          <div class="brief-card">
+            <h3>What could break</h3>
+            <div class="bvalue {{failure_class}}">{{failures}}</div>
+            <div class="bdetail">{{failure_detail}}</div>
+          </div>
+        </div>
+        <div class="summary-panel">{{summary}}</div>
+      </section>
+
+      <section id="timeline">
+        <h2>Session Timeline</h2>
+        <div class="filters">
+          <button type="button" class="active" data-filter="all">All</button>
+          <button type="button" data-filter="file">Files</button>
+          <button type="button" data-filter="command">Commands</button>
+          <button type="button" data-filter="prompt">Prompts</button>
+          <button type="button" class="toggle" data-toggle-learning aria-pressed="false">Show learning turns ({{learning_events}})</button>
+        </div>
+        <ol class="timeline" data-timeline>{{timeline}}</ol>
+      </section>
+
+      <section id="files">
+        <h2>File Tour</h2>
+        <ul class="list">{{file_rows}}</ul>
+      </section>
+
+      <section id="commands">
+        <h2>Command Log</h2>
+        <ul class="list">{{command_rows}}</ul>
+      </section>
+
+      <section id="code">
+        <h2>Code Excerpts</h2>
+        <div class="diff-wrapper">
+          <div class="diff-toolbar">
+            <button type="button" data-copy-diff>Copy diff</button>
+          </div>
+          <pre id="diff-pre">{{diff_html}}</pre>
+        </div>
+      </section>
+
+      <section id="study">
+        <h2>Study Queue</h2>
+        <div class="study-list">{{study}}</div>
+      </section>{{knowledge_section}}
+
+      <section id="audio">
+        <h2>Audio Export</h2>
+        <p class="export-intro">Upload the source pack to NotebookLM to generate a maintainer-focused audio overview — no setup required.</p>
+        <div class="actions" style="margin-bottom:14px;">
+          <a class="button primary" href="../exports/{{pack_name}}" download>Download NotebookLM pack</a>
+          <button type="button" data-copy-pack>Copy source pack</button>
+          <button type="button" data-copy-prompt>Copy audio prompt</button>
+        </div>
+        <pre class="pack-preview">{{pack_html}}</pre>
+      </section>
+
+      </details>
+    </main>
+  </div>
+  <script>
+    const packText = {{pack_json}};
+    const diffText = {{diff_json}};
+    const audioPrompt = {{audio_prompt}};
+
+    function copyText(text, button) {
+      if (!text) return;
+      navigator.clipboard?.writeText(text).then(() => {
+        const old = button.textContent;
+        button.textContent = "Copied!";
+        button.classList.add("primary");
+        setTimeout(() => {
+          button.textContent = old;
+          button.classList.remove("primary");
+        }, 1400);
+      });
+    }
+
+    document.querySelectorAll("[data-copy-pack]").forEach(b => b.addEventListener("click", () => copyText(packText, b)));
+    document.querySelectorAll("[data-copy-prompt]").forEach(b => b.addEventListener("click", () => copyText(audioPrompt, b)));
+    document.querySelectorAll("[data-copy-diff]").forEach(b => b.addEventListener("click", () => copyText(diffText, b)));
+
+    // A link into the collapsed Full record opens it first.
+    const record = document.getElementById("full-record");
+    const reveal = id => { const el = id && document.getElementById(id); if (el && record.contains(el)) record.open = true; };
+    document.querySelectorAll("a[href^='#']").forEach(a => a.addEventListener("click", () => reveal(a.getAttribute("href").slice(1))));
+    reveal(location.hash.slice(1));
+
+    const timeline = document.querySelector("[data-timeline]");
+    const tlItems = timeline.querySelectorAll("li");
+    const tlCount = document.getElementById("tl-count");
+    const countShown = () => { tlCount.textContent = timeline.querySelectorAll(timeline.classList.contains("show-learning") ? "li" : "li:not([data-learning])").length; };
+    countShown();
+
+    document.querySelectorAll("[data-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-filter]").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const f = btn.dataset.filter;
+        tlItems.forEach(li => { li.hidden = f !== "all" && li.dataset.kind !== f; });
+      });
+    });
+    document.querySelectorAll("[data-toggle-learning]").forEach(btn => btn.addEventListener("click", () => {
+      const on = timeline.classList.toggle("show-learning");
+      btn.setAttribute("aria-pressed", on);
+      btn.classList.toggle("active", on);
+      countShown();
+    }));
+
+    const sections = document.querySelectorAll("section[id]");
+    const navLinks = document.querySelectorAll("nav a[href^='#']");
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting)
+          navLinks.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + e.target.id));
+      });
+    }, { rootMargin: "-20% 0px -65% 0px" });
+    sections.forEach(s => obs.observe(s));
+  </script>
+</body>
+</html>

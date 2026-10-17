@@ -171,7 +171,7 @@ teardown() {
 
 @test "setup ships scripts/lib so the installed capture hook marks learning turns" {
   bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code >/dev/null
-  [ -f "$FAKE_INSTALL_DIR/scripts/lib/session.jq" ]
+  [ "$(ls "$FAKE_INSTALL_DIR/scripts/lib")" = "$(ls "$SCRIPTS_DIR/lib")" ]
   jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/digest"}' \
     | bash "$FAKE_INSTALL_DIR/scripts/capture-prompt.sh"
   [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
@@ -197,8 +197,9 @@ teardown() {
     /fileType: hook/ { kind = "hook" }
     $1 == "source:" { src = $2 } $1 == "destination:" { dst = $2 }
     END { flush() }' "$VIBE_LEARN_DIR/techpack.yaml")
-  # Every script that includes session.jq, and briefing.sh, sits beside the hooks.
-  for f in session.jq identity.sh briefing.sh $(grep -l 'include "session"' "$SCRIPTS_DIR"/*.sh | xargs -n 1 basename); do
+  # Every script that includes session.jq, briefing.sh, and every lib file
+  # (jq modules and page templates) sits beside the hooks.
+  for f in identity.sh briefing.sh $(ls "$SCRIPTS_DIR/lib") $(grep -l 'include "session"' "$SCRIPTS_DIR"/*.sh | xargs -n 1 basename); do
     [ -f "$hooks/$f" ] || { echo "not in the hooks directory: $f"; return 1; }
   done
 
@@ -225,6 +226,10 @@ teardown() {
   # Rotation: the finished session's health row.
   echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"tp-2\"}" | bash "$hooks/bootstrap.sh" >/dev/null
   [ "$(jq -r .session_id "$vl/health.jsonl")" = tp-1 ]
+  # The briefing finds its templates in the hooks directory too.
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "Build the beta module with its own tests"}' | bash "$hooks/capture-prompt.sh"
+  bash "$hooks/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  grep -q '^    const DATA = {' "$vl/briefing/health.html"
 }
 
 @test "config/defaults.json lists only keys some script reads" {

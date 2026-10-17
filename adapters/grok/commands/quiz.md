@@ -15,7 +15,7 @@ If none of these exist, skip ledger updates and say so briefly at the end — th
 Helper usage:
 
 ```bash
-bash <helper> record <name> --label="<Human label>" --status=<solid|shaky> [--notes="<what was shaky>"]
+bash <helper> record <name> --label="<Human label>" --status=<solid|shaky> [--notes="<what was shaky>"] ["--files=<path,path>"]
 bash <helper> due --days=14    # concepts due for review, as a JSON array
 bash <helper> list             # full ledger
 ```
@@ -60,7 +60,7 @@ Prefer "why" and "what would break" questions over trivia:
 
 1. Ask **one question at a time**. Wait for the user's answer before revealing anything.
 2. After each answer, respond with: what the user got right, what they missed, and a 1–2 sentence correct explanation. Never scold — the tone is a colleague checking understanding, not an exam.
-3. After the last question, record results: one `record` call per concept quizzed, with `--status=solid` for a substantially correct answer or `--status=shaky` for an incomplete or incorrect one. Use a stable kebab-case concept name (e.g. `jwt-refresh-tokens`) and a short human label. Add `--notes` describing what specifically was shaky.
+3. After the last question, record results: one `record` call per concept quizzed, with `--status=solid` for a substantially correct answer or `--status=shaky` for an incomplete or incorrect one. Use a stable kebab-case concept name (e.g. `jwt-refresh-tokens`) and a short human label. Add `--notes` describing what specifically was shaky. Add `"--files=<path,path>"` with the project-relative files the question was grounded in, so the briefing links the concept to them.
 4. Close with a short recap: concepts confirmed solid, concepts to revisit, and — if anything was shaky — a pointer to `/learn <topic>` for the shakiest one.
 
 If the session log is empty and no ledger exists, say vibe-learn has nothing to quiz on yet and stop.
