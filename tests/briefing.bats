@@ -500,11 +500,38 @@ first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_pr
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
   printf '%s\n' '{"event":"user_prompt","prompt":"Build the strange file names feature"}' \
     '{"event":"tool_use","tool":"Write","file":"src/a b&c?.js","action":"created"}' \
-    '{"event":"tool_use","tool":"Write","file":"/etc/outside.conf","action":"created"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+    '{"event":"tool_use","tool":"Write","file":"/etc/outside.conf","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/../../up.txt","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"src/..","action":"created"}' \
+    '{"event":"tool_use","tool":"Write","file":"..","action":"created"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
   local page; page="$(session_file_for_test_project)"
   grep -q '<a href="../../../src/a%20b%26c%3F.js"><code>src/a b&amp;c?.js</code></a>' "$page"
   grep -q '<li><code>/etc/outside.conf</code>' "$page"
+  # A ".." segment anywhere climbs out of the project: shown, never linked.
+  grep -q '<li><code>src/../../up.txt</code>' "$page"
+  grep -q '<li><code>src/..</code>' "$page"
+  grep -q '<li><code>..</code>' "$page"
+  refute_grep -F 'href="../../../src/..' "$page"
+  refute_grep -F 'href="../../../.."' "$page"
+}
+
+@test "failures of one command with different exit codes are reported separately" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  printf '%s\n' '{"event":"user_prompt","prompt":"Make the build pass on every target please"}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":1}}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":2}}' \
+    '{"event":"tool_use","tool":"Bash","command":"make test","action":"ran","context":{"exit_code":0}}' \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  local top="$BATS_TEST_TMPDIR/top.html" pack
+  first_screen > "$top"
+  pack="$(pack_file_for_test_project)"
+  grep -q '<code>make test</code> failed (exit 1) · turn 1' "$top"
+  grep -q '<code>make test</code> failed (exit 2) · turn 1' "$top"
+  refute_grep 'failed 2×' "$top"
+  grep -qx '`make test` failed once with exit 1 (turn 1) and passed in turn 1.' "$pack"
+  grep -qx '`make test` failed once with exit 2 (turn 1) and passed in turn 1.' "$pack"
 }
 
 @test "What broke shows at most five groups and points to the rest" {
@@ -578,7 +605,8 @@ first_screen() { sed '/<details id="full-record">/q' "$(session_file_for_test_pr
     "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"$TEST_PROJECT_DIR/src/beta.js\",\"action\":\"created\"}" \
     '{"event":"tool_use","tool":"Write","file":".env","action":"created"}' \
     '{"event":"tool_use","tool":"Edit","file":"src/gamma.js","action":"edited"}' \
-    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/../../$outside\",\"action\":\"created\"}" > "$vl/session-log.jsonl"
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/../../$outside\",\"action\":\"created\"}" \
+    "{\"event\":\"tool_use\",\"tool\":\"Write\",\"file\":\"src/x\\n../$outside\",\"action\":\"created\"}" > "$vl/session-log.jsonl"
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
   rm "$TEST_PROJECT_DIR/../$outside"
   local pack; pack="$(pack_file_for_test_project)"

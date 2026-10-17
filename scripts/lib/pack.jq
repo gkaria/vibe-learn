@@ -90,7 +90,7 @@ def pack($f):
   "## What broke and how it was fixed",
 
   (if $f.failures == [] then "Nothing failed in this session's work turns."
-   else ($f.failures | group_by([.command, .fixed_by]) | sort_by(.[0].turn)) as $groups
+   else ($f.failures | group_by([.command, .exit_code, .fixed_by]) | sort_by(.[0].turn)) as $groups
      | ($groups[:20] | map((map(.turn) | unique) as $turns | .[0] as $x
            | ($x.command | one_line(lines_of($x.turn; $x.command)))
              + " failed \(times(length)) with exit \($x.exit_code)"

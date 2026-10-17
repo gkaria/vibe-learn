@@ -249,11 +249,17 @@ def audio_prompt:
        " Spend extra time on the concepts under \"What you struggled with\"; the listener has struggled with these before."
      else "" end);
 
+# A path that stays inside the project: relative, with no ".." segment, and on
+# one line (briefing.sh reads them line by line). The page links only these,
+# and briefing.sh reads only these for code excerpts.
+def project_path: . != "" and (startswith("/") | not) and (test("[\n\r]") | not)
+  and all(split("/")[]; . != "..");
+
 # A project file as a link from sessions/<page>.html, three levels below the
-# project root; a path outside the project stays plain text.
+# project root; any other path stays plain text.
 def file_link:
-  if startswith("/") or startswith("../") or . == ".." then "<code>\(@html)</code>"
-  else "<a href=\"../../../\(split("/") | map(@uri) | concat("/"))\"><code>\(@html)</code></a>" end;
+  if project_path then "<a href=\"../../../\(split("/") | map(@uri) | concat("/"))\"><code>\(@html)</code></a>"
+  else "<code>\(@html)</code>" end;
 
 def plural($n; $one; $many): "\($n) \(if $n == 1 then $one else $many end)";
 
@@ -316,7 +322,7 @@ def understand_html:
 def broke_html:
   if .failures == [] then "        <p class=\"empty\">Nothing failed in this session's work turns.</p>"
   else
-    (.failures | group_by([.command, .fixed_by]) | sort_by((if .[0].fixed_by then 1 else 0 end), .[0].turn)) as $groups
+    (.failures | group_by([.command, .exit_code, .fixed_by]) | sort_by((if .[0].fixed_by then 1 else 0 end), .[0].turn)) as $groups
     | "        <ul class=\"breaks\">"
       + ($groups[:5] | map(
           (map(.turn) | unique) as $turns

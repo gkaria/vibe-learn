@@ -303,8 +303,8 @@ jq -Rnc -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" --slurpfile meta "$META_SRC" --slu
 # secrets), 60 lines each, 12 KB in all.
 diff_excerpt() {
   git -C "$TARGET_DIR" diff --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null || true
-  jq -r '.files[].path' "$WORK/facts.json" | while IFS= read -r f; do
-    case "$f" in /*|../*|*/../*|.vibe-learn/*) continue ;; esac
+  jq -r -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" 'include "briefing";
+    .files[].path | select(project_path and (startswith(".vibe-learn/") | not))' "$WORK/facts.json" | while IFS= read -r f; do
     [ -f "$TARGET_DIR/$f" ] || continue
     git -C "$TARGET_DIR" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 && continue
     git -C "$TARGET_DIR" check-ignore -q -- "$f" 2>/dev/null && continue
