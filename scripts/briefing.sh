@@ -87,6 +87,7 @@ SESSION_LOG="${LOG_ARG:-$LOG_DIR/session-log.jsonl}"
 META_FILE="${META_ARG:-$LOG_DIR/session-meta.json}"
 # The pause summary is read from beside the log, so a snapshot carries its own.
 SUMMARY_FILE="$(dirname "$SESSION_LOG")/pause-summary.txt"
+SUMMARY_OWNER_FILE="$(dirname "$SESSION_LOG")/pause-summary.session"
 LEDGER_FILE="$LOG_DIR/knowledge.json"
 BRIEFING_DIR="$LOG_DIR/briefing"
 SESSIONS_DIR="$BRIEFING_DIR/sessions"
@@ -248,8 +249,11 @@ GOAL="$(jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" --arg root "$TARGET_DIR" '
   [inputs | fromjson? | objects] | session_facts({}; $root) | .goal // empty' "$SESSION_LOG" 2>/dev/null || true)"
 GOAL="${GOAL:-No prompt captured for this session.}"
 
+# pause-summary.sh names the session that wrote the summary in
+# pause-summary.session; a summary left by an earlier session is not shown.
 PAUSE_SUMMARY=""
-if [ -f "$SUMMARY_FILE" ]; then
+if [ -f "$SUMMARY_FILE" ] && [ -f "$META_FILE" ] \
+  && [ "$(cat "$SUMMARY_OWNER_FILE" 2>/dev/null)" = "$(jq -c '[.session_id, .started_at]' "$META_FILE" 2>/dev/null)" ]; then
   PAUSE_SUMMARY="$(head -c 4000 "$SUMMARY_FILE")"
 fi
 

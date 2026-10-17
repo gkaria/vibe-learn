@@ -208,37 +208,67 @@ wait_for() { local i; for i in $(seq 1 50); do [ -e "$1" ] && return 0; sleep 0.
   [ ! -e "$root/briefing-done" ]
 }
 
-@test "two quick rotations while the lock is held each brief their own session" {
-  local vl="$TEST_PROJECT_DIR/.vibe-learn" day project page_a page_b i
-  start() { echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"$1\"}" | bash "$SCRIPTS_DIR/bootstrap.sh" >/dev/null; }
-  work() {
-    printf '{"event":"user_prompt","prompt":"Build the %s module with its own tests"}\n' "$1" >> "$vl/session-log.jsonl"
-    printf '{"event":"tool_use","tool":"Write","file":"src/%s.js","action":"created"}\n' "$1" >> "$vl/session-log.jsonl"
-    printf 'Pause summary of the %s session\n' "$1" > "$vl/pause-summary.txt"
-  }
-  start sess-a; work alpha
-  mkdir -p "$vl/briefing/.lock" && echo $$ > "$vl/briefing/.lock/pid"   # a live run holds the lock
-  start sess-b; work beta     # sess-a's briefing waits on the lock
-  start sess-c                # rotates again: the .prev files now hold sess-b
-  [ "$(jq -r .session_id "$vl/session-meta.prev.json")" = sess-b ]
-  rm -rf "$vl/briefing/.lock"
-
-  day="$(date -u +%Y-%m-%d)"
-  project="$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')"
-  page_a="$vl/briefing/sessions/$day-$project-sess-a.html"
-  page_b="$vl/briefing/sessions/$day-$project-sess-b.html"
+# Helpers for the real rotation briefing. rot_work logs a prompt and a file
+# write, then runs the real Stop hook, which writes the pause summary.
+rot_start() { echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"$1\"}" | bash "$SCRIPTS_DIR/bootstrap.sh" >/dev/null; }
+rot_work() {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  printf '{"event":"user_prompt","prompt":"Build the %s module with its own tests"}\n' "$1" >> "$vl/session-log.jsonl"
+  printf '{"event":"tool_use","tool":"Write","file":"src/%s.js","action":"created"}\n' "$1" >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+}
+rot_page() { printf '%s' "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions/$(date -u +%Y-%m-%d)-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-$1.html"; }
+# Waits until every named session's page exists and every run has finished.
+rot_wait() {
+  local i s ok
   for i in $(seq 1 150); do
-    [ -f "$page_a" ] && [ -f "$page_b" ] && [ -z "$(ls -A "$vl/briefing/.pending" 2>/dev/null)" ] && break
+    ok=true
+    for s in "$@"; do [ -f "$(rot_page "$s")" ] || ok=false; done
+    [ "$ok" = true ] && [ -z "$(ls -A "$TEST_PROJECT_DIR/.vibe-learn/briefing/.pending" 2>/dev/null)" ] && return 0
     sleep 0.1
   done
+  return 1
+}
+hold_lock() { mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" && echo $$ > "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock/pid"; }
+release_lock() { rm -rf "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"; }
+
+@test "two quick rotations while the lock is held each brief their own session" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page_a page_b
+  rot_start sess-a; rot_work alpha
+  hold_lock                        # a live run holds the lock
+  rot_start sess-b; rot_work beta  # sess-a's briefing waits on the lock
+  rot_start sess-c                 # rotates again: the .prev files now hold sess-b
+  [ "$(jq -r .session_id "$vl/session-meta.prev.json")" = sess-b ]
+  release_lock
+
+  rot_wait sess-a sess-b
+  page_a="$(rot_page sess-a)"; page_b="$(rot_page sess-b)"
   grep -q 'Build the alpha module' "$page_a"
   grep -q 'src/alpha.js' "$page_a"
-  grep -q 'Pause summary of the alpha session' "$page_a"
+  grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$page_a"
   ! grep -q 'beta' "$page_a"
   grep -q 'Build the beta module' "$page_b"
-  grep -q 'Pause summary of the beta session' "$page_b"
+  grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$page_b"
   ! grep -q 'alpha' "$page_b"
   [ -z "$(ls -A "$vl/briefing/.pending")" ]   # each run removed its snapshot
+}
+
+@test "a session that writes no pause summary does not show the previous session's" {
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page_b
+  rot_start sum-a; rot_work alpha
+  rot_start sum-b
+  # A question only: no file or command, so the Stop hook leaves sum-a's summary.
+  echo '{"event":"user_prompt","prompt":"What does the retry helper do here?"}' >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  grep -q 'alpha' "$vl/pause-summary.txt"
+  rot_start sum-c
+
+  rot_wait sum-a sum-b
+  page_b="$(rot_page sum-b)"
+  grep -q 'What does the retry helper do here' "$page_b"
+  grep -q '<div class="summary-panel">No pause summary was available.' "$page_b"
+  ! grep -q 'alpha' "$page_b"
+  grep -q '<div class="summary-panel">⏸ vibe-learn — this session so far:' "$(rot_page sum-a)"
 }
 
 @test "the rotation snapshot is removed when the briefing fails, and day-old leftovers are swept" {

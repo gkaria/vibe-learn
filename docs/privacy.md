@@ -11,6 +11,7 @@ Everything is written under `.vibe-learn/` in the project you are working in, ex
 | `session-log.jsonl` | One line per event: your prompts (first 500 characters), the file paths the assistant wrote or edited, shell commands it ran (first 200 characters) with exit codes, and per-turn model and effort |
 | `session-meta.json` | Session id, assistant name and version, model, effort, transcript path, git HEAD and whether the tree was dirty |
 | `pause-summary.txt` | A short recap of the session (goal, failing commands, last turn, files), rewritten after each response and injected at the next session start |
+| `pause-summary.session` | The session id and start time of the session that wrote `pause-summary.txt` |
 | `knowledge.json` | Concepts you were quizzed on, with a status and short notes |
 | `health.jsonl` | One row of counts and identifiers per session segment. Never prompts, commands, or file paths |
 | `briefing/`, `digests/`, `recaps/` | Reports you generate on request |

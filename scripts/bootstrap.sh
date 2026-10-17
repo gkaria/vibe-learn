@@ -164,8 +164,9 @@ jq -n \
 
 # Build the finished session's briefing once, in a fully detached process: no
 # fd may keep the host's pipe to this hook open, and the hook returns at once.
-# The run reads its own copy of the finished session (log, meta, pause summary)
-# under briefing/.pending/, because the next rotation overwrites the .prev files
+# The run reads its own copy of the finished session (log, meta, and the pause
+# summary with the file naming its session, which briefing.sh checks) under
+# briefing/.pending/, because the next rotation overwrites the .prev files
 # while this run may still be waiting up to 60 s on the briefing lock. The
 # wrapper removes the copy when briefing.sh exits, whatever its status; copies
 # left by killed runs are swept here once they are a day old. setsid gives the
@@ -179,6 +180,7 @@ if [ "$ROTATED" = true ] && [ -s "$PREV_LOG" ] && [ -f "$BRIEFING" ]; then
   if [ -n "$SNAP" ] && cp "$PREV_LOG" "$SNAP/session-log.jsonl" 2>/dev/null; then
     [ -f "$PREV_META" ] && cp "$PREV_META" "$SNAP/session-meta.json" 2>/dev/null
     [ -f "$PAUSE_SUMMARY" ] && cp "$PAUSE_SUMMARY" "$SNAP/pause-summary.txt" 2>/dev/null
+    [ -f "$LOG_DIR/pause-summary.session" ] && cp "$LOG_DIR/pause-summary.session" "$SNAP/" 2>/dev/null
     RUN='bash "$1" "$2" --log "$3/session-log.jsonl" --meta "$3/session-meta.json" --lock-wait 60; rm -rf "$3"'
     if command -v setsid >/dev/null 2>&1; then
       setsid bash -c "$RUN" _ "$BRIEFING" "$CWD" "$SNAP" </dev/null >/dev/null 2>&1 &
