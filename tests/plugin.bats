@@ -226,3 +226,25 @@ copy_repo() {
     [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
   done
 }
+
+@test "release.sh rejects a malformed or older version before touching anything" {
+  local repo="$BATS_TEST_TMPDIR/repo" v
+  copy_repo "$repo"
+  for v in v99.0.0 '1.0.0@beta' ../x 99.0 0.0.1; do
+    run bash "$repo/scripts/release.sh" --dry-run "$v"
+    [ "$status" -eq 1 ]
+    [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+  done
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0-rc.1
+  [ "$status" -eq 0 ]
+}
+
+@test "release.sh stops when a listed manifest no longer carries the current version" {
+  local repo="$BATS_TEST_TMPDIR/repo"
+  copy_repo "$repo"
+  jq '.version = "0.0.0-edited"' "$repo/.cursor-plugin/plugin.json" > "$repo/m" && mv "$repo/m" "$repo/.cursor-plugin/plugin.json"
+  run bash "$repo/scripts/release.sh" --dry-run 99.0.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not found in:"* ]]
+  [[ "$output" == *".cursor-plugin/plugin.json"* ]]
+}

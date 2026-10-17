@@ -60,6 +60,26 @@ load test_helper
   [ -n "$(ls "$TEST_PROJECT_DIR"/.vibe-learn/briefing/exports/*-ap-1-notebooklm-pack.md)" ]
 }
 
+@test "cli audio-prep reports a failed briefing as a failure, and checks its arguments" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock"
+  echo $$ > "$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock/pid"
+  echo '{"event":"user_prompt","prompt":"build it"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  # briefing.sh waits 10 s for the lock; a stub keeps the test fast.
+  local copy="$BATS_TEST_TMPDIR/vl"
+  cp -R "$SCRIPTS_DIR" "$copy"
+  printf '#!/bin/bash\necho "ERROR: another briefing run is in progress" >&2\nexit 1\n' > "$copy/briefing.sh"
+  run bash "$copy/audio-prep.sh" "$TEST_PROJECT_DIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The briefing failed"* ]]
+  [[ "$output" != *"No session log found"* ]]
+
+  run bash "$SCRIPTS_DIR/audio-prep.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == "Usage: vibe-learn audio-prep [target-dir]"* ]]
+  run bash "$SCRIPTS_DIR/audio-prep.sh" "$TEST_PROJECT_DIR" extra
+  [ "$status" -eq 1 ]
+}
+
 @test "cli audio-prep finds and reports the latest NotebookLM pack" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"
   echo "# pack" > "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports/2026-06-05-proj-abc-notebooklm-pack.md"

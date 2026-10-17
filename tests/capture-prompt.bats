@@ -193,3 +193,14 @@ JSON
   run jq -c '{prompt, kind}' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   [ "$output" = '{"prompt":"","kind":"learning"}' ]
 }
+
+@test "capture-prompt keeps the prompt and its kind when the meta's turn counter is damaged" {
+  local t
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  for t in 1.5 '"x"'; do
+    echo "{\"session_id\":\"s\",\"current_turn\":$t}" > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+    jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$SCRIPTS_DIR/capture-prompt.sh"
+  done
+  [ "$(jq -sc 'map([.turn, .kind])' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = '[[1,"learning"],[1,"learning"]]' ]
+  [ "$(jq '.current_turn' "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json")" = 1 ]
+}

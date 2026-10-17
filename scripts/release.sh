@@ -32,6 +32,11 @@ for arg in "$@"; do
   esac
 done
 [ -n "$NEW_VERSION" ] || usage
+# The version goes into file contents, a commit message and a tag name.
+if ! printf '%s' "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+  echo "ERROR: '$NEW_VERSION' is not a version like 1.2.3 or 1.2.3-rc.1"
+  usage
+fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CURRENT_VERSION=$(cat "$REPO_ROOT/VERSION")
@@ -39,6 +44,14 @@ CURRENT_VERSION=$(cat "$REPO_ROOT/VERSION")
 if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
   echo "Already at version $NEW_VERSION — nothing to do."
   exit 0
+fi
+# MAJOR.MINOR.PATCH must go up.
+if ! awk -v a="$NEW_VERSION" -v b="$CURRENT_VERSION" 'BEGIN {
+    split(a, x, /[.-]/); split(b, y, /[.-]/)
+    for (i = 1; i <= 3; i++) { if (x[i] + 0 > y[i] + 0) exit 0; if (x[i] + 0 < y[i] + 0) exit 1 }
+    exit 1 }'; then
+  echo "ERROR: $NEW_VERSION is not newer than the current version $CURRENT_VERSION"
+  exit 1
 fi
 
 echo "Bumping $CURRENT_VERSION → $NEW_VERSION"
@@ -111,7 +124,7 @@ fi
 
 # --- Apply the bump (portable: works on macOS and Linux) ---
 for FILE in "${VERSION_FILES[@]}"; do
-  perl -pi -e "s/\Q$CURRENT_VERSION\E/$NEW_VERSION/g" "$REPO_ROOT/$FILE"
+  OLD="$CURRENT_VERSION" NEW="$NEW_VERSION" perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' "$REPO_ROOT/$FILE"
   echo "  ✓ $FILE"
 done
 

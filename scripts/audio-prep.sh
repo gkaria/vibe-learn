@@ -3,7 +3,28 @@
 
 set -euo pipefail
 
-TARGET_DIR="${1:-$(pwd)}"
+TARGET_DIR=""
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h)
+      echo "Usage: vibe-learn audio-prep [target-dir]"
+      echo "Finds the latest NotebookLM pack (building the briefing when there is none) and walks through the upload."
+      exit 0
+      ;;
+    -*)
+      echo "ERROR: Unknown audio-prep flag: $arg" >&2
+      exit 1
+      ;;
+    *)
+      if [ -n "$TARGET_DIR" ]; then
+        echo "ERROR: audio-prep accepts at most one target directory." >&2
+        exit 1
+      fi
+      TARGET_DIR="$arg"
+      ;;
+  esac
+done
+TARGET_DIR="${TARGET_DIR:-$(pwd)}"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +38,10 @@ latest_pack() {
 PACK=$(latest_pack)
 if [ -z "$PACK" ]; then
   echo "No NotebookLM pack yet; building the session briefing first." >&2
-  bash "$SCRIPT_DIR/briefing.sh" "$TARGET_DIR" >&2 || true
+  if ! bash "$SCRIPT_DIR/briefing.sh" "$TARGET_DIR" >&2; then
+    echo "The briefing failed (see above), so there is no pack to upload yet." >&2
+    exit 1
+  fi
   PACK=$(latest_pack)
 fi
 

@@ -54,6 +54,8 @@ CURRENT_TURN=0
 if [ -f "$META_FILE" ]; then
   CURRENT_TURN="$(jq -r '.current_turn // 0' "$META_FILE" 2>/dev/null || echo 0)"
 fi
+# A damaged meta must not cost the prompt: bash arithmetic fails on 1.5 or "x".
+case "$CURRENT_TURN" in ''|*[!0-9]*) CURRENT_TURN=0 ;; esac
 NEW_TURN=$((CURRENT_TURN + 1))
 
 # Build and append JSONL entry with turn number
