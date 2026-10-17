@@ -214,3 +214,15 @@ copy_repo() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"adapters/new-host.json:3"* ]]
 }
+
+@test "release.sh rejects a second version or an unknown flag before touching anything" {
+  local repo="$BATS_TEST_TMPDIR/repo" args
+  copy_repo "$repo"
+  for args in "99.0.0 notes" "--dry-run 99.0.0 99.0.1" "99.0.0 --force" "--bogus 99.0.0"; do
+    # shellcheck disable=SC2086
+    run bash "$repo/scripts/release.sh" $args
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Usage:"* ]]
+    [ "$(cat "$repo/VERSION")" = "$(cat "$VIBE_LEARN_DIR/VERSION")" ]
+  done
+}

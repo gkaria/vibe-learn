@@ -10,19 +10,28 @@
 
 set -euo pipefail
 
+usage() {
+  echo "Usage: bash scripts/release.sh [--dry-run] <new-version>"
+  echo "  e.g. bash scripts/release.sh 0.3.0"
+  exit 1
+}
+
 DRY_RUN=false
 NEW_VERSION=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
-    *) NEW_VERSION="$arg" ;;
+    -*) echo "ERROR: unknown option: $arg"; usage ;;
+    *)
+      if [ -n "$NEW_VERSION" ]; then
+        echo "ERROR: expected one version, got '$NEW_VERSION' and '$arg'"
+        usage
+      fi
+      NEW_VERSION="$arg"
+      ;;
   esac
 done
-if [ -z "$NEW_VERSION" ]; then
-  echo "Usage: bash scripts/release.sh [--dry-run] <new-version>"
-  echo "  e.g. bash scripts/release.sh 0.3.0"
-  exit 1
-fi
+[ -n "$NEW_VERSION" ] || usage
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CURRENT_VERSION=$(cat "$REPO_ROOT/VERSION")
