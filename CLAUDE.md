@@ -32,6 +32,7 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   setup.sh        ← global installer
   install.sh      ← per-project installer
   cli.sh          ← `vibe-learn` command dispatcher
+  doctor.sh       ← `vibe-learn doctor`: read-only checks of jq, the install, each host's hooks, config keys, and the last session
   briefing.sh     ← `vibe-learn briefing`: static HTML session briefing + NotebookLM pack
   audio-prep.sh   ← `vibe-learn audio-prep`: finds the pack and walks through the NotebookLM upload
   knowledge.sh    ← knowledge ledger helper (record/touch/forget/list/due)
@@ -155,7 +156,7 @@ Requires: `bash`, `jq`
 
 ## Configuration
 
-The hooks and scripts read two files: `~/.vibe-learn/config.json` (every project) and the project's `.vibe-learn/config.json`, which wins key by key. Neither exists until you create it. `config/defaults.json` is a reference copy of every key with its default; nothing reads it (its `_comment` says so), and `tests/setup.bats` fails if it lists a key no script reads. Session data always lives in `.vibe-learn/`.
+The hooks and scripts read two files: `~/.vibe-learn/config.json` (every project) and the project's `.vibe-learn/config.json`, which wins key by key. Neither exists until you create it. `config/defaults.json` is a reference copy of every key with its default; no setting is taken from it (its `_comment` says so). `vibe-learn doctor` reads it as the list of known keys and fails on any other key in either config file, and `tests/setup.bats` fails if it lists a key no script reads, so adding a key means adding it there. Session data always lives in `.vibe-learn/`.
 
 Keys:
 - `capture_prompts` — whether to log user prompt text (turns are still counted when off). Read by `capture-prompt.sh`
@@ -196,6 +197,8 @@ The `adapters/grok/` adapter writes a dedicated `vibe-learn.json` hook file (nev
 The `adapters/cursor/` adapter renders `hooks/vibe-learn.sh` with `awk` (so `&`, `|`, and `/` in the install path stay literal), merges `hooks.json` with `jq`, and copies the five skills. Timeouts: `sessionStart` and `beforeSubmitPrompt` at 5 seconds, `afterFileEdit` / `postToolUse` / `postToolUseFailure` at 2 seconds, and `stop` at 10 seconds.
 
 The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim without editing `settings.json`, preserving unrelated hooks and settings. It refuses collisions with non-vibe-learn files before writing, honors `COPILOT_HOME`, and copies the five official Agent Skills. Copilot also loads repository `.claude/settings.json` and `.claude/settings.local.json` hooks; avoid installing vibe-learn in both those files and `.github/hooks/` for the same project. Copilot's documented repository-settings `disableAllHooks` opt-out pauses every non-policy hook source, including vibe-learn, so it is suitable only when the user wants all hooks paused; the installer does not set it automatically. Timeouts: `sessionStart` and `userPromptSubmitted` at 5 seconds, `postToolUse` / `postToolUseFailure` at 2 seconds, and `agentStop` at 10 seconds.
+
+`scripts/doctor.sh` (`vibe-learn doctor [dir]`) is the read-only check of all of the above. It fails (exit 1) when jq is missing or older than 1.6, a file in `setup.sh`'s `FILES` is missing from its own install (so the briefing templates are covered), a core hook script is not executable, a host hook file points at a script or shim that does not exist, no host has vibe-learn hooks, either `config.json` is not a JSON object or holds a key not in `config/defaults.json`, or the knowledge ledger is malformed. It warns, without failing, when the Claude Code plugin and settings hooks are both active, when the session log has tool events but no `turn_end` yet (no Stop hook has run), and when log lines are not JSON. It finds hook paths with one quoted-path scan that works on every host's file format (JSON, TOML, the OpenCode plugin, the Cursor shim), so a new host needs only its candidate files added. It is not in the techpack, which has no CLI.
 
 ## Session Briefing
 

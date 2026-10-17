@@ -69,7 +69,7 @@ vibe-learn reads two optional files: `~/.vibe-learn/config.json` for every proje
 | `health.enabled`, `health.global_log` | `true` | Turn [assistant health](health.md) rows off, or keep them per project |
 | `health.min_events`, `min_sessions`, `rate_threshold_pts`, `count_threshold`, `control_min_sessions` | see `config/defaults.json` | Thresholds for `vibe-learn health` |
 
-`config/defaults.json` in the install lists every key with its default. It is a reference; editing it has no effect.
+`config/defaults.json` in the install lists every key with its default. It is a reference; editing it has no effect. `vibe-learn doctor` flags any key in your config files that is not in it.
 
 ---
 

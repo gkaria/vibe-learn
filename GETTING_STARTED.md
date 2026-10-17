@@ -269,4 +269,4 @@ You don't change how you work. You just have a trail to learn from afterward.
 - **GitHub Copilot CLI, Codex, OpenCode, Grok Build, or Cursor?** See [docs/assistants.md](docs/assistants.md) for setup.
 - **Save notes to Obsidian?** See [docs/obsidian.md](docs/obsidian.md).
 - **Per-project install** (to share with teammates): `vibe-learn install` in your project root.
-- **Something not working?** Check that `jq` is installed and that `~/.local/bin` is in your `PATH`.
+- **Something not working?** Run `vibe-learn doctor` in the project: it checks `jq`, the install, each assistant's hooks, your config, and the last session. If `vibe-learn` is not found, add `~/.local/bin` to your `PATH`.
