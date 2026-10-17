@@ -9,11 +9,12 @@ INPUT=$(cat)
 EVENT="${VIBE_LEARN_EVENT:-}"
 
 # Copilot combines user and repository hooks. Let a project install own capture
-# when both are present so each event reaches the core exactly once.
+# when both are present so each event reaches the core exactly once. Copilot
+# loads repository hooks from the repo root, so look there when cwd is nested.
 INPUT_CWD=$(jq -r 'select(type == "object") | .cwd // empty' <<<"$INPUT" 2>/dev/null || true)
-if [ "${VIBE_LEARN_SCOPE:-}" = "global" ] && [ -n "$INPUT_CWD" ] \
-  && grep -q 'vibe-learn.sh' "$INPUT_CWD/.github/hooks/vibe-learn.json" 2>/dev/null; then
-  exit 0
+if [ "${VIBE_LEARN_SCOPE:-}" = "global" ] && [ -n "$INPUT_CWD" ]; then
+  PROJECT_ROOT=$(git -C "$INPUT_CWD" rev-parse --show-toplevel 2>/dev/null) || PROJECT_ROOT="$INPUT_CWD"
+  grep -q 'vibe-learn.sh' "$PROJECT_ROOT/.github/hooks/vibe-learn.json" 2>/dev/null && exit 0
 fi
 
 session_is_current() {
