@@ -4,9 +4,9 @@
 # still failing, the last turn, files touched), capped at
 # pause_summary_max_lines. bootstrap.sh injects it into the next session.
 
-VIBE_LEARN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=identity.sh
-if ! . "$VIBE_LEARN_DIR/scripts/identity.sh" 2>/dev/null; then
+if ! . "$SCRIPT_DIR/identity.sh" 2>/dev/null; then
   # Installs that copy hook scripts one by one may lack the helper.
   VL_SEP=$'\x1f'
   vl_resolve_harness() { printf '%s' "${VIBE_LEARN_HARNESS:-${1:-unknown}}"; }
@@ -105,7 +105,7 @@ read_log() {
   fi
 }
 
-SUMMARY=$(read_log | jq -Rnr -L "$VIBE_LEARN_DIR/scripts/lib" -L "$VIBE_LEARN_DIR/scripts" \
+SUMMARY=$(read_log | jq -Rnr -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
   --argjson meta "$META" --arg root "$CWD" --arg footer "$FOOTER" --argjson max "$MAX_LINES" '
   include "session";
   def times($n): if $n > 1 then " ×\($n)" else "" end;

@@ -177,14 +177,37 @@ teardown() {
   [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
 }
 
-@test "a flat techpack-style copy finds session.jq next to the hook scripts" {
-  local flat="$FAKE_HOME/hooks"
+@test "a flat techpack-style copy finds session.jq next to every script that includes it" {
+  local flat="$FAKE_HOME/hooks" vl="$TEST_PROJECT_DIR/.vibe-learn" src dst f ts row
   mkdir -p "$flat"
-  cp "$SCRIPTS_DIR/capture-prompt.sh" "$flat/"
-  cp "$SCRIPTS_DIR/lib/session.jq" "$flat/session.jq"
-  grep -q 'source: scripts/lib/session.jq' "$VIBE_LEARN_DIR/techpack.yaml"
+  # Copy every script the techpack ships, side by side, as techpack.yaml maps them.
+  while read -r src dst; do
+    cp "$VIBE_LEARN_DIR/$src" "$flat/$dst"
+  done < <(awk '$1 == "source:" { s = $2 } $1 == "destination:" && s ~ /^scripts\// && $2 !~ /\// { print s, $2 }' "$VIBE_LEARN_DIR/techpack.yaml")
+  [ -f "$flat/session.jq" ]
+  # Every script that includes session.jq must be in the copy and exercised below.
+  for f in $(grep -l 'include "session"' "$SCRIPTS_DIR"/*.sh); do
+    f="$(basename "$f")"
+    [ "$f" = briefing.sh ] && continue   # not in the techpack
+    [ -f "$flat/$f" ] || { echo "techpack does not ship $f"; return 1; }
+    case "$f" in capture-prompt.sh|pause-summary.sh|health.sh|recap.sh) ;; *) echo "untested: $f"; return 1 ;; esac
+  done
+
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"flat-1\"}" | bash "$flat/bootstrap.sh" >/dev/null
+  jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "Build the alpha module with its own tests"}' | bash "$flat/capture-prompt.sh"
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '{"timestamp":"%s","event":"tool_use","tool":"Write","file":"%s/src/alpha.js","action":"created"}\n' "$ts" "$TEST_PROJECT_DIR" >> "$vl/session-log.jsonl"
+  echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"hook_event_name\":\"Stop\"}" | bash "$flat/pause-summary.sh" >/dev/null
+  grep -q 'Goal: Build the alpha module with its own tests' "$vl/pause-summary.txt"
+  grep -q 'src/alpha.js' "$vl/pause-summary.txt"
+
   jq -cn --arg cwd "$TEST_PROJECT_DIR" '{cwd: $cwd, prompt: "/quiz"}' | bash "$flat/capture-prompt.sh"
-  [ "$(jq -r '.kind' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" = "learning" ]
+  [ "$(tail -n 1 "$vl/session-log.jsonl" | jq -r '.kind')" = "learning" ]
+
+  # The learning turn is left out: one work prompt.
+  row="$(bash "$flat/health.sh" "$vl")"
+  [ "$(jq -r '.metrics.prompts' <<<"$row")" = 1 ]
+  bash "$flat/recap.sh" "$TEST_PROJECT_DIR" | grep -q '1 prompt(s) · 1 file(s) touched'
 }
 
 @test "config/defaults.json lists only keys some script reads" {
