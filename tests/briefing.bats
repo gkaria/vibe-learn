@@ -198,3 +198,107 @@ write_learning_session() {
   [ "$(grep -c 'data-learning="true"' "$session")" -eq 5 ]
   ! grep -q 'class="command-row[^"]*"[^>]*><code class="cmd-text">ls .vibe-learn/digests' "$session"
 }
+
+# --- --log/--meta, --if-stale, and the lock ----------------------------------
+
+@test "briefing --log/--meta builds the snapshot session, not the live one" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  mv "$vl/session-log.jsonl" "$vl/session-log.prev.jsonl"
+  mv "$vl/session-meta.json" "$vl/session-meta.prev.json"
+  # The next session has started: its own meta and a different first prompt.
+  echo '{"session_id":"next-one","started_at":"2026-10-17T08:00:00Z"}' > "$vl/session-meta.json"
+  echo '{"event":"user_prompt","prompt":"Add a delete endpoint to the API with tests please"}' > "$vl/session-log.jsonl"
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --log "$vl/session-log.prev.jsonl" --meta="$vl/session-meta.prev.json"
+  [ "$status" -eq 0 ]
+  local page="$vl/briefing/sessions/2026-10-16-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-learn-test.html"
+  [ -f "$page" ]
+  [ "$(ls "$vl/briefing/sessions" | wc -l | tr -d ' ')" -eq 1 ]
+  grep -q "Build an Express API with two routes" "$page"
+  ! grep -q "delete endpoint" "$page"
+}
+
+@test "briefing --if-stale skips a fresh page and rebuilds after the log or ledger changes" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  page="$(session_file_for_test_project)"
+  touch -t 202601010000 "$vl/session-log.jsonl"
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [ "$status" -eq 0 ]
+  [ "$output" = "Session briefing is up to date: $page" ]
+
+  sleep 1
+  echo '{"event":"user_prompt","prompt":"one more thing"}' >> "$vl/session-log.jsonl"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [[ "$output" == *"Session briefing:"* ]]
+
+  sleep 1
+  echo '{"version":1,"concepts":[]}' > "$vl/knowledge.json"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [[ "$output" == *"Session briefing:"* ]]
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [[ "$output" == *"up to date"* ]]
+}
+
+@test "briefing --if-stale with an empty log keeps the existing index" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  : > "$vl/session-log.jsonl"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
+  [ "$status" -eq 0 ]
+  [ "$output" = "No session activity to brief yet." ]
+  ! grep -q "No session data yet" "$vl/briefing/index.html"
+}
+
+@test "briefing waits for a live lock holder, then gives up with a clear message" {
+  write_learning_session
+  local lock="$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" holder
+  mkdir -p "$lock"
+  sleep 30 & holder=$!
+  echo "$holder" > "$lock/pid"
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
+  kill "$holder"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"another briefing run is in progress"* ]]
+  [ -z "$(session_file_for_test_project)" ]
+  [ -d "$lock" ]
+}
+
+@test "briefing removes a lock whose owner is gone and releases its own" {
+  write_learning_session
+  local lock="$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" dead
+  mkdir -p "$lock"
+  bash -c 'exit 0' & dead=$!
+  wait "$dead"
+  echo "$dead" > "$lock/pid"
+
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
+  [ "$status" -eq 0 ]
+  [ -f "$(session_file_for_test_project)" ]
+  [ ! -e "$lock" ]
+}
+
+@test "two briefing runs at once both finish and leave whole, uninterleaved pages" {
+  write_learning_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" page
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" > "$BATS_TEST_TMPDIR/a.out" 2>&1 &
+  local a=$!
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" > "$BATS_TEST_TMPDIR/b.out" 2>&1 &
+  local b=$!
+  wait "$a"; wait "$b"
+
+  page="$(session_file_for_test_project)"
+  [ "$(ls "$vl/briefing/sessions" | wc -l | tr -d ' ')" -eq 1 ]
+  for f in "$page" "$vl/briefing/index.html"; do
+    [ "$(grep -ci '<!doctype html>' "$f")" -eq 1 ]
+    [ "$(grep -c '</html>' "$f")" -eq 1 ]
+    [ "$(tail -n 1 "$f")" = "</html>" ]
+  done
+  [ "$(grep -c '<script>' "$page")" -eq "$(grep -c '</script>' "$page")" ]
+  [ ! -e "$vl/briefing/.lock" ]
+}

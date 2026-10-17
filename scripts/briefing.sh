@@ -5,23 +5,53 @@ set -euo pipefail
 
 TARGET_DIR=""
 LATEST=false
+IF_STALE=false
+LOG_ARG=""
+META_ARG=""
+LOCK_WAIT=10
 
-for arg in "$@"; do
-  case "$arg" in
-    --latest)
-      LATEST=true
-      ;;
-    --help|-h)
-      cat <<EOF
+usage() {
+  cat <<EOF
 Usage:
-  vibe-learn briefing [target-dir] [--latest]
+  vibe-learn briefing [target-dir] [--latest] [--if-stale]
+                      [--log FILE --meta FILE] [--lock-wait SECONDS]
 
 Generates .vibe-learn/briefing/index.html plus a session page and
 NotebookLM-ready source pack for the current session log.
 
-With --latest the index shows only the current session, skipping
-previously generated session cards.
+  --latest       the index shows only this session, skipping previously
+                 generated session cards
+  --if-stale     do nothing when this session's page is newer than the
+                 session log and knowledge.json (what /learn and /digest run)
+  --log, --meta  read this session log and session-meta.json instead of the
+                 live pair (bootstrap.sh passes the rotated .prev files)
+  --lock-wait    seconds to wait while another briefing run holds
+                 .vibe-learn/briefing/.lock (default 10)
 EOF
+}
+
+while [ $# -gt 0 ]; do
+  arg="$1"
+  case "$arg" in
+    --latest) LATEST=true ;;
+    --if-stale) IF_STALE=true ;;
+    --log=*) LOG_ARG="${arg#--log=}" ;;
+    --meta=*) META_ARG="${arg#--meta=}" ;;
+    --lock-wait=*) LOCK_WAIT="${arg#--lock-wait=}" ;;
+    --log|--meta|--lock-wait)
+      if [ $# -lt 2 ]; then
+        echo "ERROR: $arg needs a value." >&2
+        exit 1
+      fi
+      case "$arg" in
+        --log) LOG_ARG="$2" ;;
+        --meta) META_ARG="$2" ;;
+        --lock-wait) LOCK_WAIT="$2" ;;
+      esac
+      shift
+      ;;
+    --help|-h)
+      usage
       exit 0
       ;;
     -*)
@@ -37,25 +67,107 @@ EOF
       fi
       ;;
   esac
+  shift
 done
+
+case "$LOCK_WAIT" in
+  ''|*[!0-9]*)
+    echo "ERROR: --lock-wait must be a whole number of seconds (got '$LOCK_WAIT')." >&2
+    exit 1
+    ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 LOG_DIR="$TARGET_DIR/.vibe-learn"
-SESSION_LOG="$LOG_DIR/session-log.jsonl"
-META_FILE="$LOG_DIR/session-meta.json"
+SESSION_LOG="${LOG_ARG:-$LOG_DIR/session-log.jsonl}"
+META_FILE="${META_ARG:-$LOG_DIR/session-meta.json}"
 SUMMARY_FILE="$LOG_DIR/pause-summary.txt"
+LEDGER_FILE="$LOG_DIR/knowledge.json"
 BRIEFING_DIR="$LOG_DIR/briefing"
 SESSIONS_DIR="$BRIEFING_DIR/sessions"
 EXPORTS_DIR="$BRIEFING_DIR/exports"
 INDEX_FILE="$BRIEFING_DIR/index.html"
+LOCK_DIR="$BRIEFING_DIR/.lock"
 
 PROJECT_NAME="$(basename "$TARGET_DIR")"
 NOW_DATE="$(date -u +"%Y-%m-%d")"
 NOW_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
+slugify() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//'
+}
+
+# The session's slug names its page and pack, so a rebuild of the same session
+# (on demand, --if-stale, or at rotation) overwrites the same files.
+SESSION_ID="unknown"
+STARTED_AT=""
+if [ -f "$META_FILE" ]; then
+  SESSION_ID="$(jq -r '.session_id // "unknown"' "$META_FILE" 2>/dev/null || echo "unknown")"
+  STARTED_AT="$(jq -r '.started_at // empty' "$META_FILE" 2>/dev/null || true)"
+fi
+
+SESSION_DATE="$NOW_DATE"
+SESSION_TOKEN="$(date -u +"%H%M%S")"
+if [ -n "$STARTED_AT" ]; then
+  SESSION_DATE="$(printf '%s' "$STARTED_AT" | cut -c1-10)"
+  SESSION_TOKEN="$(printf '%s' "$STARTED_AT" | sed 's/[^0-9]//g' | cut -c9-14)"
+fi
+if [ "$SESSION_ID" != "unknown" ]; then
+  SESSION_TOKEN="$(slugify "$SESSION_ID")"
+fi
+SESSION_SLUG="$(slugify "$SESSION_DATE-$PROJECT_NAME-$SESSION_TOKEN")"
+SESSION_FILE="$SESSIONS_DIR/$SESSION_SLUG.html"
+PACK_FILE="$EXPORTS_DIR/$SESSION_SLUG-notebooklm-pack.md"
+
+if [ "$IF_STALE" = true ]; then
+  # An empty log has nothing to brief; a placeholder would replace the index.
+  if [ ! -s "$SESSION_LOG" ]; then
+    echo "No session activity to brief yet."
+    exit 0
+  fi
+  if [ -f "$SESSION_FILE" ] && [ "$SESSION_FILE" -nt "$SESSION_LOG" ] \
+    && { [ ! -f "$LEDGER_FILE" ] || [ "$SESSION_FILE" -nt "$LEDGER_FILE" ]; }; then
+    echo "Session briefing is up to date: $SESSION_FILE"
+    exit 0
+  fi
+fi
+
+# One writer at a time: mkdir is atomic on Linux and macOS (flock is not on
+# macOS). The lock holds the owner's pid; a lock whose owner is gone is stale.
+lock_is_stale() {
+  local pid
+  pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [ -z "$pid" ]; then
+    # Between mkdir and the pid write, or left by a crash in that gap.
+    [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +1 2>/dev/null)" ]
+  else
+    ! ps -p "$pid" >/dev/null 2>&1
+  fi
+}
+
+acquire_lock() {
+  local deadline=$(( $(date +%s) + LOCK_WAIT ))
+  mkdir -p "$BRIEFING_DIR"
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    if lock_is_stale; then
+      rm -rf "$LOCK_DIR"
+      continue
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "ERROR: another briefing run is in progress (lock: $LOCK_DIR)." >&2
+      exit 1
+    fi
+    sleep 0.2
+  done
+  echo "$$" > "$LOCK_DIR/pid"
+  trap 'rm -rf "$LOCK_DIR"' EXIT
+  trap 'exit 1' INT TERM HUP
+}
+
+acquire_lock
 mkdir -p "$SESSIONS_DIR" "$EXPORTS_DIR"
 
 html_escape() {
@@ -64,10 +176,6 @@ html_escape() {
 
 json_string() {
   jq -Rs .
-}
-
-slugify() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//'
 }
 
 # Render a git diff as syntax-highlighted HTML spans (one span per line, display:block).
@@ -131,26 +239,6 @@ if [ ! -s "$SESSION_LOG" ]; then
   write_empty_briefing
   exit 0
 fi
-
-SESSION_ID="unknown"
-STARTED_AT=""
-if [ -f "$META_FILE" ]; then
-  SESSION_ID="$(jq -r '.session_id // "unknown"' "$META_FILE" 2>/dev/null || echo "unknown")"
-  STARTED_AT="$(jq -r '.started_at // empty' "$META_FILE" 2>/dev/null || true)"
-fi
-
-SESSION_DATE="$NOW_DATE"
-SESSION_TOKEN="$(date -u +"%H%M%S")"
-if [ -n "$STARTED_AT" ]; then
-  SESSION_DATE="$(printf '%s' "$STARTED_AT" | cut -c1-10)"
-  SESSION_TOKEN="$(printf '%s' "$STARTED_AT" | sed 's/[^0-9]//g' | cut -c9-14)"
-fi
-if [ "$SESSION_ID" != "unknown" ]; then
-  SESSION_TOKEN="$(slugify "$SESSION_ID")"
-fi
-SESSION_SLUG="$(slugify "$SESSION_DATE-$PROJECT_NAME-$SESSION_TOKEN")"
-SESSION_FILE="$SESSIONS_DIR/$SESSION_SLUG.html"
-PACK_FILE="$EXPORTS_DIR/$SESSION_SLUG-notebooklm-pack.md"
 
 # The goal is the session's first substantial work prompt (session_facts in
 # lib/session.jq), not the last prompt, which is often /digest or "thanks".
@@ -294,7 +382,6 @@ render_study_queue() {
 # --- Knowledge ledger (optional input) ---
 # A missing or malformed ledger never fails the briefing; every ledger-derived
 # fragment below stays empty so the output matches the no-ledger rendering.
-LEDGER_FILE="$LOG_DIR/knowledge.json"
 LEDGER_OK=false
 if [ -f "$LEDGER_FILE" ]; then
   if jq -e '.concepts | type == "array"' "$LEDGER_FILE" >/dev/null 2>&1; then
@@ -843,9 +930,14 @@ EOF
 
 if [ -n "$HEALTH_VIEWS" ]; then
   HEALTH_FLAGS="$(printf '%s' "$HEALTH_VIEWS" | jq -r '.views["harness|14"].flags_total // 0')"
-  HEALTH_NAV="
+  # The card describes the session in progress (the live log). A page built
+  # from a rotated snapshot would show the next session's numbers, so it
+  # links to the trend page from the index only.
+  if [ "$SESSION_LOG" = "$LOG_DIR/session-log.jsonl" ]; then
+    HEALTH_NAV="
       <a href=\"#health\">Assistant health <span class=\"nbadge\">$HEALTH_FLAGS</span></a>"
-  HEALTH_SECTION="$(printf '%s' "$HEALTH_VIEWS" | jq -r "$HEALTH_CARD_JQ")"
+    HEALTH_SECTION="$(printf '%s' "$HEALTH_VIEWS" | jq -r "$HEALTH_CARD_JQ")"
+  fi
   HEALTH_INDEX_ROW="
         <div class=\"stat-row\"><span class=\"stat-label\"><a href=\"health.html\">Assistant health</a></span><span class=\"stat-value $([ "$HEALTH_FLAGS" -gt 0 ] && echo "danger" || echo "ok")\">$HEALTH_FLAGS flagged</span></div>"
   write_health_page

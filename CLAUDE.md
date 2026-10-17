@@ -202,6 +202,8 @@ The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim withou
 
 `briefing.sh` also reads `.vibe-learn/knowledge.json` when present (read-only): shaky concepts and never-quizzed concepts seen in 2+ sessions lead the study queue (cap 5), the session page gains a Knowledge State section, the pack gains a "Your knowledge state" table, and the audio framing gains an adaptive sentence when anything is shaky. Output is byte-identical to the no-ledger rendering when the file is missing or empty; a malformed ledger warns on stderr and is ignored.
 
+`--log FILE --meta FILE` read a snapshot instead of the live pair (the slug, and so the output files, come from that meta). `--if-stale` exits 0 without taking the lock when `sessions/<slug>.html` is newer than the log and `knowledge.json`. Every other run takes `.vibe-learn/briefing/.lock`: a `mkdir` lock (atomic on Linux and macOS; `flock` is not on macOS) holding the owner's pid, removed by the next caller when that pid is gone. A run waits `--lock-wait` seconds (default 10), then exits 1 with "another briefing run is in progress". A page built from a snapshot has no Assistant health card, since the card reads the live session.
+
 Do not call dashboard generation from hooks. It is intentionally on-demand via `vibe-learn briefing` so hooks remain fast.
 
 ## Releasing

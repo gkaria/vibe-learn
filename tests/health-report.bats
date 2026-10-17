@@ -294,6 +294,20 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
     "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
 }
 
+@test "a briefing built from a rotated snapshot links the trend but shows no card for the next session" {
+  seed_history
+  seed_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  mv "$vl/session-log.jsonl" "$vl/session-log.prev.jsonl"
+  cp "$vl/session-meta.json" "$vl/session-meta.prev.json"
+  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --log "$vl/session-log.prev.jsonl" --meta "$vl/session-meta.prev.json"
+  [ "$status" -eq 0 ]
+  [ -f "$vl/briefing/health.html" ]
+  ! grep -q 'id="health"' "$(session_file)"
+  ! grep -q 'No tool activity in this session yet' "$(session_file)"
+  grep -q '<a href="health.html">Assistant health</a>' "$vl/briefing/index.html"
+}
+
 @test "briefing card shows a building message before five earlier sessions" {
   seed_history
   seed_session
