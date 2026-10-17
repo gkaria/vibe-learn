@@ -70,14 +70,27 @@ jq -Rn -c -L "$SCRIPT_DIR/lib" -L "$SCRIPT_DIR" \
   def round_to($n): if . == null then null else (. * pow(10; $n) | round) / pow(10; $n) end;
   # A check is a test, lint, or build tool in command position: the start of a
   # command after &&, ||, ;, | or (, past env assignments and runners like npx.
-  # A heredoc body is text, not commands, so only its first line counts.
+  # A heredoc body is text, not commands: drop it, up to its terminator line,
+  # so commands after the terminator still count.
   # sub, not gsub: jq 1.6 gsub loops on patterns that can match empty.
   # strip_prefix runs twice for nesting such as `env CI=1 npx jest`.
   def strip_prefix:
     sub("^([A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)+"; "")
     | sub("^(env(\\s+(-u\\s+\\S+|-\\S+))*|time|npx|bunx|pnpm (exec|dlx)|yarn dlx|uv run|poetry run|bundle exec|python3? -m)\\s+"; "");
+  def strip_heredocs:
+    reduce split("\n")[] as $l ({out: [], term: null, dash: false};
+      if .term != null then
+        (if (if .dash then ($l | sub("^\t+"; "")) else $l end) == .term then .term = null else . end)
+      else
+        .out += [$l]
+        | ([$l | match("(?<!<)<<(-?)\\s*\\\\?(?:\u0027([^\u0027]*)\u0027|\"([^\"]*)\"|([^\\s;&|<>()\"\u0027]+))")] | first) as $m
+        | if $m == null then . else
+            .term = ([$m.captures[1:][] | .string | select(. != null)] | first) | .dash = ($m.captures[0].string == "-")
+          end
+      end)
+    | .out | join("\n");
   def is_check:
-    (if test("<<") then split("\n")[0] else . end)
+    strip_heredocs
     | [splits("&&|\\|\\||[;|(\n]")]
     | any(.[];
         sub("^\\s+"; "")
