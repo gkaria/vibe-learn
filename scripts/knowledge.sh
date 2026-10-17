@@ -4,8 +4,8 @@
 # /digest) — never by hooks, so there is no hot-path latency budget.
 #
 # Usage:
-#   knowledge.sh record <name> --label=<text> --status=<new|shaky|solid> [--notes=<text>] [--dir=<project>]
-#   knowledge.sh touch  <name> --label=<text> [--dir=<project>]
+#   knowledge.sh record <name> --label=<text> --status=<new|shaky|solid> [--notes=<text>] [--files=<a,b>] [--dir=<project>]
+#   knowledge.sh touch  <name> --label=<text> [--files=<a,b>] [--dir=<project>]
 #   knowledge.sh list   [--status=<s>] [--dir=<project>]
 #   knowledge.sh due    [--days=14] [--dir=<project>]
 #
@@ -19,13 +19,17 @@
 #          never quizzed and first seen N+ days ago, or last quizzed N+ days
 #          ago (default 14).
 #
+# --files  comma-separated project files the concept lives in; record and
+#          touch add them to the concept's optional `files` list, relative to
+#          the project, so the briefing can link concepts to files.
+#
 # All writes merge by concept name and go through a temp file + mv so a
 # failed jq run never corrupts the ledger.
 
 set -euo pipefail
 
 usage() {
-  sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -42,6 +46,7 @@ NAME=""
 LABEL=""
 STATUS=""
 NOTES=""
+FILES=""
 DAYS=14
 PROJECT_DIR="$(pwd)"
 
@@ -50,6 +55,7 @@ for arg in "$@"; do
     --label=*)  LABEL="${arg#--label=}" ;;
     --status=*) STATUS="${arg#--status=}" ;;
     --notes=*)  NOTES="${arg#--notes=}" ;;
+    --files=*)  FILES="${arg#--files=}" ;;
     --days=*)   DAYS="${arg#--days=}" ;;
     --dir=*)    PROJECT_DIR="${arg#--dir=}" ;;
     -*)
@@ -67,6 +73,11 @@ done
 LEDGER_DIR="$PROJECT_DIR/.vibe-learn"
 LEDGER="$LEDGER_DIR/knowledge.json"
 TODAY="$(date +%Y-%m-%d)"
+# --files as a JSON array of project-relative paths, for add_files below.
+FILES_JSON="$(jq -cn --arg files "$FILES" --arg root "$(cd "$PROJECT_DIR" 2>/dev/null && pwd || echo "$PROJECT_DIR")" '
+  [$files | split(",")[] | sub("^\\s+"; "") | sub("\\s+$"; "")
+   | if startswith($root + "/") then .[($root | length) + 1:] else ltrimstr("./") end
+   | select(. != "")] | unique')"
 EMPTY_LEDGER='{"version":1,"concepts":[]}'
 
 read_ledger() {
@@ -80,6 +91,9 @@ read_ledger() {
   fi
   cat "$LEDGER"
 }
+
+# A concept's files only grow; one without --files keeps the shape it had.
+ADD_FILES='def add_files: if $files == [] then . else .files = ((.files // []) + $files | unique) end;'
 
 write_ledger() {
   local content="$1"
@@ -103,7 +117,7 @@ case "$COMMAND" in
     CURRENT="$(read_ledger)"
     UPDATED="$(echo "$CURRENT" | jq \
       --arg name "$NAME" --arg concept_label "$LABEL" --arg status "$STATUS" \
-      --arg notes "$NOTES" --arg today "$TODAY" '
+      --arg notes "$NOTES" --arg today "$TODAY" --argjson files "$FILES_JSON" "$ADD_FILES"'
       .concepts |=
         if any(.[]?; .name == $name) then
           map(if .name == $name then
@@ -113,6 +127,7 @@ case "$COMMAND" in
             | .last_quizzed = $today
             | .status = $status
             | .notes = (if $notes != "" then $notes else (.notes // "") end)
+            | add_files
           else . end)
         else
           . + [{
@@ -124,7 +139,7 @@ case "$COMMAND" in
             last_quizzed: $today,
             status: $status,
             notes: $notes
-          }]
+          } | add_files]
         end')"
     write_ledger "$UPDATED"
     ;;
@@ -133,13 +148,14 @@ case "$COMMAND" in
     [ -n "$NAME" ] || { echo "ERROR: touch requires a concept name." >&2; exit 1; }
     CURRENT="$(read_ledger)"
     UPDATED="$(echo "$CURRENT" | jq \
-      --arg name "$NAME" --arg concept_label "$LABEL" --arg today "$TODAY" '
+      --arg name "$NAME" --arg concept_label "$LABEL" --arg today "$TODAY" --argjson files "$FILES_JSON" "$ADD_FILES"'
       .concepts |=
         if any(.[]?; .name == $name) then
           map(if .name == $name then
             .label = (if $concept_label != "" then $concept_label else .label end)
             | .sessions = (if .last_seen == $today then .sessions else .sessions + 1 end)
             | .last_seen = $today
+            | add_files
           else . end)
         else
           . + [{
@@ -151,7 +167,7 @@ case "$COMMAND" in
             last_quizzed: null,
             status: "new",
             notes: ""
-          }]
+          } | add_files]
         end')"
     write_ledger "$UPDATED"
     ;;

@@ -261,7 +261,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/briefing/health.html" ]
   refute_grep 'id="health"' "$(session_file)"
-  refute_grep '#health' "$(session_file)"
+  refute_grep 'href="#health"' "$(session_file)"
   refute_grep 'Assistant health' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
 }
 
@@ -288,6 +288,8 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   grep -q 'claude-opus-5.5 via claude-code 2.5.0' "$f"
   grep -q '2 of 3 commands<br>usual 8%' "$f"
   grep -q 'href="../health.html"' "$f"
+  # The card's styles live in the page's one stylesheet.
+  [ "$(grep -c '<style' "$f")" -eq 1 ]
 
   # Index row.
   grep -q '<a href="health.html">Assistant health</a></span><span class="stat-value danger">3 flagged</span>' \

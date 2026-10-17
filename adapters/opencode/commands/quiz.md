@@ -17,7 +17,7 @@ Question flow, following the same conventions documented in the Claude Code `/qu
 1. Prefer "why" and "what would break" questions over trivia.
 2. Ask one question at a time; wait for the user's answer before revealing anything.
 3. After each answer, say what the user got right, what they missed, and give a 1–2 sentence correct explanation. Colleague tone, never an exam.
-4. After the last question, record one `knowledge.sh record <name> --label="..." --status=<solid|shaky>` call per concept quizzed, with `--notes` on what was shaky.
+4. After the last question, record one `knowledge.sh record <name> --label="..." --status=<solid|shaky> --files=<path,path>` call per concept quizzed, with `--notes` on what was shaky and `--files` listing the project-relative files the question was grounded in, so the briefing links the concept to them.
 5. Close with a short recap and, if anything was shaky, point to `/learn <topic>`.
 
 If the session log is empty and no ledger exists, say vibe-learn has nothing to quiz on yet and stop.

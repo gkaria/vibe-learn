@@ -75,11 +75,11 @@ if [ "$COPIED" = "false" ]; then
 fi
 echo "  4. Generate an Audio Overview"
 echo ""
-echo "Paste this prompt when asked to customise the overview:"
+echo "The pack opens with the brief for the overview. If NotebookLM asks you to"
+echo "customise it, paste the same text:"
 echo ""
-echo "  Create a maintainer-focused audio overview. Explain what changed, why it"
-echo "  matters, what to inspect first, and what could break. Assume the listener"
-echo "  owns this codebase and needs enough technical depth to support it."
+# The pack's first paragraph, after its title.
+awk 'NR > 1 && NF { print; found = 1; next } found { exit }' "$PACK" | fold -s -w 76 | sed 's/^/  /'
 
 # Open NotebookLM and the exports folder
 OPENED_BROWSER=false

@@ -27,7 +27,7 @@ All reads and writes to `.vibe-learn/knowledge.json` (the cross-session ledger) 
 3. `scripts/knowledge.sh` under an installed vibe-learn Cursor plugin (`~/.cursor/plugins/local/vibe-learn/` or the marketplace install)
 4. `scripts/knowledge.sh` when working in the vibe-learn repo itself
 
-Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...]`, `touch <name> --label=...`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
+Commands: `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=<path,path>]`, `touch <name> --label=... [--files=<path,path>]`, `list [--status=<s>]`, `due [--days=14]`. Skip ledger steps silently if the helper is missing.
 
 ## Briefing
 
@@ -39,11 +39,11 @@ Explain recent activity in plain language: what changed, why the assistant likel
 
 ## Digest Mode
 
-Produce a structured report: What Was Built, Key Decisions, Patterns Used, Files And Commands Worth Reviewing, Things To Study Next. Merge unresolved ledger items (shaky, or new and seen in 2+ sessions) into the last section. `touch` each concept the session introduced. Offer to save to `.vibe-learn/digests/`; on the very first digest for a project (no `.vibe-learn/digests/` yet) close with one line pointing to https://github.com/gkaria/vibe-learn.
+Produce a structured report: What Was Built, Key Decisions, Patterns Used, Files And Commands Worth Reviewing, Things To Study Next. Merge unresolved ledger items (shaky, or new and seen in 2+ sessions) into the last section. `touch` each concept the session introduced, with `--files` listing the files where it shows up. Offer to save to `.vibe-learn/digests/`; on the very first digest for a project (no `.vibe-learn/digests/` yet) close with one line pointing to https://github.com/gkaria/vibe-learn.
 
 ## Quiz Mode
 
-Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" over trivia. For a review quiz, select from `knowledge.sh due` output instead. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam. Record one `knowledge.sh record` call per concept, then recap solid vs shaky.
+Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" over trivia. For a review quiz, select from `knowledge.sh due` output instead. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam. Record one `knowledge.sh record` call per concept, with `--files` listing the project-relative files the question was grounded in, then recap solid vs shaky.
 
 ## Explain Mode
 

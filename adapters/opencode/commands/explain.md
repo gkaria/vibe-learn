@@ -44,7 +44,7 @@ Rules:
 
 ## Close (all targets)
 
-1. Ledger: `touch` each concept the tour covered, one call per concept, using a stable kebab-case name and a short human label — `bash <path>/knowledge.sh touch <name> --label="<Human label>"` via the lookup order above. Never hand-edit the JSON.
+1. Ledger: `touch` each concept the tour covered, one call per concept, using a stable kebab-case name and a short human label — `bash <path>/knowledge.sh touch <name> --label="<Human label>" --files=<path,path>` via the lookup order above. Never hand-edit the JSON. Pass `--files=<path,path>` with the project-relative files the tour covered for that concept, so the briefing links the concept to them.
 2. If any concept covered is already `shaky` in the ledger, say so in one line ("You marked middleware ordering shaky on July 11 — this is the code behind it.").
 3. Offer the next step: "Want me to quiz you on this (`/quiz <topic>`), or save it to Obsidian (`/learn obsidian <topic>`)?"
 

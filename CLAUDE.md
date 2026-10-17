@@ -40,6 +40,9 @@ scripts/          ← assistant-agnostic core (host payload translation stays in
   usage.sh        ← sourced helper: tool families and skills per session from the host's own session record
   health-report.sh ← `vibe-learn health`: before/after-change comparison of health rows (read-only)
   lib/session.jq  ← shared jq module: learning turns (`learning_prompt`, `work_events`) and `session_facts` (goal, files, failures) for the pause summary and briefing
+  lib/briefing.jq ← `briefing_facts` (session_facts + timeline, ledger, diff, pause summary) and the page renderers that fill the templates
+  lib/pack.jq     ← the NotebookLM pack, rendered from the same facts
+  lib/briefing-{session,index,health}.html ← briefing page templates (static HTML with `{{name}}` placeholders)
 
 adapters/
   claude-code/    ← Claude Code adapter
@@ -195,15 +198,16 @@ The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim withou
 
 ## Session Briefing
 
-`scripts/briefing.sh` generates a static HTML session briefing from `.vibe-learn/session-log.jsonl`, `session-meta.json`, `pause-summary.txt`, and optional `git diff` context. It writes under `.vibe-learn/briefing/`:
+`scripts/briefing.sh` generates a static HTML session briefing from `.vibe-learn/session-log.jsonl`, `session-meta.json`, `pause-summary.txt`, and optional `git diff` context. It builds one facts object (`briefing_facts` in `scripts/lib/briefing.jq`) in a single jq pass and renders every output from it: the pages by filling `scripts/lib/briefing-*.html` (every log, ledger, and project value goes through `@html`, or `script_json` inside a `<script>`), the pack with `scripts/lib/pack.jq`. The templates and jq files ship in `scripts/lib/` (or beside `briefing.sh` in the flat techpack layout); a missing one stops the run with an error. It writes under `.vibe-learn/briefing/`:
 
-- `index.html` — dashboard index for recent generated sessions
-- `sessions/<date>-<project>-<session>.html` — interactive session briefing
-- `exports/<date>-<project>-<session>-notebooklm-pack.md` — source pack for NotebookLM/audio overview workflows
+- `index.html` — dashboard index for recent generated sessions; each older card's goal and numbers come from that session's saved facts
+- `sessions/<date>-<project>-<session>.json` — the facts object itself (`schema_version: 1`; fields listed in `docs/briefing.md`). `vibe-learn briefing --json` prints it for the current session (building only when stale; status lines go to stderr, exit 1 with empty stdout when there is no activity) and `--json --session <id>` prints a saved one. Within a schema version, fields are only added
+- `sessions/<date>-<project>-<session>.html` — the session page: three questions first (what was built and why, what to understand, what broke and how it was fixed, all without learning turns), then the Assistant health card when there is history, then a collapsed `<details id="full-record">` with the session brief, timeline, file tour, command log, diff, study queue, knowledge state, and audio export. One stylesheet with light and dark variables (`prefers-color-scheme`)
+- `exports/<date>-<project>-<session>-notebooklm-pack.md` — NotebookLM source pack (`scripts/lib/pack.jq`): listener prose from the same facts, opening with the audio prompt; commands as their first line plus a line count; the diff plus new untracked (never ignored) files the session created, 60 lines each
 
-`briefing.sh` also reads `.vibe-learn/knowledge.json` when present (read-only): shaky concepts and never-quizzed concepts seen in 2+ sessions lead the study queue (cap 5), the session page gains a Knowledge State section, the pack gains a "Your knowledge state" table, and the audio framing gains an adaptive sentence when anything is shaky. Output is byte-identical to the no-ledger rendering when the file is missing or empty; a malformed ledger warns on stderr and is ignored.
+`briefing.sh` also reads `.vibe-learn/knowledge.json` when present (read-only): "What to understand" lists up to five concepts whose `files` include a file the session changed (else concepts seen, touched, or quizzed on the session date), shaky concepts and never-quizzed concepts seen in 2+ sessions lead the study queue (cap 5), the session page gains a Knowledge State section, the pack's "What to understand" lists the same concepts as the page (struggled with / not yet quizzed / solid), and the audio prompt (the pack's first paragraph and the page's "Copy audio prompt") gains an adaptive sentence when one of those concepts is shaky. Output is byte-identical to the no-ledger rendering when the file is missing or empty; a malformed ledger warns on stderr and is ignored.
 
-Each run copies the live `session-log.jsonl` and `session-meta.json` into a private `briefing/.work.<random>/` once at start, and copies them again if the meta's session id changed meanwhile (a rotation), so the page never pairs one session's log with another's meta; the slug, and so the output files, come from that copy. The pause summary is shown only when `pause-summary.session` (the session id `pause-summary.sh` writes beside it) matches the session's id, so a summary left by the previous session never lands on this one's page. Outputs are written in the private directory and renamed into place: the page and pack, then the index, then `briefing/.stamps/<slug>` with a fingerprint of the session's work events (learning turns and `turn_end` lines left out), the ledger, and `briefing.sh` itself. `--if-stale` exits 0 when the page exists and its stamp matches the live session's fingerprint, so `/learn`'s own prompt and commands never make the page stale, and a run killed before the stamp is rebuilt. There is no lock: runs are started by the user or by `/learn` and `/digest`, and two at once each rename whole files into place. A run with no session log keeps an existing index instead of writing the placeholder.
+Each run copies the live `session-log.jsonl` and `session-meta.json` into a private `briefing/.work.<random>/` once at start, and copies them again if the meta's session id changed meanwhile (a rotation), so the page never pairs one session's log with another's meta; the slug, and so the output files, come from that copy. The pause summary is shown only when `pause-summary.session` (the session id `pause-summary.sh` writes beside it) matches the session's id, so a summary left by the previous session never lands on this one's page. Outputs are written in the private directory and renamed into place: the page and pack, then the index, then `briefing/.stamps/<slug>` with a fingerprint of the session's work events (learning turns and `turn_end` lines left out), the ledger, and `briefing.sh` with its `lib/` templates and jq modules. `--if-stale` exits 0 when the page and its facts JSON exist and the stamp matches the live session's fingerprint, so `/learn`'s own prompt and commands never make the page stale, and a run killed before the stamp is rebuilt. There is no lock: runs are started by the user or by `/learn` and `/digest`, and two at once each rename whole files into place. A run with no session log keeps an existing index instead of writing the placeholder.
 
 It is built only on demand, never from a hook: by `vibe-learn briefing`, by `vibe-learn audio-prep` when no pack exists, and by `/learn` and `/digest` on every host, which run `vibe-learn briefing --if-stale` first. `tests/bootstrap.bats` and `tests/pause-summary.bats` check that neither SessionStart nor Stop starts it.
 
@@ -264,17 +268,17 @@ These files contain plain-language instructions that the assistant follows — n
 `.vibe-learn/knowledge.json` (project-level, no global fallback) tracks concepts across sessions:
 
 ```json
-{"version":1,"concepts":[{"name":"jwt-auth","label":"JWT authentication","first_seen":"2026-06-20","last_seen":"2026-07-11","sessions":3,"last_quizzed":"2026-07-11","status":"shaky","notes":"..."}]}
+{"version":1,"concepts":[{"name":"jwt-auth","label":"JWT authentication","first_seen":"2026-06-20","last_seen":"2026-07-11","sessions":3,"last_quizzed":"2026-07-11","status":"shaky","notes":"...","files":["src/auth.ts"]}]}
 ```
 
 `status` is `new` (never quizzed), `shaky`, or `solid`. Quizzing sets status; touching a concept in a later session never downgrades it. All reads and writes go through `scripts/knowledge.sh`:
 
-- `record <name> --label=... --status=<new|shaky|solid> [--notes=...]` — store a quiz result (stamps `last_quizzed`)
-- `touch <name> --label=...` — mark a concept seen this session (bumps `sessions` at most once per day)
+- `record <name> --label=... --status=<new|shaky|solid> [--notes=...] [--files=a,b]` — store a quiz result (stamps `last_quizzed`)
+- `touch <name> --label=... [--files=a,b]` — mark a concept seen this session (bumps `sessions` at most once per day)
 - `list [--status=<s>]` — print the ledger as JSON
 - `due [--days=14]` — concepts due for review (shaky, or unquizzed past the cutoff)
 
-A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
+`--files` adds project-relative paths (absolute paths under the project are made relative) to the concept's optional `files` list, which only grows; `/quiz`, `/explain`, and `/digest` pass the files a concept came from so the briefing can link it to them. A missing file means an empty ledger; writes merge by `name` and are atomic (temp file + `mv`). `config/knowledge-defaults.json` is the reference template (`review_after_days: 14`, `quiz_question_count: 5`).
 
 `scripts/recap.sh` (`vibe-learn recap [dir] [--days=7] [--save]`) is the shareable read-only view of the ledger: it groups concepts into confirmed solid / still shaky / carried over / met-not-quizzed for the window, adds activity counts from `session-log.jsonl` + `.prev.jsonl`, lists digests saved in the window (first line of "What Was Built"), and suggests the next command. `--save` writes `.vibe-learn/recaps/<date>-recap.md`. It never writes `knowledge.json`.
 

@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "project": "proj",
+  "date": "2026-10-16",
+  "slug": "SLUG",
+  "session_id": "learn-test",
+  "started_at": "2026-10-16T09:00:00Z",
+  "harness": "claude-code",
+  "model": "claude-opus-5-5",
+  "goal": "Build an Express API with two routes and a test for each",
+  "goal_turn": 2,
+  "turns": {
+    "work": 4,
+    "learning": 2,
+    "last": 6,
+    "last_is_learning": true
+  },
+  "files": [
+    {
+      "path": "src/app.js",
+      "created": 1,
+      "edited": 2,
+      "deleted": 0,
+      "turns": [
+        2,
+        3,
+        5
+      ]
+    },
+    {
+      "path": "test/app.test.js",
+      "created": 1,
+      "edited": 0,
+      "deleted": 0,
+      "turns": [
+        2
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "turn": 2,
+      "first_line": "npm install express",
+      "lines": 1,
+      "exit_code": 0
+    },
+    {
+      "turn": 2,
+      "first_line": "npm test",
+      "lines": 1,
+      "exit_code": 1
+    },
+    {
+      "turn": 3,
+      "first_line": "npm test",
+      "lines": 1,
+      "exit_code": 0
+    },
+    {
+      "turn": 5,
+      "first_line": "npm run lint",
+      "lines": 1,
+      "exit_code": 1
+    }
+  ],
+  "failures": [
+    {
+      "turn": 2,
+      "command": "npm test",
+      "exit_code": 1,
+      "fixed_by": {
+        "turn": 3,
+        "command": "npm test"
+      }
+    },
+    {
+      "turn": 5,
+      "command": "npm run lint",
+      "exit_code": 1,
+      "fixed_by": null
+    }
+  ],
+  "last_turn": {
+    "turn": 5,
+    "prompt": "add a /health route",
+    "files": [
+      {
+        "path": "src/app.js",
+        "action": "edited"
+      }
+    ],
+    "commands": [
+      {
+        "first_line": "npm run lint",
+        "exit_code": 1
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "turn": 1,
+      "kind": "prompt",
+      "learning": false,
+      "text": "ok"
+    },
+    {
+      "turn": 2,
+      "kind": "prompt",
+      "learning": false,
+      "text": "Build an Express API with two routes and a test for each"
+    },
+    {
+      "turn": 2,
+      "kind": "file",
+      "learning": false,
+      "text": "src/app.js",
+      "action": "created"
+    },
+    {
+      "turn": 2,
+      "kind": "file",
+      "learning": false,
+      "text": "test/app.test.js",
+      "action": "created"
+    },
+    {
+      "turn": 2,
+      "kind": "command",
+      "learning": false,
+      "text": "npm install express",
+      "exit_code": 0
+    },
+    {
+      "turn": 2,
+      "kind": "command",
+      "learning": false,
+      "text": "npm test",
+      "exit_code": 1
+    },
+    {
+      "turn": 3,
+      "kind": "prompt",
+      "learning": false,
+      "text": "fix the failing test"
+    },
+    {
+      "turn": 3,
+      "kind": "file",
+      "learning": false,
+      "text": "src/app.js",
+      "action": "edited"
+    },
+    {
+      "turn": 3,
+      "kind": "command",
+      "learning": false,
+      "text": "npm test",
+      "exit_code": 0
+    },
+    {
+      "turn": 4,
+      "kind": "prompt",
+      "learning": true,
+      "text": "/vibe-learn:digest"
+    },
+    {
+      "turn": 4,
+      "kind": "command",
+      "learning": true,
+      "text": "ls .vibe-learn/digests",
+      "exit_code": 2
+    },
+    {
+      "turn": 4,
+      "kind": "file",
+      "learning": true,
+      "text": ".vibe-learn/digests/2026-10-16-demo.md",
+      "action": "created"
+    },
+    {
+      "turn": 5,
+      "kind": "prompt",
+      "learning": false,
+      "text": "add a /health route"
+    },
+    {
+      "turn": 5,
+      "kind": "file",
+      "learning": false,
+      "text": "src/app.js",
+      "action": "edited"
+    },
+    {
+      "turn": 5,
+      "kind": "command",
+      "learning": false,
+      "text": "npm run lint",
+      "exit_code": 1
+    },
+    {
+      "turn": 6,
+      "kind": "prompt",
+      "learning": true,
+      "text": "/learn why express?"
+    },
+    {
+      "turn": 6,
+      "kind": "command",
+      "learning": true,
+      "text": "cat .vibe-learn/knowledge.json",
+      "exit_code": 1
+    }
+  ],
+  "knowledge": {
+    "total": 2,
+    "shaky": 1,
+    "concepts": [
+      {
+        "name": "express-routing",
+        "label": "Express routing",
+        "status": "shaky",
+        "sessions": 2,
+        "first_seen": null,
+        "last_seen": "2026-10-16",
+        "last_quizzed": "2026-10-16",
+        "files": [
+          "src/app.js"
+        ]
+      },
+      {
+        "name": "old",
+        "label": "Old concept",
+        "status": "new",
+        "sessions": 0,
+        "first_seen": null,
+        "last_seen": null,
+        "last_quizzed": null,
+        "files": []
+      }
+    ]
+  },
+  "diff": "",
+  "pause_summary": null,
+  "concepts": [
+    {
+      "name": "express-routing",
+      "label": "Express routing",
+      "status": "shaky",
+      "sessions": 2,
+      "first_seen": null,
+      "last_seen": "2026-10-16",
+      "last_quizzed": "2026-10-16",
+      "files": [
+        "src/app.js"
+      ],
+      "match": "files"
+    }
+  ]
+}

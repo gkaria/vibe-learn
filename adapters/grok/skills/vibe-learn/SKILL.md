@@ -53,7 +53,7 @@ When the user asks to be quizzed (`/quiz`, "Use vibe-learn to quiz me", "check m
 1. Follow `.grok/commands/quiz.md` when the project has it; otherwise apply the same flow from this skill.
 2. Select 3–5 recall questions grounded in the session log — prefer "why" and "what would break" questions over trivia. For a review quiz, select from `knowledge.sh due` output instead.
 3. Ask one question at a time and wait for the answer. After each, say what was right, what was missed, and give a short correct explanation. Colleague tone, never an exam.
-4. Record results in the knowledge ledger via `run_terminal_command` — one call per concept: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."]`. If that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` the vibe-learn hooks point at in `.grok/hooks/vibe-learn.json` or `~/.grok/hooks/vibe-learn.json`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
+4. Record results in the knowledge ledger via `run_terminal_command` — one call per concept, with `--files` listing the project-relative files the question was grounded in: `bash ~/.vibe-learn/scripts/knowledge.sh record <name> --label="..." --status=<solid|shaky> [--notes="..."] --files=<path,path>`. If that path doesn't exist, use the `knowledge.sh` in the same directory as the `bootstrap.sh` the vibe-learn hooks point at in `.grok/hooks/vibe-learn.json` or `~/.grok/hooks/vibe-learn.json`. Never hand-edit `.vibe-learn/knowledge.json`. Skip silently if the helper is missing.
 5. Close with a recap: solid concepts, shaky concepts, and what to revisit.
 
 ## Explain Mode
@@ -63,7 +63,7 @@ When the user asks for a code tour ("Use vibe-learn to explain src/auth.ts", "wa
 1. Follow `.grok/commands/explain.md` when the project has it; otherwise apply this flow.
 2. Pick the target: the named file; the files behind a named topic (session log first, then grep); or, with no target, the most significant file this session touched (a new file others import, the most-edited file, or the file behind the last prompt) — say which and why.
 3. Read the target and its immediate callers/callees, then tour it top-down: **Entry point** (what triggers it), **The spine** (3–5 load-bearing pieces in execution order, each with a real `path:line` and the *why*), **The edges** (error paths, ordering constraints, what breaks if rearranged), **Connections** (callers, callees, ripple). Never invent functions, branches, or files the code does not have. Tie pieces back to the session log when it shows why they were added.
-4. Mark covered concepts as seen via `run_terminal_command`: `bash ~/.vibe-learn/scripts/knowledge.sh touch <name> --label="..."` (same helper lookup as Quiz Mode). Never hand-edit the JSON; skip silently if the helper is missing.
+4. Mark covered concepts as seen, with `--files` listing the files the tour covered, via `run_terminal_command`: `bash ~/.vibe-learn/scripts/knowledge.sh touch <name> --label="..." --files=<path,path>` (same helper lookup as Quiz Mode). Never hand-edit the JSON; skip silently if the helper is missing.
 5. If a covered concept is already shaky in the ledger, say so in one line. Close by offering a quiz on the topic or an Obsidian save.
 
 ## Knowledge Ledger
