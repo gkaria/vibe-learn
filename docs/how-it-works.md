@@ -11,8 +11,9 @@ After every AI response that touches files or runs commands, vibe-learn:
 - Appends every action to `.vibe-learn/session-log.jsonl`
 - Writes a pause summary to `.vibe-learn/pause-summary.txt`
 - Injects that summary into your assistant's context at the start of the next session (Claude Code and GitHub Copilot CLI)
-- Regenerates the session briefing in the background
-- When the next session starts, saves one row of [assistant health](health.md) counts for the one that just ended
+- When the next session starts, saves one row of [assistant health](health.md) counts for the one that just ended, and builds that session's briefing in the background
+
+The briefing is also rebuilt when you run `vibe-learn briefing`, and `/learn` and `/digest` refresh it first when the session has moved on. Nothing heavier than the summary runs after each response.
 
 The summary covers the whole session so far: the goal (the first substantial prompt), commands that failed and have not passed since, the last turn's actions, and every file touched, with paths relative to the project. Learning commands (`/learn`, `/digest`, `/quiz`, `/explain`) are left out, and a turn that only ran one of them keeps the previous summary. It is capped at `pause_summary_max_lines` (default 20; set it in `~/.vibe-learn/config.json` or the project's `.vibe-learn/config.json`). The last line switches to `/vibe-learn:…` under the plugin install:
 
@@ -42,12 +43,12 @@ All fast and offline:
 
 | Hook | Script | What it does |
 |------|--------|--------------|
-| `SessionStart` / `sessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log |
+| `SessionStart` / `sessionStart` | `bootstrap.sh` | Creates `.vibe-learn/`, rotates previous log, starts its briefing detached |
 | `UserPromptSubmit` / `userPromptSubmitted` | `capture-prompt.sh` | Logs your prompt with a turn counter |
 | `PostToolUse` / `postToolUse` | `observe.sh` | Appends one JSONL line per tool event (<50ms) |
-| `Stop` / `agentStop` | `pause-summary.sh` | Writes summary, injects context, generates session briefing |
+| `Stop` / `agentStop` | `pause-summary.sh` | Writes the summary file (injected at the next session start) |
 
-On-demand (never from hooks): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, `vibe-learn health`, and the knowledge helper `scripts/knowledge.sh`.
+On-demand (never from hooks, apart from the one detached briefing at rotation): `vibe-learn briefing`, `vibe-learn recap`, `vibe-learn audio-prep`, `vibe-learn health`, and the knowledge helper `scripts/knowledge.sh`.
 
 All data stays in `.vibe-learn/` inside your project. No network calls, no external services.
 

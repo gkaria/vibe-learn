@@ -14,6 +14,10 @@ Use this skill when the user asks to learn from the current coding session, unde
 3. Ground explanations in the session log and any relevant files changed during the session.
 4. If the log is missing or empty, say that vibe-learn has not captured events for this project yet and explain what can be inferred from available context.
 
+## Briefing
+
+In Learn Mode and Digest Mode, before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the `scripts/` directory that holds vibe-learn's `knowledge.sh` (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+
 ## Learn Mode
 
 When the user asks to "learn", explain recent activity in plain language:

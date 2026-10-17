@@ -1,6 +1,6 @@
 # Session briefing and audio
 
-Part of [vibe-learn](../README.md). After each session a local HTML briefing is generated from the same log the learning commands read. This page is how to open it and how to turn it into a NotebookLM audio overview.
+Part of [vibe-learn](../README.md). A local HTML briefing is generated from the same log the learning commands read. This page is how to open it and how to turn it into a NotebookLM audio overview.
 
 ---
 
@@ -9,6 +9,14 @@ Part of [vibe-learn](../README.md). After each session a local HTML briefing is 
 ```bash
 vibe-learn briefing          # regenerate and show path
 ```
+
+The briefing is never rebuilt after each response. It is built:
+
+- when you run `vibe-learn briefing` (or `vibe-learn audio-prep` with no pack yet);
+- when `/learn` or `/digest` starts: they run `vibe-learn briefing --if-stale`, which returns at once when the page is newer than the session log and `knowledge.json`;
+- once for each finished session, in the background, when the next session starts.
+
+So the current session's page is as fresh as the last `/learn`, `/digest`, or manual run, and becomes final when the next session starts. Two runs never write at the same time: each takes `.vibe-learn/briefing/.lock`, and a second run waits up to 10 seconds (`--lock-wait`) before giving up with "another briefing run is in progress". A lock left by a crashed run is removed automatically.
 
 Plugin-only install? The `vibe-learn` CLI is on the Bash tool's PATH inside Claude Code, so just ask Claude to run `vibe-learn briefing`. To have it in your own shell too, run the curl installer — it adds the CLI and skips the duplicate hooks.
 

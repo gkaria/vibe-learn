@@ -13,11 +13,18 @@ seed_session_log() {
 JSONL
 }
 
-@test "pause-summary outputs valid JSON with additionalContext" {
+# Run the Stop hook as Claude Code does; $output is then pause-summary.txt.
+summarize() {
+  echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
+  output="$(cat "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" 2>/dev/null)"
+}
+
+@test "pause-summary never emits additionalContext, and nothing without a hook event" {
   seed_session_log
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.hookSpecificOutput.additionalContext' >/dev/null
+  [ -z "$output" ]
+  grep -q "Build an API" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
 }
 
 @test "pause-summary outputs Codex Stop-compatible JSON" {
@@ -30,19 +37,19 @@ JSONL
 
 @test "pause-summary includes the session goal" {
   seed_session_log
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "Build an API"
 }
 
 @test "pause-summary lists created files" {
   seed_session_log
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "Created src/app.ts"
 }
 
 @test "pause-summary lists edited files" {
   seed_session_log
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "Edited src/index.ts"
 }
 
@@ -55,7 +62,7 @@ JSONL
 {"timestamp":"2026-03-17T14:00:15Z","event":"tool_use","tool":"apply_patch","file":"src/old.ts","action":"deleted","context":{}}
 JSONL
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "Created src/new.ts"
   echo "$output" | grep -q "Edited src/app.ts"
   echo "$output" | grep -q "Deleted src/old.ts"
@@ -63,7 +70,7 @@ JSONL
 
 @test "pause-summary lists bash commands" {
   seed_session_log
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "npm install"
 }
 
@@ -83,7 +90,7 @@ JSONL
 {"timestamp":"2026-03-17T14:00:07Z","event":"tool_use","tool":"Edit","file":"src/also-fail.ts","action":"failed","context":{"failed":true}}
 JSONL
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "Created src/ok.ts"
   ! echo "$output" | grep -q "Created src/fail.ts"
   ! echo "$output" | grep -q "Edited src/also-fail.ts"
@@ -96,9 +103,10 @@ JSONL
 {"timestamp":"2026-03-17T14:00:05Z","event":"tool_use","tool":"Write","file":"src/fail.ts","action":"failed","context":{"failed":true}}
 JSONL
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+  [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
 }
 
 @test "pause-summary flags failed commands" {
@@ -108,7 +116,7 @@ JSONL
 {"timestamp":"2026-03-17T14:00:05Z","event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":1}}
 JSONL
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  summarize
   echo "$output" | grep -q "failed"
 }
 
@@ -124,9 +132,10 @@ JSONL
   echo '{"timestamp":"2026-03-17T14:00:00Z","event":"user_prompt","prompt":"Hello"}' \
     > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
 
-  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
+  run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+  [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
 }
 
 @test "pause-summary exits silently when cwd is missing" {
@@ -135,16 +144,19 @@ JSONL
   [ -z "$output" ]
 }
 
-@test "pause-summary auto-generates dashboard in background" {
+@test "the Stop hook does not start briefing.sh" {
+  local root="$BATS_TEST_TMPDIR/vl"
+  mkdir -p "$root"
+  cp -R "$SCRIPTS_DIR" "$root/scripts"
+  printf '#!/bin/bash\ntouch "%s/briefing-ran"\n' "$root" > "$root/scripts/briefing.sh"
   seed_session_log
-  echo '{"cwd":"'"$TEST_PROJECT_DIR"'"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
-  # Allow the background job to finish (dashboard.sh is fast but runs async)
-  local deadline=$(($(date +%s) + 5))
-  while [ ! -f "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" ]; do
-    [ "$(date +%s)" -lt "$deadline" ] || break
-    sleep 0.2
+  for event in Stop stop; do
+    echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"'"$event"'"}' | bash "$root/scripts/pause-summary.sh" >/dev/null
   done
-  [ -f "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" ]
+  sleep 1
+  [ -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
+  [ ! -e "$root/briefing-ran" ]
+  [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/briefing" ]
 }
 
 @test "pause-summary emits no stdout for Grok Stop" {

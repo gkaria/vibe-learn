@@ -450,7 +450,7 @@ seed_turn() {
 
 last_turn_end() { jq -c 'select(.event == "turn_end") | {turn, model, effort}' "$(vl)/session-log.jsonl" | tail -n 1; }
 
-@test "pause-summary appends turn_end with the Claude transcript model and Stop effort, stdout unchanged" {
+@test "pause-summary appends turn_end with the Claude transcript model and Stop effort, summary unchanged" {
   mkdir -p "$HOME/.claude/projects/p"
   local t="$HOME/.claude/projects/p/s.jsonl"
   echo '{"type":"assistant","version":"2.1.222","message":{"model":"claude-sonnet-5"}}' > "$t"
@@ -458,7 +458,8 @@ last_turn_end() { jq -c 'select(.event == "turn_end") | {turn, model, effort}' "
 
   run bash -c "printf '%s' '{\"cwd\":\"$TEST_PROJECT_DIR\",\"transcript_path\":\"$t\",\"effort\":{\"level\":\"low\"}}' | bash '$SCRIPTS_DIR/pause-summary.sh'"
   [ "$status" -eq 0 ]
-  printf '%s' "$output" | jq -e '.hookSpecificOutput.additionalContext | contains("Ran: ls")' >/dev/null
+  [ -z "$output" ]
+  grep -q "Ran: ls" "$(vl)/pause-summary.txt"
   [ "$(last_turn_end)" = '{"turn":1,"model":"claude-sonnet-5","effort":"low"}' ]
 }
 

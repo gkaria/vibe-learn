@@ -4,6 +4,8 @@ description: Generate a structured learning report from the current session — 
 
 Read .vibe-learn/session-log.jsonl (the full log). Read `.vibe-learn/pause-summary.txt` when it exists — Grok cannot inject that summary via SessionStart. Read any relevant source files to understand what was built.
 
+**Briefing (all modes):** before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via `run_terminal_command`. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the `scripts/` directory that holds vibe-learn's `knowledge.sh` (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+
 Parse $ARGUMENTS to determine the mode:
 
 ---

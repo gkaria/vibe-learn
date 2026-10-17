@@ -74,9 +74,9 @@ adapters/
 
 **Adding a new assistant**: create `adapters/<name>/` with an `install.sh` that handles hook registration for that assistant's config format. Prefer translating host payloads in the adapter (OpenCode, Cursor, and Copilot CLI do this). Grok is the exception: it invokes the core scripts directly and also runs Claude hook files via `[compat.claude]`, so the core scripts accept both Claude snake_case and Grok camelCase envelopes and canonicalize Grok tool names (`write` → `Write`, `search_replace` → `Edit`, `run_terminal_command` → `Bash`).
 
-### Stop Hook / additionalContext
+### Stop hook output
 
-`pause-summary.sh` outputs `{"hookSpecificOutput": {"additionalContext": "..."}}` — the Claude Code JSON envelope for real-time context injection. For Codex Stop hooks, it returns Codex-compatible JSON (`{"continue": true}`) and writes the summary to `.vibe-learn/pause-summary.txt`. For Grok Stop hooks it writes the same file and emits **no stdout**: Grok treats `additionalContext` as a keep-working gate, and SessionStart stdout is ignored. `bootstrap.sh` still injects the file as `additionalContext` on hosts that support it. Grok learn/digest/skill instructions tell the model to read `pause-summary.txt` instead.
+`pause-summary.sh` writes the summary to `.vibe-learn/pause-summary.txt` and never emits `additionalContext`. A Stop hook's `additionalContext` is not passive: on Claude Code it keeps the turn going under the same loop protections as `decision: "block"`, and Grok treats it as a keep-working gate. For a `"Stop"` event (Claude Code, Codex, OpenCode) it prints `{"continue":true}`; for lowercase `"stop"` (Grok, Cursor, Copilot shims), `GROK_HOOK_EVENT`, or a payload without an event it prints nothing. There is no mid-session context injection: `bootstrap.sh` injects the file as `additionalContext` at the next SessionStart on hosts that support it, and Grok/Cursor/Copilot learn and digest instructions tell the model to read `pause-summary.txt`. The Stop hook does nothing else: it never starts `briefing.sh`.
 
 ## How It Works
 
@@ -87,7 +87,7 @@ The plugin registers four lifecycle hooks:
 | `SessionStart` | `scripts/bootstrap.sh` | New session opens |
 | `UserPromptSubmit` | `scripts/capture-prompt.sh` | User sends a message |
 | `PostToolUse` | `scripts/observe.sh` | After Write/Edit/MultiEdit/Bash/apply_patch and Grok write/search_replace/run_terminal_command. Claude Code and Grok also register `PostToolUseFailure` so failed tools are logged (Claude Code fires it instead of `PostToolUse` when a tool fails). |
-| `Stop` | `scripts/pause-summary.sh` | After AI finishes responding |
+| `Stop` | `scripts/pause-summary.sh` | After AI finishes responding (writes `pause-summary.txt`, nothing heavier) |
 
 Hook registration format differs per assistant:
 
@@ -136,8 +136,9 @@ echo '{"cwd":"/tmp/test-vl","tool_name":"Bash","tool_input":{"command":"npm inst
 # Test bootstrap.sh
 echo '{"session_id":"test123","cwd":"/tmp/test-vl"}' | bash scripts/bootstrap.sh
 
-# Test pause-summary.sh (outputs hookSpecificOutput.additionalContext JSON)
-echo '{"cwd":"/tmp/test-vl"}' | bash scripts/pause-summary.sh | jq .
+# Test pause-summary.sh (prints {"continue":true}; the summary goes to pause-summary.txt)
+echo '{"cwd":"/tmp/test-vl","hook_event_name":"Stop"}' | bash scripts/pause-summary.sh
+cat /tmp/test-vl/.vibe-learn/pause-summary.txt
 
 # View the session log
 cat /tmp/test-vl/.vibe-learn/session-log.jsonl | jq .
@@ -194,7 +195,7 @@ The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim withou
 
 ## Session Briefing
 
-`scripts/briefing.sh` generates an on-demand static HTML session briefing from `.vibe-learn/session-log.jsonl`, `session-meta.json`, `pause-summary.txt`, and optional `git diff` context. It writes under `.vibe-learn/briefing/`:
+`scripts/briefing.sh` generates a static HTML session briefing from `.vibe-learn/session-log.jsonl`, `session-meta.json`, `pause-summary.txt`, and optional `git diff` context. It writes under `.vibe-learn/briefing/`:
 
 - `index.html` — dashboard index for recent generated sessions
 - `sessions/<date>-<project>-<session>.html` — interactive session briefing
@@ -204,7 +205,7 @@ The `adapters/copilot-cli/` adapter writes a dedicated hook file and shim withou
 
 `--log FILE --meta FILE` read a snapshot instead of the live pair (the slug, and so the output files, come from that meta). `--if-stale` exits 0 without taking the lock when `sessions/<slug>.html` is newer than the log and `knowledge.json`. Every other run takes `.vibe-learn/briefing/.lock`: a `mkdir` lock (atomic on Linux and macOS; `flock` is not on macOS) holding the owner's pid, removed by the next caller when that pid is gone. A run waits `--lock-wait` seconds (default 10), then exits 1 with "another briefing run is in progress". A page built from a snapshot has no Assistant health card, since the card reads the live session.
 
-Do not call dashboard generation from hooks. It is intentionally on-demand via `vibe-learn briefing` so hooks remain fast.
+It is built three ways, never on Stop: on demand (`vibe-learn briefing`, and `vibe-learn audio-prep` when no pack exists); by `/learn` and `/digest` on every host, which run `vibe-learn briefing --if-stale` first; and once per finished session at rotation. When `bootstrap.sh` rotates the log it copies `session-meta.json` to `session-meta.prev.json` and starts `briefing.sh --log session-log.prev.jsonl --meta session-meta.prev.json --lock-wait 60` fully detached (`setsid` when present, else a backgrounded subshell; stdin, stdout, and stderr on `/dev/null`), so the hook returns at once and no host waits on its pipe. Resume with the same session id exits before rotation and spawns nothing. Cursor Cloud Agents never run `sessionStart`, so they get no rotation briefing. No other hook may start it; `tests/bootstrap.bats` and `tests/pause-summary.bats` pin both rules with a stub `briefing.sh`.
 
 ## Releasing
 
@@ -303,7 +304,7 @@ All events appended to `.vibe-learn/session-log.jsonl` (one JSON object per line
 
 Every reader filters by `event`, so older readers ignore `turn_end`.
 
-Session metadata is tracked separately in `.vibe-learn/session-meta.json`: `session_id`, `started_at`, `event_count`, `current_turn`, plus identity fields written by `bootstrap.sh` — `harness` (`claude-code`, `copilot-cli`, `codex`, `cursor`, `opencode`, `grok`, or `unknown`), `harness_version`, `model`, `effort`, `transcript_path`, `git_head`, `git_dirty` (each `null` when unknown).
+At rotation `bootstrap.sh` keeps the finished session as `session-log.prev.jsonl` and `session-meta.prev.json`. Session metadata is tracked separately in `.vibe-learn/session-meta.json`: `session_id`, `started_at`, `event_count`, `current_turn`, plus identity fields written by `bootstrap.sh` — `harness` (`claude-code`, `copilot-cli`, `codex`, `cursor`, `opencode`, `grok`, or `unknown`), `harness_version`, `model`, `effort`, `transcript_path`, `git_head`, `git_dirty` (each `null` when unknown).
 
 ## Assistant Health
 
@@ -328,6 +329,7 @@ When `.vibe-learn/health.jsonl` has rows, `briefing.sh` embeds that `--views` JS
 - **`observe.sh` must complete in <50ms** — it runs synchronously on every tool use. Never add network calls, heavy computation, or multi-step jq pipelines to this script.
 - **Append-only log** — scripts only append to `session-log.jsonl`, never rewrite it. Session rotation creates a `.prev.jsonl` copy instead.
 - **No stdout noise from hooks** — scripts should not print to stdout (Claude Code captures it). Use `>&2` for debug output, or suppress entirely.
-- **`pause-summary.sh` injects via `additionalContext`** — output must be valid JSON with `{"hookSpecificOutput": {"additionalContext": "..."}}` when providing summaries to Claude's context.
+- **Stop never emits `additionalContext`** — `pause-summary.sh` writes `pause-summary.txt` and prints at most `{"continue":true}`. Context reaches the assistant only at SessionStart.
+- **The briefing never runs on Stop** — only on demand, from `/learn` and `/digest` (`--if-stale`), and detached at rotation in `bootstrap.sh`.
 - **Hooks never write the knowledge ledger** — `.vibe-learn/knowledge.json` is updated only by learning commands via `scripts/knowledge.sh`. Do not call `knowledge.sh` from any hook script.
 - **Health history is append-only and written only at rotation** — `bootstrap.sh` appends one row per session segment to `.vibe-learn/health.jsonl` and `~/.vibe-learn/health.jsonl`, swallowing every failure. `health.sh` is a single `jq` pass (about 1.4 s on a 10 MB log); keep it linear, since it runs inside the `SessionStart` timeout.

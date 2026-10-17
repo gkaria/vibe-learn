@@ -302,3 +302,15 @@ write_learning_session() {
   [ "$(grep -c '<script>' "$page")" -eq "$(grep -c '</script>' "$page")" ]
   [ ! -e "$vl/briefing/.lock" ]
 }
+
+@test "every host's learn and digest prompts refresh the briefing with --if-stale" {
+  local f n=0
+  for f in "$VIBE_LEARN_DIR"/adapters/claude-code/commands/{learn,digest}.md \
+           "$VIBE_LEARN_DIR"/adapters/{codex/prompts,opencode/commands,grok/commands}/{learn,digest}.md \
+           "$VIBE_LEARN_DIR"/adapters/{cursor,copilot-cli}/skills/{learn,digest}/SKILL.md \
+           "$VIBE_LEARN_DIR"/adapters/{codex,grok,cursor,copilot-cli}/skills/vibe-learn/SKILL.md; do
+    grep -q 'vibe-learn briefing --if-stale' "$f" || { echo "missing: $f"; return 1; }
+    n=$((n + 1))
+  done
+  [ "$n" -eq 16 ]
+}

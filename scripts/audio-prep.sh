@@ -6,20 +6,24 @@ set -euo pipefail
 TARGET_DIR="${1:-$(pwd)}"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXPORTS_DIR="$TARGET_DIR/.vibe-learn/briefing/exports"
 
-if [ ! -d "$EXPORTS_DIR" ]; then
-  echo "No session briefing exports found for $(basename "$TARGET_DIR")." >&2
-  echo "Run 'vibe-learn briefing' first, or wait for the next agent response." >&2
-  exit 1
+# Newest by modification time: same-day filenames differ only by session id.
+latest_pack() {
+  ls -1t "$EXPORTS_DIR"/*-notebooklm-pack.md 2>/dev/null | head -1 || true
+}
+
+PACK=$(latest_pack)
+if [ -z "$PACK" ]; then
+  echo "No NotebookLM pack yet; building the session briefing first." >&2
+  bash "$SCRIPT_DIR/briefing.sh" "$TARGET_DIR" >&2 || true
+  PACK=$(latest_pack)
 fi
 
-# Newest by modification time: same-day filenames differ only by session id.
-PACK=$(ls -1t "$EXPORTS_DIR"/*-notebooklm-pack.md 2>/dev/null | head -1 || true)
-
 if [ -z "$PACK" ]; then
-  echo "No NotebookLM pack found in $EXPORTS_DIR." >&2
-  echo "Run 'vibe-learn briefing' to generate one." >&2
+  echo "No session log found for $(basename "$TARGET_DIR"), so there is no pack to upload." >&2
+  echo "Work a session with vibe-learn installed, then run 'vibe-learn audio-prep' again." >&2
   exit 1
 fi
 

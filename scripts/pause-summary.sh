@@ -151,17 +151,11 @@ fi
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
 
-# Auto-generate dashboard in background — keeps the learning layer passive.
-# Stdout is suppressed so hooks never see noise from dashboard generation.
-bash "$VIBE_LEARN_DIR/scripts/briefing.sh" "$CWD" >/dev/null 2>&1 &
-
-# Output JSON for host-specific Stop semantics.
-# Grok treats additionalContext as a keep-working gate — write the file and emit nothing.
-# Codex Stop expects {"continue":true}. Claude uses additionalContext.
-if [ -n "${GROK_HOOK_EVENT:-}" ] || [ "$HOOK_EVENT_NAME" = "stop" ]; then
-  exit 0
-elif [ "$HOOK_EVENT_NAME" = "Stop" ]; then
+# The summary reaches the assistant only through the file. A Stop hook's
+# additionalContext is not passive on Claude Code (it keeps the turn going,
+# like decision: block) and Grok treats it as a keep-working gate, so Stop
+# never emits it. Claude Code and Codex send "Stop" and get {"continue":true};
+# Grok, Cursor and Copilot ("stop") and a payload without an event get nothing.
+if [ -z "${GROK_HOOK_EVENT:-}" ] && [ "$HOOK_EVENT_NAME" = "Stop" ]; then
   printf '{"continue":true}\n'
-else
-  printf '%s' "$SUMMARY" | jq -Rs '{"hookSpecificOutput": {"additionalContext": .}}'
 fi

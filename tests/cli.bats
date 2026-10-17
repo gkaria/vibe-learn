@@ -45,6 +45,21 @@ load test_helper
   echo "$output" | grep -qi "briefing"
 }
 
+@test "cli audio-prep builds the briefing when a session log exists but no pack does" {
+  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn"
+  echo '{"session_id":"ap-1","started_at":"2026-10-16T09:00:00Z"}' > "$TEST_PROJECT_DIR/.vibe-learn/session-meta.json"
+  echo '{"event":"user_prompt","prompt":"Build an Express API with two routes and tests"}' \
+    > "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  local fake_bin="$BATS_TEST_TMPDIR/bin" tool
+  mkdir -p "$fake_bin"
+  for tool in pbcopy xclip open xdg-open; do printf '#!/bin/sh\nexit 1\n' > "$fake_bin/$tool"; chmod +x "$fake_bin/$tool"; done
+
+  run env PATH="$fake_bin:$PATH" bash "$SCRIPTS_DIR/cli.sh" audio-prep "$TEST_PROJECT_DIR"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "NotebookLM pack: .*-ap-1-notebooklm-pack.md"
+  [ -n "$(ls "$TEST_PROJECT_DIR"/.vibe-learn/briefing/exports/*-ap-1-notebooklm-pack.md)" ]
+}
+
 @test "cli audio-prep finds and reports the latest NotebookLM pack" {
   mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports"
   echo "# pack" > "$TEST_PROJECT_DIR/.vibe-learn/briefing/exports/2026-06-05-proj-abc-notebooklm-pack.md"

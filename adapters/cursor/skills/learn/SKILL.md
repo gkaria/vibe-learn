@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Read `.vibe-learn/session-log.jsonl` to understand what happened in this session. Read `.vibe-learn/pause-summary.txt` if it exists — Cursor does not inject pause summaries into context, so this file is the only place the last turn's summary lives.
 
+**Briefing (all modes):** before anything else, refresh the session briefing: run `vibe-learn briefing --if-stale` via your shell tool. If `vibe-learn` is not on PATH, run `bash <dir>/briefing.sh --if-stale`, where `<dir>` is the `scripts/` directory that holds vibe-learn's `knowledge.sh` (found with the knowledge-helper lookup; `~/.vibe-learn/scripts/` for a global install). It returns at once when the briefing is current. Skip it silently if neither exists, and do not mention its output unless it fails.
+
 Treat the rest of the user's message after `/learn` as the argument:
 
 - If empty, explain the most recent session activity in plain language: what changed, why the assistant likely made those choices, which files, commands, or patterns matter, and what to study next.
