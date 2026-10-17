@@ -61,8 +61,12 @@ fixture() { sed "s#__ROOT__#$ROOT#g" "$VIBE_LEARN_DIR/tests/fixtures/session-lea
   # work prompt with 6+ words, so it wins over the longest-early fallback.
   [ "$(jq -r '.goal' <<<"$output")" = "now refactor the whole auth module into smaller files" ]
 
+  # Each work turn does something, so it is not read as a /digest follow-up.
   run facts < <(printf '%s\n' '{"event":"user_prompt","prompt":"/digest"}' \
-    '{"event":"user_prompt","prompt":"fix it"}' '{"event":"user_prompt","prompt":"add a login page"}')
+    '{"event":"user_prompt","prompt":"fix it"}' \
+    '{"event":"tool_use","tool":"Bash","command":"npm test","action":"ran","context":{"exit_code":0}}' \
+    '{"event":"user_prompt","prompt":"add a login page"}' \
+    '{"event":"tool_use","tool":"Write","file":"/work/proj/src/login.js","action":"created"}')
   [ "$(jq -c '[.goal, .goal_turn]' <<<"$output")" = '["add a login page",3]' ]
 
   run facts < <(printf '%s\n' '{"event":"user_prompt","prompt":"/quiz"}')
@@ -103,4 +107,21 @@ fixture() { sed "s#__ROOT__#$ROOT#g" "$VIBE_LEARN_DIR/tests/fixtures/session-lea
 {"event":"tool_use","tool":"Bash","command":"ls .vibe-learn/digests","action":"ran","context":{"exit_code":2}}
 JSONL
   [ "$(jq -c '[.files[].path, (.failures | map(.command))]' <<<"$output")" = '["src/early.js",["npm test"]]' ]
+}
+
+@test "a quiz answer after a learning turn stays learning until the next turn does real work" {
+  run facts < <(printf '%s\n' \
+    '{"event":"user_prompt","prompt":"Build an Express API with two routes and tests"}' \
+    '{"event":"tool_use","tool":"Write","file":"/work/proj/src/app.js","action":"created"}' \
+    '{"event":"user_prompt","prompt":"/quiz"}' \
+    '{"event":"user_prompt","prompt":"It prevents replay attacks"}' \
+    '{"event":"tool_use","tool":"Bash","command":"bash ~/.vibe-learn/scripts/knowledge.sh record jwt --status=solid","action":"ran","context":{"exit_code":0}}' \
+    '{"event":"user_prompt","prompt":"Because the token is signed"}' \
+    '{"event":"user_prompt","prompt":"now add a /health route"}' \
+    '{"event":"tool_use","tool":"Edit","file":"/work/proj/src/app.js","action":"edited"}')
+  [ "$status" -eq 0 ]
+  # Turns 3 and 4 answer the quiz (no tools, or only vibe-learn's own helpers);
+  # turn 5 edits a file, so learning ends there.
+  [ "$(jq -c '.turns' <<<"$output")" = '{"work":2,"learning":3,"last":5,"last_is_learning":false}' ]
+  [ "$(jq -c '[.commands[].first_line]' <<<"$output")" = '[]' ]
 }

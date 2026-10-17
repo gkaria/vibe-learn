@@ -29,9 +29,25 @@ def number_turns:
      if $e.event == "user_prompt" then . + 1 else . end;
      $e + {_turn: .})];
 
-# Numbered events → {"<turn>": true} for every learning turn.
+# A command that only runs vibe-learn's own helpers (knowledge.sh, briefing.sh).
+def own_helper:
+  (. // "" | tostring)
+  | test("(^|[/\\s])(knowledge|briefing)\\.sh(\\s|$)|^\\s*vibe-learn(-knowledge)?(\\s|$)");
+
+# Numbered events → {"<turn>": true} for every learning turn: a turn whose
+# prompt invokes a learning command, and each turn after one that does nothing
+# but answer (no tool calls, or only vibe-learn's own helpers), such as the
+# answers in a multi-turn /quiz. The first turn that edits or runs anything
+# else is work again.
 def learning_turns:
-  map(select(learning_event) | {key: (._turn | tostring), value: true}) | from_entries;
+  reduce (group_by(._turn)[]) as $g ({prev: false, out: {}};
+    ($g | map(select(.event == "user_prompt")) | first) as $p
+    | ($p != null
+       and (($p | learning_event)
+            or (.prev and ($g | all(.event != "tool_use" or (.tool == "Bash" and (.command | own_helper))))))) as $l
+    | .prev = $l
+    | if $l then .out[$g[0]._turn | tostring] = true else . end)
+  | .out;
 
 # Numbered events → the events outside learning turns: the session's work.
 def work_events($learning): map(select($learning[._turn | tostring] | not));

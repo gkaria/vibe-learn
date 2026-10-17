@@ -213,7 +213,9 @@ write_learning_session() {
   [ "$output" = "Session briefing is up to date: $page" ]
 
   sleep 1
-  echo '{"event":"user_prompt","prompt":"one more thing"}' >> "$vl/session-log.jsonl"
+  # A work turn: it edits a file, so it is not a follow-up to the trailing /learn.
+  printf '%s\n' '{"event":"user_prompt","prompt":"one more thing"}' \
+    '{"event":"tool_use","tool":"Edit","file":"src/app.js","action":"edited","context":{}}' >> "$vl/session-log.jsonl"
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
   [[ "$output" == *"Session briefing:"* ]]
 
