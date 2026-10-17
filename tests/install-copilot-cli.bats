@@ -236,36 +236,53 @@ run_hook() {
   [ "$(jq -r 'select(.command == "structured-exit-test") | .context.exit_code' "$log")" = "7" ]
 }
 
-@test "copilot-cli global hook defers to a project install in either installation order" {
-  local order fake_home copilot_home project global_shim project_shim payload
+@test "copilot-cli global hook defers to a project install in either installation order and from a subdirectory" {
+  local order cwd fake_home copilot_home project global_shim project_shim payload
   for order in global-first project-first; do
-    fake_home="$(mktemp -d)"
-    copilot_home="$fake_home/copilot"
-    project="$fake_home/project"
-    mkdir -p "$project"
+    for cwd in . packages/demo; do
+      fake_home="$(mktemp -d)"
+      copilot_home="$fake_home/copilot"
+      project="$fake_home/my project"
+      mkdir -p "$project/$cwd"
+      git init -q "$project"
+      cwd="$project/$cwd"
 
-    if [ "$order" = global-first ]; then
-      HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
-      bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
-    else
-      bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
-      HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
-    fi
+      if [ "$order" = global-first ]; then
+        HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
+        bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
+      else
+        bash "$ADAPTERS_DIR/copilot-cli/install.sh" "$VIBE_LEARN_DIR" "$project"
+        HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
+      fi
 
-    global_shim="$copilot_home/hooks/vibe-learn.sh"
-    project_shim="$project/.github/hooks/vibe-learn.sh"
-    payload=$(jq --arg cwd "$project" '.cwd = $cwd' "$FIXTURES/user-prompt-submitted.json")
-    printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
-    printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
-    payload=$(jq --arg cwd "$project" '.cwd = $cwd' "$FIXTURES/create.json")
-    printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
-    printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
+      global_shim="$copilot_home/hooks/vibe-learn.sh"
+      project_shim="$project/.github/hooks/vibe-learn.sh"
+      payload=$(jq --arg cwd "$cwd" '.cwd = $cwd' "$FIXTURES/user-prompt-submitted.json")
+      printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
+      printf '%s' "$payload" | VIBE_LEARN_EVENT=userPromptSubmitted VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
+      payload=$(jq --arg cwd "$cwd" '.cwd = $cwd' "$FIXTURES/create.json")
+      printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$global_shim"
+      printf '%s' "$payload" | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=project VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$project_shim"
 
-    [ "$(jq -s 'map(select(.event == "user_prompt")) | length' "$project/.vibe-learn/session-log.jsonl")" = "1" ]
-    [ "$(jq -s 'map(select(.event == "tool_use" and .file == "src/auth.ts")) | length' "$project/.vibe-learn/session-log.jsonl")" = "1" ]
-    [ "$(jq -r '.current_turn' "$project/.vibe-learn/session-meta.json")" = "1" ]
-    rm -rf "$fake_home"
+      [ "$(jq -s 'map(select(.event == "user_prompt")) | length' "$cwd/.vibe-learn/session-log.jsonl")" = "1" ]
+      [ "$(jq -s 'map(select(.event == "tool_use" and .file == "src/auth.ts")) | length' "$cwd/.vibe-learn/session-log.jsonl")" = "1" ]
+      [ "$(jq -r '.current_turn' "$cwd/.vibe-learn/session-meta.json")" = "1" ]
+      rm -rf "$fake_home"
+    done
   done
+}
+
+@test "copilot-cli global hook still logs in a non-git directory without a project install" {
+  local fake_home copilot_home cwd
+  fake_home="$(mktemp -d)"
+  copilot_home="$fake_home/copilot"
+  cwd="$fake_home/plain dir/sub"
+  mkdir -p "$cwd"
+  HOME="$fake_home" COPILOT_HOME="$copilot_home" bash "$ADAPTERS_DIR/copilot-cli/install.sh" --global "$VIBE_LEARN_DIR"
+  jq --arg cwd "$cwd" '.cwd = $cwd' "$FIXTURES/create.json" \
+    | VIBE_LEARN_EVENT=postToolUse VIBE_LEARN_SCOPE=global VIBE_LEARN_INSTALL_DIR="$VIBE_LEARN_DIR" bash "$copilot_home/hooks/vibe-learn.sh"
+  [ "$(jq -s 'map(select(.event == "tool_use")) | length' "$cwd/.vibe-learn/session-log.jsonl")" = "1" ]
+  rm -rf "$fake_home"
 }
 
 @test "install --assistant=copilot-cli creates project hooks and skills" {

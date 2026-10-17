@@ -29,7 +29,7 @@ HOOKS_JSON="$VIBE_LEARN_DIR/adapters/claude-code/hooks.json"
   icon=$(jq -r '.icon' "$PLUGIN_JSON")
   [[ "$commands" == ./* ]]
   [[ "$hooks" == ./* ]]
-  [[ "$icon" == ./* ]]
+  [ "$icon" = "./assets/icon.png" ]
   [ -d "$VIBE_LEARN_DIR/$commands" ]
   [ -f "$VIBE_LEARN_DIR/$hooks" ]
   [ -f "$VIBE_LEARN_DIR/$icon" ]
@@ -168,6 +168,7 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
   [[ "$hooks" == ./* ]]
   [ -d "$VIBE_LEARN_DIR/$skills" ]
   [ -f "$VIBE_LEARN_DIR/$hooks" ]
+  [ "$logo" = "assets/icon.png" ]
   [ -f "$VIBE_LEARN_DIR/$logo" ]
   for s in learn digest quiz explain vibe-learn; do
     [ -f "$VIBE_LEARN_DIR/$skills/$s/SKILL.md" ]
@@ -186,12 +187,35 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
     "$VIBE_LEARN_DIR/release-please-config.json" >/dev/null
 }
 
-@test "cursor shim resolves the plugin root when the placeholder is unreplaced" {
-  local proj="$BATS_TEST_TMPDIR/proj"
-  mkdir -p "$proj"
-  printf '{"hook_event_name":"sessionStart","workspace_roots":["%s"],"session_id":"t1"}' "$proj" \
-    | CURSOR_PLUGIN_ROOT="$VIBE_LEARN_DIR" bash "$VIBE_LEARN_DIR/adapters/cursor/hooks/vibe-learn.sh" >/dev/null
-  [ -d "$proj/.vibe-learn" ]
+@test "every cursor plugin-hooks.json command runs end to end from a plugin root with a space (#52)" {
+  local root="$BATS_TEST_TMPDIR/plugin root" fixtures="$VIBE_LEARN_DIR/tests/fixtures/cursor"
+  local log="$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl" event cmd payload out
+  copy_repo "$root"
+  seed_prior_summary "Prior summary."
+  while IFS= read -r event; do
+    case "$event" in
+      sessionStart) payload=$(cat "$fixtures/session-start.json") ;;
+      beforeSubmitPrompt) payload=$(cat "$fixtures/before-submit-prompt.json") ;;
+      afterFileEdit) payload=$(cat "$fixtures/after-file-edit-write.json") ;;
+      postToolUse) payload=$(cat "$fixtures/post-tool-use-shell.json") ;;
+      postToolUseFailure) payload=$(jq '.hook_event_name = "postToolUseFailure" | .tool_input.command = "npm test" | del(.tool_output)' "$fixtures/post-tool-use-shell.json") ;;
+      stop) payload=$(cat "$fixtures/stop.json") ;;
+      *) echo "no payload for plugin hook event: $event"; return 1 ;;
+    esac
+    payload=${payload//__PROJECT_ROOT__/$TEST_PROJECT_DIR}
+    cmd=$(jq -r --arg e "$event" '.hooks[$e][0].command' "$root/adapters/cursor/plugin-hooks.json")
+    out=$(printf '%s' "$payload" | CURSOR_PLUGIN_ROOT="$root" sh -c "$cmd") || { echo "$event exited $?"; return 1; }
+    case "$event" in
+      sessionStart) jq -e '.additional_context | test("Prior summary")' <<<"$out" >/dev/null ;;
+      beforeSubmitPrompt) [ "$out" = '{"continue":true}' ] ;;
+      *) [ -z "$out" ] || { echo "$event printed: $out"; return 1; } ;;
+    esac
+  done < <(jq -r '.hooks | keys_unsorted[]' "$root/adapters/cursor/plugin-hooks.json")
+  [ "$(jq -s 'map(select(.event == "user_prompt")) | length' "$log")" = "1" ]
+  [ "$(jq -s 'map(select(.event == "tool_use" and .action == "created")) | length' "$log")" = "1" ]
+  [ "$(jq -s 'map(select(.command == "node --test src/routes/health.test.js" and .context.exit_code == 0)) | length' "$log")" = "1" ]
+  [ "$(jq -s 'map(select(.command == "npm test" and .context.exit_code == 1)) | length' "$log")" = "1" ]
+  [ "$(cat "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.session")" = "cursor-smoke-sess" ]
 }
 
 # A copy of the repo without .git, so release.sh's scan sees only tracked content.

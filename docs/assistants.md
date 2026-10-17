@@ -67,7 +67,7 @@ Use vibe-learn to learn what happened.
 
 Copilot CLI loads these as Agent Skills from `.github/skills/` (project) or `${COPILOT_HOME:-~/.copilot}/skills/` (personal). They are skill references inside a prompt, not new built-in interactive commands; typing a bare `/learn` is not guaranteed to dispatch like Claude Code's custom slash commands. Project hooks live in `.github/hooks/` and need the folder trusted before they run.
 
-On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first, keeps the prompt hook silent, and emits prior-session context from the later `sessionStart`. A global vibe-learn hook defers when a project vibe-learn hook is present.
+On Copilot CLI 1.0.84-4, `userPromptSubmitted` can arrive before `sessionStart`; the adapter initializes once on whichever event arrives first, keeps the prompt hook silent, and emits prior-session context from the later `sessionStart`. A global vibe-learn hook defers when a project vibe-learn hook is present at the repository root, also when Copilot runs from a subdirectory.
 
 Copilot also reads repository `.claude/settings.json` and `.claude/settings.local.json` hooks. Avoid installing vibe-learn in both those files and `.github/hooks/` for one project. Copilot's documented `disableAllHooks` repository-settings option pauses every non-policy hook source—including vibe-learn—so use it only when you intend to pause all hooks; the installer never changes it automatically.
 

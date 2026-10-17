@@ -1,0 +1,20 @@
+{
+  "expect": {
+    "summary.goal": "Build the Express API described in TASK.md, following its steps in order.",
+    "facts.goal": "Build the Express API described in TASK.md, following its steps in order.",
+    "facts.goal_turn": 1,
+    "facts.turns.work": 1,
+    "facts.turns.learning": 1,
+    "facts.files": [3, 8],
+    "facts.commands": [3, 30],
+    "facts.failures": [1, 3],
+    "facts.failures_unfixed": 0,
+    "health.prompts": 1,
+    "health.tool_events": [6, 50],
+    "health.learning_tool_events": 0,
+    "health.bash_failures": [1, 3],
+    "health.failed_file_ops": 0,
+    "health.check_unrecovered": 0,
+    "card.previous_session": true
+  }
+}
