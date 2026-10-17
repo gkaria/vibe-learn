@@ -123,3 +123,13 @@ apt-get install bats      # Linux
 
 bats tests/
 ```
+
+`bats tests/` drives the scripts with recorded payloads. To check a checkout against a real Claude Code session, run the end-to-end runner:
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=...   # from `claude setup-token`, or set ANTHROPIC_API_KEY
+tests/e2e/run.sh                     # this checkout
+tests/e2e/run.sh ../vibe-learn-old   # any other checkout, e.g. a git worktree of a tag
+```
+
+It installs the checkout into a temporary `HOME` with `setup.sh --local --assistant=claude-code`, then runs `claude -p` in a fresh project: one session builds the two-route Express API in `tests/e2e/express-api/TASK.md` (a deliberately failing test, then the fix) and runs `/digest`, and a second one-turn session makes SessionStart rotate the first. It compares the pause summary's goal, `vibe-learn briefing --json`, the health row, and the index card with `tests/e2e/golden/express-api.json`, which holds counts and shapes only, never model text: a number must match, a `[min, max]` pair is a range. It prints one `ok` or `FAIL` line per expectation and exits 1 on any `FAIL`, keeping its work directory for inspection. It needs `claude`, `node`, `npm`, `jq`, and the network, and takes about a minute. Maintainers run it by hand before each release; CI does not, because it needs a Claude credential.

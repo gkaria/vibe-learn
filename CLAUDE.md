@@ -127,6 +127,8 @@ bats tests/observe.bats   # run a single file
 
 Requires `bats` (`brew install bats-core` / `apt-get install bats`).
 
+`tests/e2e/run.sh [checkout]` drives two real `claude -p` sessions against a checkout installed into a temporary `HOME` and compares the pause summary goal, `vibe-learn briefing --json`, the health row, and the index card with `tests/e2e/golden/express-api.json` (counts and shapes with tolerances, never model text). It needs `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, so it runs by hand before each release, not in CI.
+
 ### Manual stdin testing
 
 Scripts accept hook payloads via stdin as JSON:
@@ -216,6 +218,8 @@ Each run copies the live `session-log.jsonl` and `session-meta.json` into a priv
 It is built only on demand, never from a hook: by `vibe-learn briefing`, by `vibe-learn audio-prep` when no pack exists, and by `/learn` and `/digest` on every host, which run `vibe-learn briefing --if-stale` first. `tests/bootstrap.bats` and `tests/pause-summary.bats` check that neither SessionStart nor Stop starts it.
 
 ## Releasing
+
+Before each release (merging the release-please PR, or running `release.sh`), run `tests/e2e/run.sh` by hand on the commit being released and check it prints `e2e: PASS`. It drives real Claude Code sessions, so it needs a Claude credential and is deliberately not a CI job (see `docs/how-it-works.md#testing-this-repo`).
 
 ```bash
 bash scripts/release.sh 0.3.0
