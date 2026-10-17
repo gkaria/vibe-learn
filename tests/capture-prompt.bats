@@ -158,13 +158,14 @@ JSON
 @test "capture-prompt leaves work prompts unmarked, including ones that start with learn" {
   local p
   for p in 'Build an Express API with two routes' 'learn the codebase and add JWT auth' \
-           '/learnings page needs a route' 'use digest auth for the admin API'; do
+           '/learnings page needs a route' 'use digest auth for the admin API' \
+           'vibe-learn has a bug in bootstrap; please fix it'; do
     jq -cn --arg cwd "$TEST_PROJECT_DIR" --arg p "$p" '{cwd: $cwd, prompt: $p}' \
       | bash "$SCRIPTS_DIR/capture-prompt.sh"
   done
   run jq -r 'select(has("kind")) | .prompt' "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
   [ -z "$output" ]
-  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 4 ]
+  [ "$(wc -l < "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl")" -eq 5 ]
 }
 
 @test "capture-prompt marks a learning turn even when capture_prompts is off" {

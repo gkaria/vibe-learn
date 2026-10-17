@@ -5,12 +5,13 @@
 # A prompt that invokes a vibe-learn learning command on any host: Claude Code
 # and plugin slash commands, Codex prompt files and skill phrasing, Copilot's
 # "Use /learn", Grok and Cursor /vibe-learn. A prompt that merely starts with
-# "learn ..." or "use digest auth ..." is work, not a learning turn.
+# "learn ...", "use digest auth ..." or "vibe-learn has a bug ..." is work, not a
+# learning turn.
 def learning_prompt:
   # One literal pattern on the lowercased prompt: jq compiles a regex on every
   # call, and the "i" flag makes this one several times slower.
   (. // "" | tostring | ascii_downcase)
-  | test("^\\s*(/(vibe-learn:)?(learn|digest|quiz|explain)|/prompts:(learn|digest|quiz|explain)|[/$]?vibe-learn|use (/?vibe-learn|/(learn|digest|quiz|explain)))([^\\w-]|$)|^\\s*read \\.codex/prompts/(learn|digest|quiz|explain)\\.md");
+  | test("^\\s*(/(vibe-learn:)?(learn|digest|quiz|explain)|/prompts:(learn|digest|quiz|explain)|[/$]vibe-learn|use (/?vibe-learn|/(learn|digest|quiz|explain)))([^\\w-]|$)|^\\s*read \\.codex/prompts/(learn|digest|quiz|explain)\\.md");
 
 # A user_prompt event that starts a learning turn. capture-prompt.sh writes
 # kind at capture time (it survives capture_prompts: false); logs written
