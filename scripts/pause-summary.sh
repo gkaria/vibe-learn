@@ -161,9 +161,9 @@ fi
 
 # Write to file — bootstrap.sh injects this into the next session via SessionStart
 echo "$SUMMARY" > "$SUMMARY_FILE"
-# The summary outlives its session when a later session writes none, so
-# briefing.sh shows it only on a page for the session named here.
-printf '%s' "$META" | jq -c '[.session_id, .started_at]' > "$LOG_DIR/pause-summary.session" 2>/dev/null || true
+# Names the session that wrote the summary: bootstrap.sh drops a summary left
+# by an older session, and briefing.sh shows it only on this session's page.
+printf '%s' "$META" | jq -r '.session_id // empty' > "$LOG_DIR/pause-summary.session" 2>/dev/null || true
 
 # The summary reaches the assistant only through the file. A Stop hook's
 # additionalContext is not passive on Claude Code (it keeps the turn going,

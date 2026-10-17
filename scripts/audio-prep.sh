@@ -29,22 +29,10 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXPORTS_DIR="$TARGET_DIR/.vibe-learn/briefing/exports"
-RECORDS_DIR="$TARGET_DIR/.vibe-learn/briefing/.sessions"
 
-# The pack of the newest session by start time, then session id, from the
-# records briefing.sh writes, so rebuilding an older session's pack never
-# makes it the latest. Packs from before records existed: newest mtime.
+# Newest by modification time: same-day filenames differ only by session id.
 latest_pack() {
-  local slug
-  for slug in $(cat "$RECORDS_DIR"/* 2>/dev/null \
-      | jq -Rnr '[inputs | fromjson? | objects | select(.slug | type == "string")]
-                 | sort_by(.started_at // "", .session_id // "") | reverse | .[].slug' 2>/dev/null); do
-    if [ -f "$EXPORTS_DIR/$slug-notebooklm-pack.md" ]; then
-      printf '%s\n' "$EXPORTS_DIR/$slug-notebooklm-pack.md"
-      return
-    fi
-  done
-  ls -1t "$EXPORTS_DIR"/*-notebooklm-pack.md 2>/dev/null | sed -n 1p || true
+  ls -1t "$EXPORTS_DIR"/*-notebooklm-pack.md 2>/dev/null | head -1 || true
 }
 
 PACK=$(latest_pack)

@@ -11,12 +11,10 @@ Everything is written under `.vibe-learn/` in the project you are working in, ex
 | `session-log.jsonl` | One line per event: your prompts (first 500 characters), the file paths the assistant wrote or edited, shell commands it ran (first 200 characters) with exit codes, and per-turn model and effort |
 | `session-meta.json` | Session id, assistant name and version, model, effort, transcript path, git HEAD and whether the tree was dirty |
 | `pause-summary.txt` | A short recap of the session (goal, failing commands, last turn, files), rewritten after each response that did work and injected at the next session start |
-| `pause-summary.session` | The session id and start time of the session that wrote `pause-summary.txt` |
+| `pause-summary.session` | The id of the session that wrote `pause-summary.txt` |
 | `knowledge.json` | Concepts you were quizzed on, with a status and short notes |
 | `health.jsonl` | One row of counts and identifiers per session segment. Never prompts, commands, or file paths |
-| `briefing/`, `digests/`, `recaps/` | Reports: briefings are built on request, by `/learn` and `/digest`, and when the next session starts; digests and recaps on request |
-| `briefing/.pending/` | A copy of a session (log, meta, pause summary, knowledge ledger, and a diff of the work tree of up to 12,000 bytes) while its briefing is built; deleted when the run ends, or after a day if it was killed |
-| `briefing/.sessions/`, `briefing/.stamps/` | One line per built session (start time, id, file, command and failure counts, and the goal its page shows), which orders the index; and a checksum of what each page was built from |
+| `briefing/`, `digests/`, `recaps/` | Reports: briefings are built on request and by `/learn` and `/digest`; digests and recaps on request |
 
 With the global health log enabled (the default), each health row is also appended to `~/.vibe-learn/health.jsonl` with the project's directory name added.
 

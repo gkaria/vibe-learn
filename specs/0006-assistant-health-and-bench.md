@@ -298,18 +298,17 @@ Cost: 0.2 s on a 36 MB Codex rollout and 0.04 s on a 4 MB Claude transcript.
 
 ### Durable history (rotation)
 
-`bootstrap.sh` claims the finished session's log into a rotation snapshot
-(with its meta, read before `session-meta.json` is overwritten) and returns.
-The detached run it starts then appends that session's rows:
+`bootstrap.sh` already moves `session-log.jsonl` to `.prev.jsonl`. Before
+that `mv`, and before `session-meta.json` is overwritten, it runs:
 
 ```bash
-bash "$SCRIPT_DIR/health.sh" "$SNAPSHOT" "$CWD" >> "$CWD/.vibe-learn/health.jsonl"
+bash "$SCRIPT_DIR/health.sh" "$LOG_DIR" >> "$LOG_DIR/health.jsonl" 2>/dev/null || true
 ```
 
-`health.jsonl` is append-only, like the session log. Errors go to
-`briefing/rotation.log`; bootstrap's behavior and output are otherwise
-unchanged. health.sh takes about 5–6 s on a 10 MB log, past the 5 s
-`SessionStart` timeout, which is why it runs after the hook returns.
+`health.jsonl` is append-only, like the session log. Failures are swallowed;
+bootstrap's behavior and output are otherwise unchanged. health.sh takes
+about 5–6 s on a 10 MB log, which can exceed the 5 s `SessionStart` timeout
+(a known follow-up).
 
 **Cross-project global log.** By default (`health.global_log: true`) the same
 row, plus `"project": "<basename of cwd>"`, is also appended to

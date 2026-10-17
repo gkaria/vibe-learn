@@ -1,8 +1,7 @@
 #!/bin/bash
 # bootstrap.sh — SessionStart hook
-# Initialises the .vibe-learn/ directory, rotates previous logs, starts the
-# finished session's briefing in the background, and injects prior session
-# context if available.
+# Initialises the .vibe-learn/ directory, rotates previous logs,
+# and injects prior session context if available.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=identity.sh
@@ -12,28 +11,6 @@ if ! . "$SCRIPT_DIR/identity.sh" 2>/dev/null; then
   vl_resolve_harness() { printf '%s' "${VIBE_LEARN_HARNESS:-${1:-unknown}}"; }
   vl_host_config() { :; }
   vl_harness_version() { :; }
-fi
-
-# Detached work after a rotation (started below, never by a host): the
-# finished session's health rows, then its briefing, both from the snapshot
-# bootstrap.sh claimed. Neither fits in SessionStart's 5 s on a long log.
-if [ "${1:-}" = "--after-rotation" ]; then
-  SNAP="$2" CWD="$3" HEALTH_ENABLED="$4" HEALTH_GLOBAL="$5"
-  trap '' HUP
-  if [ "$HEALTH_ENABLED" != "false" ] && [ -f "$SCRIPT_DIR/health.sh" ]; then
-    ROWS=$(bash "$SCRIPT_DIR/health.sh" "$SNAP" "$CWD")
-    if [ -n "$ROWS" ]; then
-      printf '%s\n' "$ROWS" >> "$CWD/.vibe-learn/health.jsonl"
-      if [ "$HEALTH_GLOBAL" != "false" ] && mkdir -p "$HOME/.vibe-learn"; then
-        printf '%s\n' "$ROWS" | jq -c --arg project "$(basename "$CWD")" '. + {project: $project}' >> "$HOME/.vibe-learn/health.jsonl"
-      fi
-    fi
-  fi
-  if [ -f "$SCRIPT_DIR/briefing.sh" ]; then
-    bash "$SCRIPT_DIR/briefing.sh" "$CWD" --snapshot "$SNAP" --lock-wait 1800 >/dev/null
-  fi
-  rm -rf "$SNAP"
-  exit 0
 fi
 
 # Read stdin JSON
@@ -61,7 +38,6 @@ LOG_DIR="$CWD/.vibe-learn"
 SESSION_LOG="$LOG_DIR/session-log.jsonl"
 PREV_LOG="$LOG_DIR/session-log.prev.jsonl"
 META_FILE="$LOG_DIR/session-meta.json"
-PREV_META="$LOG_DIR/session-meta.prev.json"
 PAUSE_SUMMARY="$LOG_DIR/pause-summary.txt"
 
 # Create the .vibe-learn directory
@@ -90,10 +66,35 @@ fi
 # Resuming the session that owns the current log (claude --continue, /compact)
 # fires SessionStart again with the same id. Keep its log and
 # metadata, and skip the prior-session summary the assistant already has.
-OLD_META="$(cat "$META_FILE" 2>/dev/null || true)"
 if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "unknown" ] \
-  && [ "$(printf '%s' "$OLD_META" | jq -r '.session_id // empty' 2>/dev/null | head -n 1)" = "$SESSION_ID" ]; then
+  && [ "$(jq -r '.session_id // empty' "$META_FILE" 2>/dev/null)" = "$SESSION_ID" ]; then
   exit 0
+fi
+
+# Rotate previous session log (keep one backup), first saving its health rows.
+# The old session-meta.json still describes that session at this point.
+if [ -f "$SESSION_LOG" ]; then
+  if [ "$HEALTH_ENABLED" != "false" ]; then
+    ROWS=$(bash "$SCRIPT_DIR/health.sh" "$LOG_DIR" 2>/dev/null || true)
+    if [ -n "$ROWS" ]; then
+      printf '%s\n' "$ROWS" 2>/dev/null >> "$LOG_DIR/health.jsonl" || true
+      if [ "$HEALTH_GLOBAL" != "false" ] && mkdir -p "$GLOBAL_HOME" 2>/dev/null; then
+        printf '%s\n' "$ROWS" \
+          | jq -c --arg project "$(basename "$CWD")" '. + {project: $project}' \
+            2>/dev/null >> "$GLOBAL_HOME/health.jsonl" || true
+      fi
+    fi
+  fi
+  mv "$SESSION_LOG" "$PREV_LOG"
+fi
+
+# A session that wrote no pause summary (chat only, or no Stop hook) leaves
+# an older one in place. Keep the summary only if pause-summary.session names
+# the session that just ended, so an older one is never offered as the prior
+# session.
+if [ -f "$PAUSE_SUMMARY" ] \
+  && [ "$(cat "$LOG_DIR/pause-summary.session" 2>/dev/null)" != "$(jq -r '.session_id // empty' "$META_FILE" 2>/dev/null)" ]; then
+  rm -f "$PAUSE_SUMMARY" "$LOG_DIR/pause-summary.session"
 fi
 
 # Get current timestamp (ISO 8601)
@@ -127,7 +128,7 @@ EFFORT="${P_EFFORT:-${H_EFFORT:-}}"
 GIT_HEAD=""
 GIT_DIRTY=""
 if GIT_HEAD=$(git -C "$CWD" rev-parse --short HEAD 2>/dev/null); then
-  if [ -n "$(git -C "$CWD" --no-optional-locks status --porcelain 2>/dev/null | head -n 1)" ]; then
+  if [ -n "$(git -C "$CWD" status --porcelain 2>/dev/null | head -n 1)" ]; then
     GIT_DIRTY=true
   else
     GIT_DIRTY=false
@@ -136,8 +137,8 @@ else
   GIT_HEAD=""
 fi
 
-# Fresh session metadata, written once the old log is claimed below.
-NEW_META=$(jq -n \
+# Write fresh session metadata
+jq -n \
   --arg session_id "${SESSION_ID:-unknown}" \
   --arg started_at "$STARTED_AT" \
   --arg harness "$HARNESS" \
@@ -160,96 +161,12 @@ NEW_META=$(jq -n \
     git_dirty: (if $git_dirty == "" then null else $git_dirty == "true" end),
     event_count: 0,
     current_turn: 0
-  }')
+  }' > "$META_FILE"
 
-# Rotate: claim the finished session's log with one atomic mv into a private
-# snapshot, so two SessionStarts at once cannot both rotate it, then write the
-# new meta at once so the live log and meta stay a pair. The snapshot gets the
-# finished session's meta (read before anything changed), pause summary and
-# the file naming its session, the ledger, and the work tree's diff: from now
-# on the tree, the ledger and the .prev files belong to the next session. The
-# .prev pair is kept for recap. Snapshots left by killed runs are swept here
-# once they are a day old.
-PENDING_DIR="$LOG_DIR/briefing/.pending"
-ROTATED=false
-SNAP=""
-if [ -f "$SESSION_LOG" ]; then
-  find "$PENDING_DIR" -mindepth 1 -maxdepth 1 -mmin +1440 -exec rm -rf {} + 2>/dev/null || true
-  SNAP="$(mkdir -p "$PENDING_DIR" 2>/dev/null && mktemp -d "$PENDING_DIR/XXXXXX" 2>/dev/null)" || SNAP=""
-  if [ -n "$SNAP" ] && mv "$SESSION_LOG" "$SNAP/session-log.jsonl" 2>/dev/null; then
-    ROTATED=true
-  else
-    [ -n "$SNAP" ] && rm -rf "$SNAP"
-    SNAP=""
-    # No snapshot possible (unwritable briefing dir): rotate without one.
-    mv "$SESSION_LOG" "$PREV_LOG" 2>/dev/null && ROTATED=true
-  fi
-fi
-printf '%s\n' "$NEW_META" > "$META_FILE.tmp.$$" && mv "$META_FILE.tmp.$$" "$META_FILE"
-
-if [ "$ROTATED" = true ]; then
-  rm -f "$PREV_META"
-  if [ -n "$OLD_META" ]; then
-    printf '%s\n' "$OLD_META" > "$PREV_META"
-    [ -n "$SNAP" ] && cp "$PREV_META" "$SNAP/session-meta.json"
-  fi
-fi
-
-if [ -n "$SNAP" ]; then
-  cp "$SNAP/session-log.jsonl" "$PREV_LOG.tmp.$$" 2>/dev/null && mv "$PREV_LOG.tmp.$$" "$PREV_LOG"
-  for f in pause-summary.txt pause-summary.session knowledge.json; do
-    [ -f "$LOG_DIR/$f" ] && cp "$LOG_DIR/$f" "$SNAP/$f" 2>/dev/null
-  done
-  # The diff is capped as briefing.sh caps it; head closing the pipe stops git
-  # early. No external diff or textconv driver runs, diff.autoRefreshIndex=false
-  # skips re-reading every stat-dirty file before the first line (300 ms ->
-  # 60 ms with 20k dirty files in a 100k-file tree), and a 2 s deadline bounds
-  # what is left (a huge dirty file is read whole before any output): past it,
-  # or on any error, the diff stays empty. Never the live tree later.
-  mkdir -p "$SNAP/repo"
-  # SIGKILL follows (or SIGALRM is reset to its default) because a caller may
-  # leave SIGTERM ignored, and an ignored signal stays ignored across exec.
-  DEADLINE=()
-  if command -v timeout >/dev/null 2>&1; then
-    DEADLINE=(timeout -k 1 2)
-  elif command -v perl >/dev/null 2>&1; then
-    DEADLINE=(perl -e '$SIG{ALRM} = "DEFAULT"; alarm shift; exec @ARGV' 2)
-  fi
-  "${DEADLINE[@]}" git -C "$CWD" -c diff.autoRefreshIndex=false --no-optional-locks \
-    diff --no-ext-diff --no-textconv --unified=3 -- . ':(exclude).vibe-learn' 2>/dev/null \
-    | head -c 12000 > "$SNAP/repo/diff.patch"
-  case "${PIPESTATUS[0]}" in
-    0|141) ;;          # done, or stopped by head at the cap
-    *) : > "$SNAP/repo/diff.patch" ;;
-  esac
-
-  # Health rows and the briefing run fully detached: no fd may keep the
-  # host's pipe to this hook open (3-9 are closed too: bats and some hosts
-  # pass extra pipes), and the hook returns at once. setsid gives the run its
-  # own session; macOS has no setsid, so the fallback subshell backgrounds it
-  # and exits, reparenting it to init, and the run ignores SIGHUP. Errors go
-  # to briefing/rotation.log. The run removes the snapshot when it is done.
-  if [ -s "$SNAP/session-log.jsonl" ]; then
-    ROTATION_LOG="$LOG_DIR/briefing/rotation.log"
-    if command -v setsid >/dev/null 2>&1; then
-      setsid bash "$SCRIPT_DIR/bootstrap.sh" --after-rotation "$SNAP" "$CWD" "$HEALTH_ENABLED" "$HEALTH_GLOBAL" \
-        </dev/null >/dev/null 2>>"$ROTATION_LOG" 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
-    else
-      ( bash "$SCRIPT_DIR/bootstrap.sh" --after-rotation "$SNAP" "$CWD" "$HEALTH_ENABLED" "$HEALTH_GLOBAL" \
-          </dev/null >/dev/null 2>>"$ROTATION_LOG" 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- & )
-    fi
-  else
-    rm -rf "$SNAP"
-  fi
-fi
-
-# Inject the prior pause summary only when it belongs to the session that
-# just ended (pause-summary.session matches its meta). A session that wrote
-# none (chat only, or no Stop hook) leaves an older summary in place, which
-# must not be offered as the prior session.
-if [ -f "$PAUSE_SUMMARY" ] && [ -f "$PREV_META" ] \
-  && [ "$(cat "$LOG_DIR/pause-summary.session" 2>/dev/null)" = "$(jq -c '[.session_id, .started_at]' "$PREV_META" 2>/dev/null)" ]; then
+# If a prior pause summary exists, inject it as context for Claude
+if [ -f "$PAUSE_SUMMARY" ]; then
   tr '\n' ' ' < "$PAUSE_SUMMARY" \
     | jq -Rsc '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:("Prior session summary:\n" + .)}}'
+else
+  exit 0
 fi
-exit 0

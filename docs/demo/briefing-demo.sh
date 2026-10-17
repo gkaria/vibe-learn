@@ -141,7 +141,7 @@ Goal: move the secret check to startup so a missing JWT_SECRET fails fast
 
  /learn [question]  ·  /digest  ·  /quiz  ·  vibe-learn briefing  ·  vibe-learn audio-prep
 EOF
-jq -c '[.session_id, .started_at]' .vibe-learn/session-meta.json > .vibe-learn/pause-summary.session
+jq -r '.session_id' .vibe-learn/session-meta.json > .vibe-learn/pause-summary.session
 
 jq -n --arg d "$D" '{version: 1, concepts: [
   {name: "express-middleware-ordering", label: "Express middleware ordering", first_seen: $d, last_seen: $d,

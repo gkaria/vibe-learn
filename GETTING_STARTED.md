@@ -188,7 +188,7 @@ Claude walks it top-down — entry point, the load-bearing pieces in order (with
 
 ## 8. Open the session briefing
 
-`/learn` and `/digest` already refreshed the session briefing, and the next session start builds the final one for this session. To rebuild it now and get its path:
+`/learn` and `/digest` already refreshed the session briefing. To rebuild it now and get its path:
 
 ```bash
 vibe-learn briefing
@@ -248,7 +248,7 @@ Once installed, this is your normal workflow:
 
 | Moment | What vibe-learn does |
 |--------|----------------------|
-| You open a project | Session starts, previous pause summary injected into context, one health row saved and the briefing built in the background for the last session |
+| You open a project | Session starts, previous pause summary injected into context, one health row saved for the last session |
 | Claude writes or edits a file | Logged silently in <50ms |
 | Claude runs a command | Logged with exit code |
 | Claude finishes a response | Pause summary written (nothing heavier) |

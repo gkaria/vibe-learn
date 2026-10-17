@@ -152,7 +152,7 @@ run_hook() {
 @test "copilot-cli sessionStart does not offer a summary left by an earlier session" {
   run_copilot_install
   seed_prior_summary 'Summary from two sessions ago'
-  echo '["older","2025-12-31T00:00:00Z"]' > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.session"
+  echo older > "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.session"
 
   run run_hook sessionStart session-start.json
   [ "$status" -eq 0 ]

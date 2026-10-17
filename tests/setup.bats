@@ -222,11 +222,9 @@ teardown() {
   [[ "$output" == *"Session briefing:"* ]]
   grep -q "directory that holds vibe-learn's \`knowledge.sh\` (\`scripts/\` in a full install, the hooks directory in a techpack install)" "$claude/commands/learn.md"
 
-  # Rotation: health row and the finished session's page.
+  # Rotation: the finished session's health row.
   echo "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"tp-2\"}" | bash "$hooks/bootstrap.sh" >/dev/null
-  wait_rotation
   [ "$(jq -r .session_id "$vl/health.jsonl")" = tp-1 ]
-  ls "$vl/briefing/sessions" | grep -q -- '-tp-1.html$'
 }
 
 @test "config/defaults.json lists only keys some script reads" {

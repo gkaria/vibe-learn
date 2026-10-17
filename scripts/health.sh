@@ -1,14 +1,12 @@
 #!/bin/bash
 # health.sh — session log + meta → assistant health rows.
 #
-# Usage: health.sh [LOG_DIR [PROJECT_ROOT]]   (default: ./.vibe-learn and its parent)
-# LOG_DIR holds session-log.jsonl and session-meta.json; bootstrap.sh passes
-# the rotation snapshot and the project root.
+# Usage: health.sh [LOG_DIR]   (default: ./.vibe-learn)
 #
 # Prints one JSON line per session segment: a new segment starts wherever the
 # turn's (model, effort) changes, so a session with no switch prints one line.
 # Read-only; prints nothing when the log has no prompts or tool events.
-# After a rotation, bootstrap.sh (detached) appends the output to health.jsonl.
+# bootstrap.sh appends the output to health.jsonl before it rotates the log.
 # The first segment's row also carries `usage`: tool families and skills for
 # the whole session (from the host's transcript, see usage.sh) and slash
 # commands typed in prompts. Learning turns (/learn, /digest, /quiz, /explain;
@@ -56,7 +54,7 @@ fi
 
 USAGE=null
 if command -v vl_session_usage >/dev/null 2>&1; then
-  ROOT="${2:-$(cd "$LOG_DIR/.." 2>/dev/null && pwd)}"
+  ROOT=$(cd "$LOG_DIR/.." 2>/dev/null && pwd)
   USAGE=$(vl_session_usage "$HARNESS" "$TRANSCRIPT" "$ROOT" "$SESSION_ID" "$STARTED_AT")
   printf '%s' "$USAGE" | jq -e 'type == "object" or . == null' >/dev/null 2>&1 || USAGE=null
 fi

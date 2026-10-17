@@ -45,7 +45,7 @@ Current session tools: read 9 · edit 8 · search 7 · shell 7 · skill 1; skill
 These come from your real work, not a controlled test: harder tasks look like a worse assistant.
 ```
 
-The session briefing shows the same analysis as a trend page, linked from the health card and the index. A session's row is saved shortly after the next session starts, in the background:
+The session briefing shows the same analysis as a trend page, linked from the health card and the index:
 
 ![Assistant health trend page: bash failure rate per session, with a marker where claude-code moved from 2.4.1 to 2.5.0](briefing-health.png)
 

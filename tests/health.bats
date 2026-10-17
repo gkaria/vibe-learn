@@ -316,7 +316,6 @@ JSONL
   run boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"second\"}"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
-  wait_rotation
 
   [ "$(wc -l < "$(vl)/health.jsonl" | tr -d ' ')" -eq 1 ]
   [ "$(jq -r '.session_id + "/" + .model' "$(vl)/health.jsonl")" = "first/opus" ]
@@ -344,7 +343,6 @@ JSONL
   echo '{"health":{"enabled":false}}' > "$(vl)/config.json"
   { prompt 1; bash_ev 1 "ls" 0; } >> "$(vl)/session-log.jsonl"
   boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"b\"}"
-  wait_rotation
   [ ! -e "$(vl)/health.jsonl" ]
 
   mkdir -p "$HOME/.vibe-learn"
@@ -352,7 +350,6 @@ JSONL
   echo '{"health":{"enabled":true}}' > "$(vl)/config.json"
   { prompt 1; bash_ev 1 "ls" 0; } >> "$(vl)/session-log.jsonl"
   boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"c\"}"
-  wait_rotation
   [ "$(wc -l < "$(vl)/health.jsonl" | tr -d ' ')" -eq 1 ]
   [ ! -e "$HOME/.vibe-learn/health.jsonl" ]
 }
@@ -362,7 +359,7 @@ JSONL
   { prompt 1; bash_ev 1 "ls" 0; } >> "$(vl)/session-log.jsonl"
   mkdir -p "$(vl)/health.jsonl"
   echo "Prior summary" > "$(vl)/pause-summary.txt"
-  jq -c '[.session_id, .started_at]' "$(vl)/session-meta.json" > "$(vl)/pause-summary.session"
+  jq -r '.session_id' "$(vl)/session-meta.json" > "$(vl)/pause-summary.session"
 
   run boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"b\"}"
   [ "$status" -eq 0 ]
@@ -538,7 +535,6 @@ last_turn_end() { jq -c 'select(.event == "turn_end") | {turn, model, effort}' "
   printf '{"cwd":"%s","hook_event_name":"stop","harness":"cursor","model":"m2","effort":"max"}' "$TEST_PROJECT_DIR" \
     | bash "$SCRIPTS_DIR/pause-summary.sh"
   boot "{\"cwd\":\"$TEST_PROJECT_DIR\",\"session_id\":\"next\"}"
-  wait_rotation
 
   [ "$(wc -l < "$(vl)/health.jsonl" | tr -d ' ')" -eq 1 ]
   [ "$(jq -r '[.session_id, .harness, .model, .effort] | join(",")' "$(vl)/health.jsonl")" = "s,cursor,m2,max" ]

@@ -166,52 +166,6 @@ pack_file_for_test_project() {
   [ "$current" -lt "$older" ]
 }
 
-# A finished session's snapshot: its id, start time, goal, and file count.
-make_snapshot() {
-  local snap="$BATS_TEST_TMPDIR/snap-$1" i
-  mkdir -p "$snap"
-  jq -nc --arg id "$1" --arg at "$2" '{session_id: $id, started_at: $at}' > "$snap/session-meta.json"
-  jq -nc --arg p "$3" '{event: "user_prompt", prompt: $p}' > "$snap/session-log.jsonl"
-  for i in $(seq 1 "$4"); do
-    jq -nc --arg f "$TEST_PROJECT_DIR/src/$1-$i.js" '{event: "tool_use", tool: "Write", file: $f, action: "created"}' >> "$snap/session-log.jsonl"
-  done
-  printf '%s\n' "$snap"
-}
-
-index_card_order() {
-  grep -o 'class="card-title">[^<]*' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" | sed 's/.*>//' | tr '\n' ' '
-}
-
-@test "an older session built after a newer one leaves the index on the newer session" {
-  local newer older index="$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html" order
-  # Same day; the newer id sorts first, and the older session is built last.
-  newer="$(make_snapshot aaaa-new 2026-06-05T11:00:00Z "Ship the newer session goal today" 3)"
-  older="$(make_snapshot zzzz-old 2026-06-05T10:00:00Z "Finish the older session goal first" 1)"
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$newer" >/dev/null
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
-
-  grep -q 'stat-label">Files</span><span class="stat-value">3<' "$index"
-  order="$(index_card_order)"
-  [[ "$order" == *aaaa-new*zzzz-old* ]]
-  # Both cards carry their own session's goal.
-  grep -q "Ship the newer session goal today" "$index"
-  grep -q "Finish the older session goal first" "$index"
-}
-
-@test "same-day sessions are listed by start time, not by id or filename" {
-  local newer older order
-  older="$(make_snapshot ffff-old 2026-06-05T10:00:00Z "Finish the older session goal first" 1)"
-  newer="$(make_snapshot 0000-new 2026-06-05T11:00:00Z "Ship the newer session goal today" 2)"
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$newer" >/dev/null
-  # Rebuilding the older session gives it the newest mtime but not the top spot.
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$older" >/dev/null
-
-  order="$(index_card_order)"
-  [[ "$order" == *0000-new*ffff-old* ]]
-  grep -q 'stat-label">Files</span><span class="stat-value">2<' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
-}
-
 @test "briefing timeline filters can hide items" {
   write_sample_session
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
@@ -246,33 +200,6 @@ write_learning_session() {
 }
 
 # --- --log/--meta, --if-stale, and the lock ----------------------------------
-
-@test "briefing --snapshot builds from the snapshot only: log, meta, ledger, and diff" {
-  write_learning_session
-  local vl="$TEST_PROJECT_DIR/.vibe-learn" snap="$BATS_TEST_TMPDIR/snap"
-  mkdir -p "$snap/repo"
-  mv "$vl/session-log.jsonl" "$vl/session-meta.json" "$snap/"
-  echo '{"version":1,"concepts":[{"name":"snap-concept","label":"Snapshot concept","status":"shaky"}]}' > "$snap/knowledge.json"
-  printf 'diff --git a/x b/x\n+SNAPSHOT_DIFF_LINE\n' > "$snap/repo/diff.patch"
-  # The next session has started: its own meta, prompt, ledger, and edits.
-  echo '{"session_id":"next-one","started_at":"2026-10-17T08:00:00Z"}' > "$vl/session-meta.json"
-  echo '{"event":"user_prompt","prompt":"Add a delete endpoint to the API with tests please"}' > "$vl/session-log.jsonl"
-  echo '{"version":1,"concepts":[{"name":"live-concept","label":"Live concept","status":"shaky"}]}' > "$vl/knowledge.json"
-  git -C "$TEST_PROJECT_DIR" init -q && echo a > "$TEST_PROJECT_DIR/live.txt" && git -C "$TEST_PROJECT_DIR" add live.txt
-  echo LIVE_DIFF_LINE >> "$TEST_PROJECT_DIR/live.txt"
-
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot "$snap"
-  [ "$status" -eq 0 ]
-  local page="$vl/briefing/sessions/2026-10-16-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-learn-test.html"
-  [ -f "$page" ]
-  [ "$(ls "$vl/briefing/sessions" | wc -l | tr -d ' ')" -eq 1 ]
-  grep -q "Build an Express API with two routes" "$page"
-  grep -q "Snapshot concept" "$page"
-  grep -q "SNAPSHOT_DIFF_LINE" "$page"
-  refute_grep "delete endpoint" "$page"
-  refute_grep "Live concept" "$page"
-  refute_grep "LIVE_DIFF_LINE" "$page"
-}
 
 @test "briefing --if-stale skips a fresh page and rebuilds after the log or ledger changes" {
   write_learning_session
@@ -309,35 +236,6 @@ write_learning_session() {
   refute_grep "No session data yet" "$vl/briefing/index.html"
 }
 
-@test "briefing waits for a live lock holder, then gives up with a clear message" {
-  write_learning_session
-  local lock="$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" holder
-  mkdir -p "$lock"
-  sleep 30 & holder=$!
-  echo "$holder" > "$lock/pid"
-
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
-  kill "$holder"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"another briefing run is in progress"* ]]
-  [ -z "$(session_file_for_test_project)" ]
-  [ -d "$lock" ]
-}
-
-@test "briefing removes a lock whose owner is gone and releases its own" {
-  write_learning_session
-  local lock="$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" dead
-  mkdir -p "$lock"
-  bash -c 'exit 0' & dead=$!
-  wait "$dead"
-  echo "$dead" > "$lock/pid"
-
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
-  [ "$status" -eq 0 ]
-  [ -f "$(session_file_for_test_project)" ]
-  [ ! -e "$lock" ]
-}
-
 @test "two briefing runs at once both finish and leave whole, uninterleaved pages" {
   write_learning_session
   local vl="$TEST_PROJECT_DIR/.vibe-learn" page
@@ -355,7 +253,6 @@ write_learning_session() {
     [ "$(tail -n 1 "$f")" = "</html>" ]
   done
   [ "$(grep -c '<script>' "$page")" -eq "$(grep -c '</script>' "$page")" ]
-  [ ! -e "$vl/briefing/.lock" ]
 }
 
 @test "--if-stale stays up to date through a /learn turn and rebuilds after new work" {
@@ -386,76 +283,33 @@ write_learning_session() {
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
   [[ "$output" == *"Session briefing:"* ]]
   [ "$(tail -n 1 "$page")" = "</html>" ]
-  [ -z "$(ls -A "$vl/briefing/.pending")" ]
+  [ -z "$(ls -d "$vl"/briefing/.work.* 2>/dev/null)" ]
 }
 
-@test "an on-demand run that waits out a rotation builds one session, named from its own meta" {
+@test "a rotation while the run copies the session builds one session, named from its own meta" {
   write_learning_session
-  local vl="$TEST_PROJECT_DIR/.vibe-learn" run_pid page
-  mkdir -p "$vl/briefing/.lock" && echo $$ > "$vl/briefing/.lock/pid"
-  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait 30 > "$BATS_TEST_TMPDIR/run.out" 2>&1 &
-  run_pid=$!
-  sleep 1
-  # The session rotates while the run waits: the next session's meta and log.
+  local vl="$TEST_PROJECT_DIR/.vibe-learn" bin="$BATS_TEST_TMPDIR/bin" page
+  mkdir -p "$bin"
+  # The first copy of the log finds the session rotated: the next session's
+  # meta and log replace the pair after the meta was copied.
+  cat > "$bin/cp" <<STUB
+#!/bin/bash
+if [ "\$1" = "$vl/session-log.jsonl" ] && [ ! -e "$bin/rotated" ]; then
+  touch "$bin/rotated"
   mv "$vl/session-log.jsonl" "$vl/session-log.prev.jsonl"
   echo '{"session_id":"next-two","started_at":"2026-10-17T08:00:00Z"}' > "$vl/session-meta.json"
   echo '{"event":"user_prompt","prompt":"Add the beta delete endpoint with its tests"}' > "$vl/session-log.jsonl"
-  rm -rf "$vl/briefing/.lock"
-  wait "$run_pid"
+fi
+exec /bin/cp "\$@"
+STUB
+  chmod +x "$bin/cp"
+  PATH="$bin:$PATH" bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
 
+  [ -e "$bin/rotated" ]
   [ "$(ls "$vl/briefing/sessions")" = "2026-10-17-$(basename "$TEST_PROJECT_DIR" | tr '[:upper:]' '[:lower:]')-next-two.html" ]
   page="$(session_file_for_test_project)"
   grep -q "Add the beta delete endpoint" "$page"
   refute_grep "Build an Express API" "$page"
-}
-
-@test "briefing keeps a live lock when ps is missing, and takes over a lock over 20 minutes old" {
-  write_learning_session
-  local lock="$TEST_PROJECT_DIR/.vibe-learn/briefing/.lock" bin="$BATS_TEST_TMPDIR/bin" f
-  mkdir -p "$lock" "$bin"
-  echo $$ > "$lock/pid"
-  for f in /usr/local/bin/* /usr/bin/* /bin/*; do
-    [ "$(basename "$f")" = ps ] || ln -sf "$f" "$bin/$(basename "$f")" 2>/dev/null || true
-  done
-  PATH="$bin" command -v ps && return 1
-  run env PATH="$bin" bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"another briefing run is in progress"* ]]
-  [ "$(cat "$lock/pid")" = "$$" ]
-
-  # pid 1 is alive, but no run holds a lock this long: a pid reused after a reboot.
-  echo 1 > "$lock/pid"
-  touch -d '30 minutes ago' "$lock"
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
-  [ "$status" -eq 0 ]
-  [ ! -e "$lock" ]
-}
-
-@test "runs that reclaim one stale lock at the same time never hold it together" {
-  write_learning_session
-  local copy="$BATS_TEST_TMPDIR/vl" vl="$TEST_PROJECT_DIR/.vibe-learn" log="$BATS_TEST_TMPDIR/lock.log" i j
-  cp -R "$SCRIPTS_DIR" "$copy"
-  # Record when each run takes and releases the lock.
-  sed -i.bak -e 's|^  LOCKED=true$|  LOCKED=true; echo "ACQ $$" >> "$LOCK_TRACE"|' \
-    -e 's|^    rm -rf "\$LOCK_DIR"$|    echo "REL $$" >> "$LOCK_TRACE"; rm -rf "$LOCK_DIR"|' "$copy/briefing.sh"
-  grep -q 'ACQ' "$copy/briefing.sh" && grep -q 'REL' "$copy/briefing.sh"
-  for i in 1 2 3; do
-    mkdir -p "$vl/briefing/.lock" && echo 999999 > "$vl/briefing/.lock/pid"
-    for j in 1 2 3 4; do LOCK_TRACE="$log" bash "$copy/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait 60 >/dev/null 2>&1 & done
-    wait
-  done
-  # Strictly alternating ACQ/REL by the same run: no two holders at once.
-  awk '$1 == "ACQ" { if (held) exit 1; held = $2; next } $1 == "REL" { if ($2 != held) exit 1; held = "" } END { if (held) exit 1 }' "$log"
-  [ "$(grep -c ACQ "$log")" -eq 12 ]
-}
-
-@test "briefing reads --lock-wait in base 10 and rejects a flag value that is another flag" {
-  write_learning_session
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=08
-  [ "$status" -eq 0 ]
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --snapshot --latest
-  [ "$status" -eq 1 ]
-  [ "$output" = "ERROR: --snapshot needs a value." ]
 }
 
 @test "briefing names a page for an id with no slug-safe characters and escapes the project name" {
@@ -491,17 +345,6 @@ write_learning_session() {
   refute_grep "No session data yet" "$vl/briefing/index.html"
 }
 
-@test "briefing reports an unwritable briefing directory instead of a busy lock" {
-  [ "$(id -u)" -ne 0 ] || skip "root ignores directory permissions"
-  write_learning_session
-  mkdir -p "$TEST_PROJECT_DIR/.vibe-learn/briefing"
-  chmod 555 "$TEST_PROJECT_DIR/.vibe-learn/briefing"
-  run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --lock-wait=1
-  chmod 755 "$TEST_PROJECT_DIR/.vibe-learn/briefing"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"cannot create the briefing lock"* ]]
-}
-
 @test "every host's learn and digest prompts refresh the briefing with --if-stale" {
   local f n=0
   for f in "$VIBE_LEARN_DIR"/adapters/claude-code/commands/{learn,digest}.md \
@@ -512,4 +355,17 @@ write_learning_session() {
     n=$((n + 1))
   done
   [ "$n" -eq 16 ]
+}
+
+@test "the page shows the pause summary only when this session wrote it" {
+  write_sample_session
+  local vl="$TEST_PROJECT_DIR/.vibe-learn"
+  # The previous session's summary, still in place before this session's first Stop.
+  echo older-session > "$vl/pause-summary.session"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  refute_grep "Created OpenCode adapter files" "$(session_file_for_test_project)"
+
+  echo dash-test > "$vl/pause-summary.session"
+  bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
+  grep -q "Created OpenCode adapter files" "$(session_file_for_test_project)"
 }
