@@ -35,6 +35,9 @@ fi
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/vibe-learn-e2e.XXXXXX")"
 export HOME="$WORK/home"
 export PATH="$HOME/.local/bin:$PATH"
+# CLAUDE_CONFIG_DIR overrides ~/.claude; unset, claude uses the hooks setup.sh
+# installs under the temporary HOME, not the maintainer's configuration.
+unset CLAUDE_CONFIG_DIR
 PROJECT="$WORK/e2e project"
 VL="$PROJECT/.vibe-learn"
 mkdir -p "$HOME" "$PROJECT"

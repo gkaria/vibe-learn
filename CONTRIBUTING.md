@@ -38,7 +38,7 @@ docs/demo/               VHS tapes and scripted replays for the README GIFs
 specs/                   design notes for larger features
 ```
 
-Hooks are the hot path. `observe.sh` runs on every tool call and must stay under 50 ms: no network, no heavy jq pipelines, append-only writes. Everything expensive (briefing, recap, ledger writes) is on-demand; the one exception is the briefing `bootstrap.sh` starts, fully detached, for the session it just rotated.
+Hooks are the hot path. `observe.sh` runs on every tool call and must stay under 50 ms: no network, no heavy jq pipelines, append-only writes. Everything expensive (briefing, recap, ledger writes) is on-demand; no hook builds the briefing.
 
 ## Adding a learning command
 
