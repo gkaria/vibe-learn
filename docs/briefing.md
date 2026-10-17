@@ -14,7 +14,7 @@ The briefing is never rebuilt after each response. It is built:
 
 - when you run `vibe-learn briefing` (or `vibe-learn audio-prep` with no pack yet);
 - when `/learn` or `/digest` starts: they run `vibe-learn briefing --if-stale`, which returns at once when the page is newer than the session log and `knowledge.json`;
-- once for each finished session, in the background, when the next session starts. That run reads its own copy of the finished session from `.vibe-learn/briefing/.pending/`, so starting several sessions in a row cannot mix one session's events into another's page. The copy is deleted when the run ends.
+- once for each finished session, in the background, when the next session starts. That run reads its own copy of the finished session from `.vibe-learn/briefing/.pending/`, including the `git diff` taken when the next session started, so starting several sessions in a row, or editing code while the run waits, cannot mix one session's events or changes into another's page. The copy is deleted when the run ends.
 
 So the current session's page is as fresh as the last `/learn`, `/digest`, or manual run, and becomes final when the next session starts. Two runs never write at the same time: each takes `.vibe-learn/briefing/.lock`, and a second run waits up to 10 seconds (`--lock-wait`) before giving up with "another briefing run is in progress". A lock left by a crashed run is removed automatically.
 
