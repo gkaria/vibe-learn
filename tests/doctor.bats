@@ -67,6 +67,17 @@ doctor() { run bash "$INSTALL/scripts/cli.sh" doctor "$@"; }
   [[ "$output" == *"✓ Claude Code: hooks in ~/.claude/settings.json"* ]]
 }
 
+@test "another tool's existing .../scripts/observe.sh does not count as vibe-learn" {
+  local other="$BATS_TEST_TMPDIR/other-tool/scripts"
+  mkdir -p "$other"
+  printf '#!/bin/sh\n' > "$other/observe.sh"
+  echo "{\"hooks\":{\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$other/observe.sh\"}]}]}}" > "$HOME/.claude/settings.json"
+  doctor
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"- Claude Code: not set up"* ]]
+  [[ "$output" == *"✗ no assistant has vibe-learn hooks registered"* ]]
+}
+
 @test "the plugin alone counts as set up; plugin plus settings hooks warns about double logging" {
   echo '{"enabledPlugins":{"vibe-learn@vibe-learn":true}}' > "$HOME/.claude/settings.json"
   doctor
@@ -84,11 +95,11 @@ doctor() { run bash "$INSTALL/scripts/cli.sh" doctor "$@"; }
   mkdir -p .vibe-learn
   # A copy of defaults.json, _comment included, is a valid config.
   cp "$INSTALL/config/defaults.json" "$HOME/.vibe-learn/config.json"
-  echo '{"log_dir":".vl","health":{"enabled":true,"min_event":3}}' > .vibe-learn/config.json
+  echo '{"log_dir":".vl","health":{"enabled":true,"min_event":3,"typo":{}},"bogus":[]}' > .vibe-learn/config.json
   doctor
   [ "$status" -eq 1 ]
   [[ "$output" == *"✓ ~/.vibe-learn/config.json"* ]]
-  [[ "$output" == *"✗ $TEST_PROJECT_DIR/.vibe-learn/config.json: nothing reads log_dir, health.min_event; remove it"* ]]
+  [[ "$output" == *"✗ $TEST_PROJECT_DIR/.vibe-learn/config.json: nothing reads log_dir, health.min_event, health.typo, bogus; remove it"* ]]
 
   echo '[1]' > "$HOME/.vibe-learn/config.json"
   echo 'not json' > .vibe-learn/config.json

@@ -186,16 +186,19 @@ elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
   # only, and installs from before NotebookEdit used the old matcher. Ownership
   # is the exact command this installer writes ($HOOK_BASE/scripts/observe.sh),
   # never a basename guess; a matcher is widened only when it is still exactly
-  # the old default, and what gets added is this installer's own template
-  # entry, never a copy of the user's config.
+  # the old default and every hook in its group is ours (widening a shared
+  # group would start running the other hooks on NotebookEdit), and what gets
+  # added is this installer's own template entry, never a copy of the user's
+  # config.
   MIGRATED=false
   TMP=$(mktemp)
   if jq --arg cmd "$HOOK_BASE/scripts/observe.sh" --arg old "Write|Edit|MultiEdit|Bash" --argjson hooks "$HOOKS_JSON" '
     def ours: any(.hooks[]?; .command == $cmd);
+    def only_ours: (.hooks | length) > 0 and all(.hooks[]; .command == $cmd);
     . as $orig
     | reduce ("PostToolUse", "PostToolUseFailure") as $e (.;
         if (.hooks[$e] | type) == "array" then
-          .hooks[$e] |= map(if ours and .matcher == $old then .matcher = $hooks.PostToolUse[0].matcher else . end)
+          .hooks[$e] |= map(if only_ours and .matcher == $old then .matcher = $hooks.PostToolUse[0].matcher else . end)
         else . end)
     | if ((.hooks.PostToolUse // []) | any(ours))
          and (((.hooks.PostToolUseFailure // []) | any(ours)) | not)
@@ -216,6 +219,13 @@ elif jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
   else
     echo "⚠ .claude/settings.local.json already has hooks — skipping hook merge."
     echo "  Add the hooks manually or remove existing hooks first, then re-run."
+  fi
+  if jq -e --arg cmd "$HOOK_BASE/scripts/observe.sh" --arg old "Write|Edit|MultiEdit|Bash" '
+    [.hooks.PostToolUse, .hooks.PostToolUseFailure | arrays[]
+     | select(.matcher == $old and any(.hooks[]?; .command == $cmd) and any(.hooks[]?; .command != $cmd))] | length > 0
+  ' "$SETTINGS_FILE" >/dev/null 2>&1; then
+    echo "⚠ observe.sh shares a hook group with other hooks in $SETTINGS_FILE, so its matcher was left as is."
+    echo "  To log NotebookEdit, give observe.sh its own group with the matcher \"Write|Edit|MultiEdit|NotebookEdit|Bash\"."
   fi
 else
   TMP=$(mktemp)

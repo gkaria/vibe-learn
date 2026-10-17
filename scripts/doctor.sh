@@ -120,7 +120,7 @@ hook_refs() {
 # check_host <name> <file>... — report each file that registers vibe-learn.
 REGISTERED=0
 check_host() {
-  local name="$1" f p found=0 missing refs seen=""
+  local name="$1" f p found=0 ours missing refs seen=""
   shift
   for f in "$@"; do
     [ -f "$f" ] || continue
@@ -129,7 +129,7 @@ check_host() {
     seen="$seen|$f|"
     refs="$(hook_refs "$f")"
     [ -n "$refs" ] || continue
-    found=1
+    ours=0
     missing=""
     while IFS= read -r p; do
       case "$p" in *'$'*|*PLACEHOLDER*) continue ;; esac
@@ -138,6 +138,13 @@ check_host() {
         missing="$p"
         break
       fi
+      # Another tool's .../scripts/observe.sh is not ours: every layout keeps
+      # knowledge.sh beside the core hook scripts.
+      case "$p" in
+        */hooks/vibe-learn.sh) ;;
+        *) [ -f "$(dirname "$p")/knowledge.sh" ] || continue ;;
+      esac
+      ours=1
       # A shim carries the install directory it was rendered with.
       case "$p" in
         */hooks/vibe-learn.sh)
@@ -151,6 +158,8 @@ check_host() {
     done <<EOF
 $refs
 EOF
+    [ -n "$missing" ] || [ "$ours" -eq 1 ] || continue
+    found=1
     if [ -n "$missing" ]; then
       fail "$name: $(show "$f") points at $(show "$missing"), which does not exist; re-run vibe-learn install or setup.sh"
     else
@@ -198,7 +207,7 @@ fi
 echo ""
 echo "Config"
 DEFAULTS="$VIBE_LEARN_DIR/config/defaults.json"
-KNOWN="$(jq -c '[del(._comment) | paths(scalars) | map(tostring) | join(".")]' "$DEFAULTS" 2>/dev/null)"
+KNOWN="$(jq -c '[del(._comment) | paths | map(tostring) | join(".")]' "$DEFAULTS" 2>/dev/null)"
 for f in "$HOME/.vibe-learn/config.json" "$TARGET_DIR/.vibe-learn/config.json"; do
   if [ ! -f "$f" ]; then
     none "$(show "$f"): none (defaults apply)"
@@ -207,7 +216,7 @@ for f in "$HOME/.vibe-learn/config.json" "$TARGET_DIR/.vibe-learn/config.json"; 
   elif [ -z "$KNOWN" ]; then
     warn "$(show "$f") parses, but $(show "$DEFAULTS") is missing, so its keys cannot be checked"
   else
-    UNKNOWN="$(jq -r --argjson known "$KNOWN" '[del(._comment) | paths(scalars) | map(tostring) | join(".")] - $known | join(", ")' "$f")"
+    UNKNOWN="$(jq -r --argjson known "$KNOWN" '[del(._comment) | paths | map(tostring) | join(".")] - $known | join(", ")' "$f")"
     if [ -n "$UNKNOWN" ]; then
       fail "$(show "$f"): nothing reads $UNKNOWN; remove it (known keys: $(show "$DEFAULTS"))"
     else

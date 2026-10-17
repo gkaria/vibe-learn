@@ -97,6 +97,9 @@ legacy_settings() {
   [ "$(jq '.hooks.PostToolUseFailure[0].hooks | length' "$f")" = "1" ]
   jq -e '.hooks.PostToolUseFailure[0].hooks[0].command | endswith("/scripts/observe.sh")' "$f" >/dev/null
   [ "$(jq '.hooks.PostToolUse[0].hooks | length' "$f")" = "2" ]
+  # Widening the shared group would run /usr/bin/true on NotebookEdit too.
+  [ "$(jq -r '.hooks.PostToolUse[0].matcher' "$f")" = "Write|Edit|MultiEdit|Bash" ]
+  [[ "$output" == *"observe.sh shares a hook group with other hooks"* ]]
 }
 
 @test "install migration keeps a matcher the user changed on our observe.sh group" {
