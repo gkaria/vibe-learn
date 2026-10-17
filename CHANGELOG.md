@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/gkaria/vibe-learn/compare/v0.16.0...v0.16.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* /digest page lists its concepts; checks after a heredoc count ([#64](https://github.com/gkaria/vibe-learn/issues/64)) ([24b31a0](https://github.com/gkaria/vibe-learn/commit/24b31a0755a2343ccdb6a47482e050b9a2402049))
+
 ## [0.16.0](https://github.com/gkaria/vibe-learn/compare/v0.15.0...v0.16.0) (2026-10-17)
 
 
