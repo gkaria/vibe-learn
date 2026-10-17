@@ -172,7 +172,7 @@ CURSOR_PLUGIN_JSON="$VIBE_LEARN_DIR/.cursor-plugin/plugin.json"
 @test "cursor plugin hooks have no placeholders and match the install template events" {
   local hooks
   hooks="$VIBE_LEARN_DIR/$(jq -r '.hooks' "$CURSOR_PLUGIN_JSON")"
-  ! grep -q PLACEHOLDER "$hooks"
+  refute_grep PLACEHOLDER "$hooks"
   [ "$(jq -c '.hooks | keys' "$hooks")" = "$(jq -c '.hooks | keys' "$VIBE_LEARN_DIR/adapters/cursor/hooks.json")" ]
 }
 

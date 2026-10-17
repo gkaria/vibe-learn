@@ -163,7 +163,7 @@ teardown() {
   run bash "$SCRIPTS_DIR/setup.sh" --local --assistant=claude-code
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "plugin is already enabled"
-  ! jq -e '.hooks' "$FAKE_HOME/.claude/settings.json" >/dev/null 2>&1
+  ! jq -e '.hooks' "$FAKE_HOME/.claude/settings.json" >/dev/null 2>&1 || false
   [ ! -f "$FAKE_HOME/.claude/commands/learn.md" ]
   # Scripts and CLI shim are still installed for vibe-learn briefing / recap
   [ -f "$FAKE_INSTALL_DIR/scripts/briefing.sh" ]

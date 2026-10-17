@@ -28,7 +28,8 @@ make_input() {
 
 # A bare `! grep` fails a bats test only as its last line (set -e ignores a
 # negated command); this fails wherever it is.
-refute_grep() { if grep -q "$1" "$2"; then echo "unexpected '$1' in $2"; return 1; fi; }
+# Takes grep's options and arguments: refute_grep [-E] PATTERN FILE...
+refute_grep() { if grep -q "$@"; then echo "unexpected match: grep $*"; return 1; fi; }
 
 # The previous session's pause summary as a finished session leaves it: the
 # summary, the file naming its session, and that session's rotated meta.

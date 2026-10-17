@@ -45,7 +45,7 @@ run_shim() {
   local shim="$TEST_PROJECT_DIR/.cursor/hooks/vibe-learn.sh"
   [ -x "$shim" ]
   grep -Fq "VIBE_LEARN_DIR=\"$VIBE_LEARN_DIR\"" "$shim"
-  ! grep -q "VIBE_LEARN_DIR_PLACEHOLDER" "$shim"
+  refute_grep "VIBE_LEARN_DIR_PLACEHOLDER" "$shim"
 }
 
 @test "cursor install renders paths containing sed replacement characters" {
@@ -70,7 +70,7 @@ run_shim() {
   for skill in learn digest quiz explain; do
     grep -q "^disable-model-invocation: true" "$TEST_PROJECT_DIR/.cursor/skills/$skill/SKILL.md"
   done
-  ! grep -q "^disable-model-invocation" "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md"
+  refute_grep "^disable-model-invocation" "$TEST_PROJECT_DIR/.cursor/skills/vibe-learn/SKILL.md"
   [ ! -d "$TEST_PROJECT_DIR/.cursor/commands" ]
 }
 

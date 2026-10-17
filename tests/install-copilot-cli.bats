@@ -38,7 +38,7 @@ run_hook() {
     grep -q 'session-log.jsonl' "$file"
     grep -q 'knowledge.sh' "$file"
     grep -Fq '${COPILOT_HOME:-$HOME/.copilot}/hooks/vibe-learn.json' "$file"
-    ! grep -Fq 'then `~/.copilot/hooks/vibe-learn.json`' "$file"
+    ! grep -Fq 'then `~/.copilot/hooks/vibe-learn.json`' "$file" || false
   done
 }
 
@@ -136,7 +136,7 @@ run_hook() {
   [ -f "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt" ]
   grep -q "Use /learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   grep -q "Use /explain" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
-  ! grep -qE 'secret-value|ghp_|sensitive stderr|old secret|new secret' "$log"
+  refute_grep -E 'secret-value|ghp_|sensitive stderr|old secret|new secret' "$log"
 }
 
 @test "copilot-cli sessionStart converts prior summary output to native additionalContext" {

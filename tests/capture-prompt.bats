@@ -101,7 +101,7 @@ JSON
   [ "$(echo "$entry" | jq -r '.event')" = "user_prompt" ]
   [ "$(echo "$entry" | jq -r '.prompt')" = "" ]
   [ "$(echo "$entry" | jq -r '.turn')" = "1" ]
-  ! grep -q "secret plan" "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
+  refute_grep "secret plan" "$TEST_PROJECT_DIR/.vibe-learn/session-log.jsonl"
 }
 
 @test "capture_prompts false in global config applies to every project" {

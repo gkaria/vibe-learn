@@ -96,7 +96,7 @@ load test_helper
   echo "$output" | grep -q "notebooklm-pack.md"
   echo "$output" | grep -qi "notebooklm"
   echo "$output" | grep -q "Path:"
-  ! echo "$output" | grep -q "copied to clipboard"
+  ! echo "$output" | grep -q "copied to clipboard" || false
 
   rm -rf "$fake_bin"
 }

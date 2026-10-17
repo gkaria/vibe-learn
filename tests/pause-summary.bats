@@ -92,7 +92,7 @@ JSONL
 
   summarize
   echo "$output" | grep -q "Created src/ok.ts"
-  ! echo "$output" | grep -q "Created src/fail.ts"
+  ! echo "$output" | grep -q "Created src/fail.ts" || false
   ! echo "$output" | grep -q "Edited src/also-fail.ts"
 }
 
@@ -196,7 +196,7 @@ JSONL
   echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash "$SCRIPTS_DIR/pause-summary.sh" >/dev/null
   local summary="$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
   grep -q "Created new.ts" "$summary"
-  ! grep -q "Created old.ts" "$summary"
+  refute_grep "Created old.ts" "$summary"
   grep -qx "  old.ts — created" "$summary"
   grep -qx "  new.ts — created" "$summary"
 }
@@ -216,12 +216,12 @@ stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash 
   grep -qx "Goal: Build an Express API with two routes and a test for each" "$summary"
   [ "$(grep -c 'src/app.js — ' "$summary")" -eq 1 ]
   grep -qx "  src/app.js — created, edited ×2" "$summary"
-  ! grep -q "$TEST_PROJECT_DIR" "$summary"
+  refute_grep "$TEST_PROJECT_DIR" "$summary"
   grep -qx "  ✗ npm run lint (exit 1)" "$summary"
   # npm test failed in turn 2 and passed in turn 3: not open. The /digest
   # turn's failing ls is a learning turn: not listed at all.
-  ! grep -q "✗ npm test" "$summary"
-  ! grep -q "digests" "$summary"
+  refute_grep "✗ npm test" "$summary"
+  refute_grep "digests" "$summary"
   grep -qx "Last turn: add a /health route" "$summary"
 }
 
@@ -253,7 +253,7 @@ stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash 
   rm "$HOME/.vibe-learn/config.json" "$TEST_PROJECT_DIR/.vibe-learn/config.json"
   stop
   [ "$(wc -l < "$summary")" -eq 15 ]
-  ! grep -q "more in /learn" "$summary"
+  refute_grep "more in /learn" "$summary"
 }
 
 @test "pause-summary reads the goal from the first prompts of a log longer than its tail window" {
@@ -305,5 +305,5 @@ stop() { echo '{"cwd":"'"$TEST_PROJECT_DIR"'","hook_event_name":"Stop"}' | bash 
   seed_session_log
   run bash -c 'echo '"'"'{"cwd":"'"$TEST_PROJECT_DIR"'"}'"'"' | bash '"$SCRIPTS_DIR/pause-summary.sh"
   grep -q " /learn \[question\]" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
-  ! grep -q "/vibe-learn:learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
+  refute_grep "/vibe-learn:learn" "$TEST_PROJECT_DIR/.vibe-learn/pause-summary.txt"
 }

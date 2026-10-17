@@ -77,7 +77,7 @@ pack_file_for_test_project() {
   write_sample_session
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
 
-  ! grep -R 'src="https\?://' "$TEST_PROJECT_DIR/.vibe-learn/briefing"
+  ! grep -R 'src="https\?://' "$TEST_PROJECT_DIR/.vibe-learn/briefing" || false
   ! grep -R 'href="https\?://' "$TEST_PROJECT_DIR/.vibe-learn/briefing"
 }
 
@@ -131,8 +131,8 @@ pack_file_for_test_project() {
   pack="$(pack_file_for_test_project)"
 
   grep -q "large-diff.txt" "$session_file"
-  ! grep -q "TAIL_MARKER" "$session_file"
-  ! grep -q "TAIL_MARKER" "$pack"
+  refute_grep "TAIL_MARKER" "$session_file"
+  refute_grep "TAIL_MARKER" "$pack"
 }
 
 @test "briefing CSS wraps long generated labels" {
@@ -196,7 +196,7 @@ write_learning_session() {
   grep -q '<p class="card-goal">Build an Express API with two routes and a test for each</p>' "$index"
   # Turn 4 (prompt, ls, digest write) and turn 6 (prompt, cat).
   [ "$(grep -c 'data-learning="true"' "$session")" -eq 5 ]
-  ! grep -q 'class="command-row[^"]*"[^>]*><code class="cmd-text">ls .vibe-learn/digests' "$session"
+  refute_grep 'class="command-row[^"]*"[^>]*><code class="cmd-text">ls .vibe-learn/digests' "$session"
 }
 
 # --- --log/--meta, --if-stale, and the lock ----------------------------------
@@ -260,7 +260,7 @@ write_learning_session() {
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" --if-stale
   [ "$status" -eq 0 ]
   [ "$output" = "No session activity to brief yet." ]
-  ! grep -q "No session data yet" "$vl/briefing/index.html"
+  refute_grep "No session data yet" "$vl/briefing/index.html"
 }
 
 @test "briefing waits for a live lock holder, then gives up with a clear message" {

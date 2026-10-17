@@ -207,7 +207,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   grep -q '^# Assistant health — project-1$' "$report"
   grep -q '^## Flagged$' "$report"
   grep -q '| claude-code 2.5.0 · claude-opus-5.5 | 6 | 21% ! | 22% ! | 8.9 ! | 2.7 |' "$report"
-  ! grep -q "$(basename "$TEST_PROJECT_DIR")" "$report"
+  refute_grep "$(basename "$TEST_PROJECT_DIR")" "$report"
   # The terminal output is unchanged by --save.
   [[ "$output" == *"Assistant health - project-1 - last 14 days"* ]]
 }
@@ -260,9 +260,9 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   run bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR"
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/briefing/health.html" ]
-  ! grep -q 'id="health"' "$(session_file)"
-  ! grep -q '#health' "$(session_file)"
-  ! grep -q 'Assistant health' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
+  refute_grep 'id="health"' "$(session_file)"
+  refute_grep '#health' "$(session_file)"
+  refute_grep 'Assistant health' "$TEST_PROJECT_DIR/.vibe-learn/briefing/index.html"
 }
 
 @test "briefing with history: page, card, and index row agree with vibe-learn health" {
@@ -316,8 +316,8 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   bash "$SCRIPTS_DIR/briefing.sh" "$TEST_PROJECT_DIR" >/dev/null
   local f; f="$(session_file)"
   grep -q 'Building your baseline: 0 of 5 earlier sessions on claude-code' "$f"
-  ! grep -q 'usual ' "$f"
-  ! grep -q 'class="delta bad"' "$f"
+  refute_grep 'usual ' "$f"
+  refute_grep 'class="delta bad"' "$f"
 }
 
 @test "briefing with a malformed health.jsonl warns and leaves health out" {
@@ -327,7 +327,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   [ "$status" -eq 0 ]
   [[ "$output" == *"is not valid JSON Lines; skipping assistant health"* ]]
   [ ! -e "$TEST_PROJECT_DIR/.vibe-learn/briefing/health.html" ]
-  ! grep -q 'id="health"' "$(session_file)"
+  refute_grep 'id="health"' "$(session_file)"
 }
 
 @test "health page escapes a closing script tag in project data" {
@@ -359,7 +359,7 @@ session_file() { find "$TEST_PROJECT_DIR/.vibe-learn/briefing/sessions" -type f 
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR"
   [[ "$output" != *"Tool use per session"* ]]
   run bash "$SCRIPTS_DIR/health-report.sh" "$TEST_PROJECT_DIR" --save
-  ! grep -q "Tool use per session" "$TEST_PROJECT_DIR/.vibe-learn/health-reports/"*.md
+  refute_grep "Tool use per session" "$TEST_PROJECT_DIR/.vibe-learn/health-reports/"*.md
 }
 
 @test "briefing card and page show tool use" {
