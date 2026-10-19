@@ -15,6 +15,7 @@ Usage:
   vibe-learn recap      [target-dir] [--days=7] [--save]
   vibe-learn health     [target-dir] [--days=14|all] [--by=harness|model] [--all] [--json] [--save] [--redact]
   vibe-learn audio-prep [target-dir]
+  vibe-learn boundary   [target-dir] [--json] [--demo]   (prototype)
   vibe-learn doctor     [target-dir]
   vibe-learn knowledge  forget <name> | list [--status=<s>] | due [--days=14]  [--dir=<project>]
   vibe-learn completion bash|zsh
@@ -97,6 +98,12 @@ case "$COMMAND" in
   health)
     shift
     exec "$VIBE_LEARN_DIR/scripts/health-report.sh" "$@"
+    ;;
+  boundary)
+    shift
+    # Prototype: runs from a checkout or the plugin, not from ~/.vibe-learn.
+    [ -f "$VIBE_LEARN_DIR/prototype/boundary/boundary.sh" ] || { echo "ERROR: 'vibe-learn boundary' is a prototype; run it from a vibe-learn checkout on the prototype/boundary-report branch." >&2; exit 1; }
+    exec "$VIBE_LEARN_DIR/prototype/boundary/boundary.sh" "$@"
     ;;
   audio-prep)
     shift
